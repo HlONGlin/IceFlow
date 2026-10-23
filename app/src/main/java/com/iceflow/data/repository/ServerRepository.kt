@@ -109,6 +109,43 @@ class ServerRepository(private val file: File) {
 
     fun moveServerToLocalGroup(serverId: String, groupId: String?) = mutate { s -> s.copy(servers = s.servers.map { if (it.id == serverId) it.copy(groupId = groupId) else it }) }
 
+    /** 设置指定分组（本地分组或订阅）的排序方式；groupId 为 null 时表示未分组节点，写入 ungroupedSort。 */
+    fun setGroupSort(groupId: String?, sort: com.iceflow.data.model.GroupSort) = mutate { s ->
+        if (groupId == null) return@mutate s.copy(ungroupedSort = sort)
+        s.copy(
+            localGroups = s.localGroups.map { if (it.id == groupId) it.copy(sort = sort) else it },
+            subscriptions = s.subscriptions.map { if (it.id == groupId) it.copy(sort = sort) else it },
+        )
+    }
+
+    /** 手动调序：将 orderedIds 按出现顺序写回 sortOrder，保证后续"原始顺序"排序遵循该次序。 */
+    fun reorderServers(orderedIds: List<String>) = mutate { s ->
+        val indexOf = orderedIds.withIndex().associate { (index, id) -> id to index.toLong() }
+        s.copy(servers = s.servers.map { server -> indexOf[server.id]?.let { server.copy(sortOrder = it) } ?: server })
+    }
+
+    /** 在当前分组内将某节点与其上一个（up=true）或下一个（up=false）节点交换 sortOrder，实现原地上移/下移。 */
+    fun moveServerWithinGroup(serverId: String, groupId: String?, up: Boolean) = mutate { s ->
+        val siblings = s.servers.filter { server ->
+            if (groupId == null) server.subscriptionId == null && server.groupId == null
+            else server.groupId == groupId || server.subscriptionId == groupId
+        }.sortedBy { it.sortOrder }
+        val index = siblings.indexOfFirst { it.id == serverId }
+        val targetIndex = if (up) index - 1 else index + 1
+        if (index < 0 || targetIndex < 0 || targetIndex >= siblings.size) return@mutate s
+        val current = siblings[index]
+        val target = siblings[targetIndex]
+        val currentOrder = current.sortOrder
+        val targetOrder = target.sortOrder
+        s.copy(servers = s.servers.map { server ->
+            when (server.id) {
+                current.id -> server.copy(sortOrder = targetOrder)
+                target.id -> server.copy(sortOrder = currentOrder)
+                else -> server
+            }
+        })
+    }
+
     fun selectGroup(groupId: String?) = mutate { it.copy(selectedGroupId = groupId) }
 
     fun setGroupSort(groupId: String?, sort: GroupSort) = mutate { s ->

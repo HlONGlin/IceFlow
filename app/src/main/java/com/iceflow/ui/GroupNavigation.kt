@@ -184,14 +184,25 @@ import kotlinx.coroutines.launch
     }
 }
 
+<<<<<<< Updated upstream
 /** 节点单独排序：拖动 handle 即可上下移动，松手后提交当前顺序。 */
 @Composable internal fun ReorderableNodeList(
     nodes: List<ServerProfile>, onReorder: (List<String>) -> Unit,
     modifier: Modifier = Modifier, contentPadding: PaddingValues, content: @Composable (ServerProfile, Modifier) -> Unit,
+=======
+/**
+ * 通用的拖动排序列表，与 [ReorderableGroupList] 共享同一套长按拖动 + 自动滚动机制，
+ * 但按 [key] 取出的唯一标识进行排序，用于节点"调序"等需要手动拖动排序的场景。
+ */
+@Composable fun <T> ReorderableItemList(
+    items: List<T>, key: (T) -> String, onReorder: (List<String>) -> Unit,
+    modifier: Modifier = Modifier, content: @Composable (T, Modifier) -> Unit,
+>>>>>>> Stashed changes
 ) {
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current
     val edge = with(LocalDensity.current) { 72.dp.toPx() }
+<<<<<<< Updated upstream
     var order by remember { mutableStateOf(nodes.map { it.id }) }
     var dragging by remember { mutableStateOf<String?>(null) }
     var center by remember { mutableFloatStateOf(0f) }
@@ -199,6 +210,18 @@ import kotlinx.coroutines.launch
     val byId = nodes.associateBy { it.id }
     LaunchedEffect(nodes.map { it.id }) {
         order = if (dragging == null) nodes.map { it.id } else (order + nodes.map { it.id }).distinct().filter { it in byId }
+=======
+    var order by remember { mutableStateOf(items.map(key)) }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    var center by remember { mutableFloatStateOf(0f) }
+    val currentItems by rememberUpdatedState(items)
+    val commit by rememberUpdatedState(onReorder)
+    val byKey = items.associateBy(key)
+    LaunchedEffect(items.map(key)) {
+        if (dragging != null && dragging !in byKey) dragging = null
+        if (dragging == null) order = items.map(key)
+        else order = (order + items.map(key)).distinct().filter { it in byKey }
+>>>>>>> Stashed changes
     }
     fun move(direction: Float) {
         val id = dragging ?: return
@@ -212,7 +235,12 @@ import kotlinx.coroutines.launch
         order = order.toMutableList().apply { add(to, removeAt(from)) }
     }
     fun finish(save: Boolean) {
+<<<<<<< Updated upstream
         if (save && dragging != null) commit(order) else if (!save) order = nodes.map { it.id }
+=======
+        if (save && dragging != null) commit(order)
+        else if (!save) order = currentItems.map(key)
+>>>>>>> Stashed changes
         dragging = null
     }
     val dragMove by rememberUpdatedState<(Float) -> Unit>({ delta -> center += delta; move(delta) })
@@ -229,6 +257,7 @@ import kotlinx.coroutines.launch
             delay(16)
         }
     }
+<<<<<<< Updated upstream
     LazyColumn(state = listState, modifier = modifier, contentPadding = contentPadding, verticalArrangement = Arrangement.spacedBy(1.dp)) {
         items(order.mapNotNull(byId::get), key = { it.id }) { server ->
             val active = dragging == server.id
@@ -255,12 +284,37 @@ import kotlinx.coroutines.launch
                             onDragStart = {
                                 val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == server.id }
                                 if (item != null) { dragging = server.id; center = item.offset + item.size / 2f; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+=======
+    LazyColumn(state = listState, modifier = modifier,
+        contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        items(order.mapNotNull(byKey::get), key = key) { entry ->
+            val itemKey = key(entry)
+            val active = dragging == itemKey
+            Box(Modifier.animateItem(placementSpec = if (active) null else androidx.compose.animation.core.spring(stiffness = 500f)).zIndex(if (active) 1f else 0f).graphicsLayer {
+                if (active) {
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == itemKey }
+                    translationY = if (item == null) 0f else center - item.offset - item.size / 2f
+                    scaleX = 1.02f; scaleY = 1.02f
+                }
+            }) {
+                val handle = Modifier.size(40.dp)
+                    .pointerInput(itemKey) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == itemKey }
+                                if (item != null) { dragging = itemKey; center = item.offset + item.size / 2f; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+>>>>>>> Stashed changes
                             },
                             onDrag = { change, amount -> change.consume(); dragMove(amount.y) },
                             onDragEnd = { dragFinish(true) }, onDragCancel = { dragFinish(false) },
                         )
                     }
+<<<<<<< Updated upstream
                 content(server, handle)
+=======
+                content(entry, handle)
+>>>>>>> Stashed changes
             }
         }
     }
