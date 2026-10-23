@@ -5,6 +5,7 @@ import androidx.core.content.edit
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingRules
 import com.iceflow.data.model.AppTheme
+import com.iceflow.data.model.NightMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,15 +33,25 @@ class SettingsRepository(context: Context) {
             putString("dns_servers", next.dnsServers.joinToString("\n"))
             putBoolean("socks_enabled", next.socksEnabled)
             putBoolean("socks_udp", next.socksUdp)
-            putBoolean("http_proxy_enabled", next.httpProxyEnabled)
+            putString("socks_username", next.socksUsername)
+            putString("socks_password", next.socksPassword)
             putBoolean("dns_proxy_enabled", next.dnsProxyEnabled)
             putString("theme", next.theme.name)
+            putString("night_mode", next.nightMode.name)
+            putString("routing_mode", next.routingMode.name)
+            putBoolean("show_traffic_stats", next.showTrafficStats)
+            putInt("log_retention_days", next.logRetentionDays)
+            putBoolean("app_proxy_mode", next.appProxyMode)
+            putBoolean("app_routing_enabled", next.appRoutingEnabled)
+            putString("language", next.language)
         }
         _settings.value = next
     }
 
     private fun load(): AppSettings {
         val d = AppSettings()
+        val bypassApps = prefs.getStringSet("bypass_apps", emptySet())?.toList().orEmpty()
+        val legacyProxyAppsOnly = prefs.getBoolean("proxy_apps_only", false)
         return AppSettings(
             socksPort = prefs.getInt(KEY_SOCKS_PORT, d.socksPort),
             remoteDns = prefs.getString(KEY_REMOTE_DNS, d.remoteDns) ?: d.remoteDns,
@@ -48,15 +59,23 @@ class SettingsRepository(context: Context) {
             fakeDns = prefs.getBoolean(KEY_FAKE_DNS, d.fakeDns),
             testUrl = prefs.getString("test_url", d.testUrl) ?: d.testUrl,
             routingRules = prefs.getString("routing_rules", null)?.let { runCatching { RoutingRules.decode(it, preserveIds = true) }.getOrNull() } ?: RoutingRules.defaults(prefs.getBoolean(KEY_BYPASS_LAN, true)),
-            bypassApps = prefs.getStringSet("bypass_apps", emptySet())?.toList().orEmpty(),
-            proxyAppsOnly = prefs.getBoolean("proxy_apps_only", false),
+            bypassApps = bypassApps,
+            proxyAppsOnly = legacyProxyAppsOnly,
             ipv6Enabled = prefs.getBoolean("ipv6_enabled", true),
             dnsServers = prefs.getString("dns_servers", d.dnsServers.joinToString("\n"))!!.lines().map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { d.dnsServers },
             socksEnabled = prefs.getBoolean("socks_enabled", true),
             socksUdp = prefs.getBoolean("socks_udp", true),
-            httpProxyEnabled = prefs.getBoolean("http_proxy_enabled", false),
+            socksUsername = prefs.getString("socks_username", "") ?: "",
+            socksPassword = prefs.getString("socks_password", "") ?: "",
             dnsProxyEnabled = prefs.getBoolean("dns_proxy_enabled", true),
             theme = runCatching { AppTheme.valueOf(prefs.getString("theme", d.theme.name)!!) }.getOrDefault(d.theme),
+            nightMode = runCatching { NightMode.valueOf(prefs.getString("night_mode", d.nightMode.name)!!) }.getOrDefault(d.nightMode),
+            routingMode = runCatching { com.iceflow.data.model.RoutingMode.valueOf(prefs.getString("routing_mode", d.routingMode.name)!!) }.getOrDefault(d.routingMode),
+            showTrafficStats = prefs.getBoolean("show_traffic_stats", false),
+            logRetentionDays = prefs.getInt("log_retention_days", 3),
+            appProxyMode = prefs.getBoolean("app_proxy_mode", legacyProxyAppsOnly),
+            appRoutingEnabled = prefs.getBoolean("app_routing_enabled", legacyProxyAppsOnly || bypassApps.isNotEmpty()),
+            language = prefs.getString("language", d.language) ?: d.language,
         )
     }
 

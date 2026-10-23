@@ -1,5 +1,6 @@
 package com.iceflow.ui
 
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.background
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.zIndex
 import com.iceflow.data.model.NodeGroup
+import com.iceflow.data.model.ServerProfile
 import com.iceflow.ui.theme.IceBlue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -177,6 +179,88 @@ import kotlinx.coroutines.launch
                         )
                     }
                 content(group, handle)
+            }
+        }
+    }
+}
+
+/** 节点单独排序：拖动 handle 即可上下移动，松手后提交当前顺序。 */
+@Composable internal fun ReorderableNodeList(
+    nodes: List<ServerProfile>, onReorder: (List<String>) -> Unit,
+    modifier: Modifier = Modifier, contentPadding: PaddingValues, content: @Composable (ServerProfile, Modifier) -> Unit,
+) {
+    val listState = rememberLazyListState()
+    val haptics = LocalHapticFeedback.current
+    val edge = with(LocalDensity.current) { 72.dp.toPx() }
+    var order by remember { mutableStateOf(nodes.map { it.id }) }
+    var dragging by remember { mutableStateOf<String?>(null) }
+    var center by remember { mutableFloatStateOf(0f) }
+    val commit by rememberUpdatedState(onReorder)
+    val byId = nodes.associateBy { it.id }
+    LaunchedEffect(nodes.map { it.id }) {
+        order = if (dragging == null) nodes.map { it.id } else (order + nodes.map { it.id }).distinct().filter { it in byId }
+    }
+    fun move(direction: Float) {
+        val id = dragging ?: return
+        val from = order.indexOf(id)
+        val target = listState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+            item.key != id && center >= item.offset && center <= item.offset + item.size &&
+                if (direction > 0) center >= item.offset + item.size / 2f else center <= item.offset + item.size / 2f
+        } ?: return
+        val to = order.indexOf(target.key)
+        if (from < 0 || to < 0 || (direction > 0 && to <= from) || (direction < 0 && to >= from)) return
+        order = order.toMutableList().apply { add(to, removeAt(from)) }
+    }
+    fun finish(save: Boolean) {
+        if (save && dragging != null) commit(order) else if (!save) order = nodes.map { it.id }
+        dragging = null
+    }
+    val dragMove by rememberUpdatedState<(Float) -> Unit>({ delta -> center += delta; move(delta) })
+    val dragFinish by rememberUpdatedState<(Boolean) -> Unit>({ finish(it) })
+    LaunchedEffect(dragging) {
+        while (dragging != null) {
+            val layout = listState.layoutInfo
+            val delta = when {
+                center < layout.viewportStartOffset + edge -> -18f
+                center > layout.viewportEndOffset - edge -> 18f
+                else -> 0f
+            }
+            if (delta != 0f) { listState.scrollBy(delta); move(delta) }
+            delay(16)
+        }
+    }
+    LazyColumn(state = listState, modifier = modifier, contentPadding = contentPadding, verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        items(order.mapNotNull(byId::get), key = { it.id }) { server ->
+            val active = dragging == server.id
+            Box(Modifier.animateItem(placementSpec = if (active) null else androidx.compose.animation.core.spring(stiffness = 500f)).zIndex(if (active) 1f else 0f).graphicsLayer {
+                if (active) {
+                    val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == server.id }
+                    translationY = if (item == null) 0f else center - item.offset - item.size / 2f
+                    scaleX = 1.025f; scaleY = 1.025f
+                }
+            }) {
+                val handle = Modifier.size(48.dp).testTag("node-drag:${server.id}")
+                    .semantics {
+                        customActions = listOf("上移" to -1, "下移" to 1).map { (label, offset) ->
+                            CustomAccessibilityAction(label) {
+                                val from = order.indexOf(server.id); val to = from + offset
+                                if (from >= 0 && to in order.indices) {
+                                    order = order.toMutableList().apply { add(to, removeAt(from)) }; commit(order); true
+                                } else false
+                            }
+                        }
+                    }
+                    .pointerInput(server.id) {
+                        detectDragGestures(
+                            onDragStart = {
+                                val item = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == server.id }
+                                if (item != null) { dragging = server.id; center = item.offset + item.size / 2f; haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                            },
+                            onDrag = { change, amount -> change.consume(); dragMove(amount.y) },
+                            onDragEnd = { dragFinish(true) }, onDragCancel = { dragFinish(false) },
+                        )
+                    }
+                content(server, handle)
             }
         }
     }

@@ -6,6 +6,7 @@ import com.iceflow.data.model.ServerProfile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -48,6 +49,24 @@ class XrayConfigBuilderTest {
         assertEquals("socks", inbound.str("protocol"))
         assertEquals("127.0.0.1", inbound.str("listen"))
         assertEquals(12345, inbound.getValue("port").jsonPrimitive.int)
+        assertTrue(inbound.obj("settings").getValue("udp").jsonPrimitive.boolean)
+    }
+
+    @Test
+    fun `socks routing and udp are enabled by default`() {
+        val settings = AppSettings()
+        assertTrue(settings.socksEnabled)
+        assertTrue(settings.socksUdp)
+
+        val cfg = parse(XrayConfigBuilder.build(vless, settings))
+        val inbound = cfg.getValue("inbounds").jsonArray[0].jsonObject
+        assertTrue(inbound.obj("settings").getValue("udp").jsonPrimitive.boolean)
+    }
+
+    @Test
+    fun `disabled socks routing omits inbound`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings(socksEnabled = false)))
+        assertFalse(cfg.containsKey("inbounds"))
     }
 
     @Test

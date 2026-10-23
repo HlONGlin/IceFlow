@@ -55,6 +55,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -101,6 +102,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
@@ -114,6 +116,10 @@ import com.iceflow.data.model.ServerStore
 import com.iceflow.data.ShareLinkParser
 import com.iceflow.service.TrafficSnapshot
 import com.iceflow.service.VpnState
+import com.iceflow.core.XrayBridge
+import com.iceflow.ui.component.ShareNodeDialog
+import com.iceflow.ui.screen.AppSelectorScreen
+import com.iceflow.ui.screen.SettingsScreen
 import com.iceflow.ui.theme.IceBlue
 import com.iceflow.ui.theme.IceCyan
 import com.iceflow.ui.theme.LatencyBad
@@ -147,8 +153,11 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val publicIp by vm.publicIp.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var groupSettingsOpen by remember { mutableStateOf(false) }
+    var settingsDetailOpen by remember { mutableStateOf(false) }
     var logsOpen by rememberSaveable { mutableStateOf(false) }
     var appsOpen by rememberSaveable { mutableStateOf(false) }
+    var shareNodeId by remember { mutableStateOf<String?>(null) }
+    val nodeToShare = remember(shareNodeId) { store.servers.firstOrNull { it.id == shareNodeId } }
     var nodeEditorOpen by rememberSaveable { mutableStateOf(false) }
     var nodeEditorId by rememberSaveable { mutableStateOf<String?>(null) }
     var groupId by rememberSaveable { mutableStateOf<String?>(store.selectedGroupId) }
@@ -172,9 +181,19 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 val initial = remember(initialJson) { com.iceflow.data.NodeEditing.json.decodeFromString(ServerProfile.serializer(), initialJson) }
                 NodeEditorPage(initial, nodeEditorId == null, { nodeEditorOpen = false }, vm::saveServer)
             } else if (logsOpen) {
-                RuntimeLogPage(vm::readLogs, { logsOpen = false }, Modifier.weight(1f))
+                RuntimeLogPage(
+                    readLogs = vm::readLogs,
+                    onBack = { logsOpen = false },
+                    logRetentionDays = settings.logRetentionDays,
+                    modifier = Modifier.weight(1f)
+                )
             } else if (appsOpen) {
-                AppSelectionPage(settings.bypassApps, { update -> vm.updateSettings { it.copy(bypassApps = update) } }, { appsOpen = false }, Modifier.weight(1f))
+                AppSelectorScreen(
+                    proxyMode = settings.appProxyMode,
+                    selectedApps = settings.bypassApps,
+                    onSelectionChange = { apps -> vm.updateSettings { it.copy(bypassApps = apps) } },
+                    onDismiss = { appsOpen = false }
+                )
             } else {
             AnimatedContent(
                 targetState = Tab.entries[tab],
@@ -186,15 +205,24 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNode(context, it) }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::sortServersByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest)
+                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers)
                         Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups)
-                        Tab.SETTINGS -> SettingsPage(settings, vm::updateSettings, vm.appVersion, { logsOpen = true }, { appsOpen = true })
+                        Tab.SETTINGS -> SettingsScreen(
+                            settings = settings,
+                            xrayVersion = XrayBridge.version(),
+                            coreVersion = if (com.iceflow.core.RustBridge.isAvailable) "已集成" else null,
+                            appVersion = vm.appVersion,
+                            onUpdate = vm::updateSettings,
+                            onOpenLogs = { vm.cleanOldLogs(); logsOpen = true },
+                            onOpenAppSelector = { appsOpen = true },
+                            onDetailOpenChange = { settingsDetailOpen = it },
+                        )
                         Tab.ROUTES -> RoutingPage(settings, vm::updateSettings, vm.routingResources, { groupSettingsOpen = it })
                     }
                 }
             }
             }
-            if (!groupSettingsOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Tab.entries.forEachIndexed { index, item ->
                     val moduleInteraction = remember { MutableInteractionSource() }
                     Column(Modifier.weight(1f).clickable(
@@ -213,7 +241,22 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             if (bulkTest.testing || bulkTest.completed > 0) BulkTestOverlay(bulkTest, dismissBulkTest)
             if (!bulkTest.testing && bulkTest.completed == 0 && nodeTest.serverId != null) Box(Modifier.align(Alignment.TopCenter).padding(top = 80.dp)) { NodeLatencyToast(nodeTest) }
         }
-    LaunchedEffect(state) { if (state is VpnState.Connected) vm.refreshPublicIp() }
+
+        // 分享节点对话框
+        if (nodeToShare != null) {
+            ShareNodeDialog(
+                node = nodeToShare,
+                onDismiss = { shareNodeId = null }
+            )
+        }
+
+    LaunchedEffect(state) {
+        if (state is VpnState.Connected) {
+            vm.refreshPublicIp()
+            // VPN 连接时自动清理旧日志
+            vm.cleanOldLogs()
+        }
+    }
 }
 
 @Composable private fun PageTitle(title: String, action: String? = null, onAction: (() -> Unit)? = null) {
@@ -223,7 +266,20 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     }
 }
 
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSort: () -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit) {
+@Composable
+private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
+        )
+    }
+}
+
+@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -232,6 +288,9 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     var addMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
+    var sortMenu by remember { mutableStateOf(false) }
+    var sortingKey by remember { mutableStateOf<String?>(null) }
+    if (sortingKey != null) BackHandler { sortingKey = null }
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let(onImportText) }
     val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()?.let(onImportText)
@@ -241,14 +300,14 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val running = state is VpnState.Connected || state is VpnState.Connecting || state is VpnState.Stopping
     LaunchedEffect(running) { panelVisibility.targetState = running }
     LaunchedEffect(state) { if (running) lastRunningState = state }
-    fun visibleNodes(id: String?) = store.servers.filter { server ->
+    fun visibleNodes(id: String?, filter: String = query) = store.servers.filter { server ->
         if (id == null) server.subscriptionId == null && server.groupId == null
         else server.groupId == id || server.subscriptionId == id
     }.let { servers ->
-        (store.localGroups.firstOrNull { it.id == id }?.sort
+        (if (id == null) store.localSort else store.localGroups.firstOrNull { it.id == id }?.sort
             ?: store.subscriptions.firstOrNull { it.id == id }?.sort
             ?: GroupSort.ORIGINAL).apply(servers)
-    }.filter { query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true) }
+    }.filter { filter.isBlank() || it.name.contains(filter, true) || it.address.contains(filter, true) }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -269,17 +328,45 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                         IceMenuItem("更新订阅", Icons.Filled.Refresh) { moreMenu = false; onRefreshSubs() }
                         IceMenuItem(if (testing) "测速中…" else "测试连接速度", Icons.Filled.Send, enabled = !testing) { moreMenu = false; onTest() }
                         HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                        IceMenuItem("按延迟排序", Icons.Filled.List) { moreMenu = false; onSort() }
+                        IceMenuItem("排序", Icons.Filled.List) { moreMenu = false; sortMenu = true }
                         IceMenuItem("节点去重", Icons.Filled.Check) { moreMenu = false; onDedupe() }
+                    }
+                    IceDropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                        GroupSort.entries.forEach { sort ->
+                            IceMenuItem(sort.label, Icons.Filled.List, enabled = !testing) {
+                                sortMenu = false
+                                if (sort == GroupSort.LATENCY) onSortGroupByLatency(groupId) else onSetGroupSort(groupId, sort)
+                            }
+                        }
                     }
                 }
             }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
-            GroupPager(store.orderedGroups, groupId, onSelectGroup, Modifier.weight(1f)) { group ->
-                val nodes = visibleNodes(group.id)
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            val visibleGroups = store.orderedGroups
+            if (visibleGroups.isEmpty()) {
+                val ungroupedNodes = visibleNodes(null)
+                if (ungroupedNodes.isEmpty()) {
+                    EmptyStateMessage("暂无分组或节点。可在分组页点 + 创建分组，或在节点页点 + 导入节点。", Modifier.weight(1f))
+                } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    item { Text("未分组节点", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp)) }
+                    items(ungroupedNodes, key = { it.id }) { server ->
+                        NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, showTrafficStats = showTrafficStats)
+                    }
+                }
+            } else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
+                val sorting = sortingKey == group.key
+                val nodes = if (sorting) visibleNodes(group.id, "") else visibleNodes(group.id)
+                if (sorting) Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("拖动右侧图标调整顺序", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { sortingKey = null }) { Text("完成", color = MaterialTheme.colorScheme.primary) }
+                    }
+                    ReorderableNodeList(nodes, { onReorderNodes(group.id, it) }, Modifier.weight(1f), PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp)) { server, handle ->
+                        NodeRow(server, store.localGroups, server.id == store.selectedId, {}, {}, {}, {}, {}, {}, dragHandle = handle)
+                    }
+                } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     if (nodes.isEmpty()) item { Text(if (query.isBlank()) "此分组暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
-                    items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }) }
+                    items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, if (query.isBlank()) ({ sortingKey = group.key }) else null, showTrafficStats = showTrafficStats) }
                 }
             }
         }
@@ -332,7 +419,10 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val textColor = if (connected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val secondaryColor = if (connected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .78f) else MaterialTheme.colorScheme.onSurfaceVariant
     Row(modifier.fillMaxWidth().padding(top = 8.dp).shadow(8.dp).background(panelColor)
-        .clickable(enabled = connected && !test.testing, onClick = onTest)
+        .clickable(enabled = connected && !test.testing, onClick = {
+            android.util.Log.i("ConnectionPanel", "点击测速: connected=$connected, testing=${test.testing}")
+            onTest()
+        })
         .height(64.dp).padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("↑ ${formatSpeed(traffic.upSpeed)}", color = textColor, style = MaterialTheme.typography.bodySmall, maxLines = 1)
@@ -390,7 +480,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     if (dialog) AddSubscriptionDialog({ dialog = false }, { dialog = false; onAddSub(it) })
 }
 
-@Composable private fun NodeRow(server: ServerProfile, groups: List<com.iceflow.data.model.LocalGroup>, selected: Boolean, onSelect: () -> Unit, onTest: () -> Unit, onDelete: () -> Unit, onMove: (String?) -> Unit, onShare: () -> Unit, onRename: (String) -> Unit, onEdit: (() -> Unit)? = null) {
+@Composable private fun NodeRow(server: ServerProfile, groups: List<com.iceflow.data.model.LocalGroup>, selected: Boolean, onSelect: () -> Unit, onTest: () -> Unit, onDelete: () -> Unit, onMove: (String?) -> Unit, onShare: () -> Unit, onRename: (String) -> Unit, onEdit: (() -> Unit)? = null, onSort: (() -> Unit)? = null, dragHandle: Modifier? = null, showTrafficStats: Boolean = false) {
     var menu by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf(false) }
     var name by remember(server.name) { mutableStateOf(server.name) }
@@ -406,13 +496,16 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
         Column(Modifier.weight(1f)) {
             Text(server.name, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface)
             Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
+            if (showTrafficStats) Text("↑ ${formatBytes(server.uploadBytes)}   ↓ ${formatBytes(server.downloadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
         }
-        Box {
+        if (dragHandle != null) Box(dragHandle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Menu, "拖动排序", tint = MaterialTheme.colorScheme.primary) }
+        else Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "节点操作", tint = MaterialTheme.colorScheme.primary) }
             IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 IceMenuItem("测速", Icons.Filled.Info) { menu = false; onTest() }
                 IceMenuItem("编辑", Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
                 IceMenuItem("分享节点", Icons.Filled.Share) { menu = false; onShare() }
+                if (onSort != null) IceMenuItem("单独排序", Icons.Filled.List) { menu = false; onSort() }
                 HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                 IceMenuItem("删除", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
             }
@@ -452,10 +545,12 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                 }
                 IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, "新增分组", tint = MaterialTheme.colorScheme.primary) }
             }
-            ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
+            if (store.orderedGroups.isEmpty()) {
+                EmptyStateMessage("暂无分组。点右上角 + 创建分组；也可到节点页点 + 导入节点。", Modifier.weight(1f))
+            } else ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
                 val sub = store.subscriptions.firstOrNull { it.id == group.id }
                 val subtitle = when {
-                    sub != null -> "订阅链接 · ${store.servers.count { it.subscriptionId == sub.id }} 个节点\n${dateText(sub.updatedAt)} · 每 ${sub.updateIntervalHours} 小时\n已用 ${formatBytes(sub.uploadBytes + sub.downloadBytes)}"
+                    sub != null -> "订阅链接 · ${store.servers.count { it.subscriptionId == sub.id }} 个节点\n${dateText(sub.updatedAt)} · ${if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时"}\n已用 ${formatBytes(sub.uploadBytes + sub.downloadBytes)}"
                     group.id != null -> "本地分组 · ${store.servers.count { it.groupId == group.id }} 个节点"
                     else -> "无链接 · ${store.servers.count { it.subscriptionId == null && it.groupId == null }} 个节点"
                 }
@@ -517,8 +612,8 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                     val text = readClipboard(context)
                     if (text.isNullOrBlank()) saveError = "剪贴板中没有链接" else { url = text.trim(); saveError = null }
                 }, modifier = Modifier.padding(start = 48.dp)) { Text("从剪贴板粘贴", color = MaterialTheme.colorScheme.primary) }
-                GroupSettingText("更新间隔（小时）", hours, "1–720", numeric = true) { hours = it; saveError = null }
-                Text("保存后自动更新订阅；更新失败时保留原有节点，可在分组页重试。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+                GroupSettingText("更新间隔（小时）", hours, "0–720，0 为不自动更新", numeric = true) { hours = it; saveError = null }
+                Text("保存后自动更新订阅；间隔填 0 则不自动更新。更新失败时保留原有节点，可在分组页重试。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
                 if (editing && !initial.subscription) Text("转为订阅后，现有节点归入该订阅；首次更新成功时会替换为链接中的节点。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
             if (!subscription && initial.subscription) item { Text("转为基本分组后保留现有节点，并停止订阅自动更新。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
@@ -663,7 +758,6 @@ private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else
             SettingAction("DNS 设置", Icons.Filled.Info, { dns = settings.dnsServers.joinToString("\n"); dnsOpen = true })
             SettingSwitch("启用 SOCKS5 路由", settings.socksEnabled, Icons.Filled.Settings) { update { it.copy(socksEnabled = !it.socksEnabled) } }
             SettingSwitch("SOCKS5 UDP", settings.socksUdp, Icons.Filled.Settings) { update { it.copy(socksUdp = !it.socksUdp) } }
-            SettingSwitch("HTTP 路由代理", settings.httpProxyEnabled, Icons.Filled.Settings) { update { it.copy(httpProxyEnabled = !it.httpProxyEnabled) } }
             SettingSwitch("DNS 路由", settings.dnsProxyEnabled, Icons.Filled.Settings) { update { it.copy(dnsProxyEnabled = !it.dnsProxyEnabled) } }
             Column(Modifier.fillMaxWidth().clickable { url = settings.testUrl; error = null; urlOpen = true }) {
                 SettingRow("测试 URL", "修改", Icons.Filled.Send)

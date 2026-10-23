@@ -5,6 +5,7 @@ import com.iceflow.data.model.ServerStore
 import com.iceflow.data.model.Subscription
 import com.iceflow.data.model.LocalGroup
 import com.iceflow.data.model.GroupConfiguration
+import com.iceflow.data.model.GroupSort
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -98,7 +99,7 @@ class ServerRepository(private val file: File) {
     }
 
     fun updateSubscription(id: String, name: String, updateIntervalHours: Int) = mutate { s ->
-        s.copy(subscriptions = s.subscriptions.map { if (it.id == id) it.copy(name = name.trim(), updateIntervalHours = updateIntervalHours.coerceIn(1, 720)) else it })
+        s.copy(subscriptions = s.subscriptions.map { if (it.id == id) it.copy(name = name.trim(), updateIntervalHours = updateIntervalHours.coerceIn(0, 720)) else it })
     }
 
     fun deleteSubscription(id: String) = mutate { s ->
@@ -109,6 +110,29 @@ class ServerRepository(private val file: File) {
     fun moveServerToLocalGroup(serverId: String, groupId: String?) = mutate { s -> s.copy(servers = s.servers.map { if (it.id == serverId) it.copy(groupId = groupId) else it }) }
 
     fun selectGroup(groupId: String?) = mutate { it.copy(selectedGroupId = groupId) }
+
+    fun setGroupSort(groupId: String?, sort: GroupSort) = mutate { s ->
+        if (groupId == null) s.copy(localSort = sort)
+        else s.copy(
+            localGroups = s.localGroups.map { if (it.id == groupId) it.copy(sort = sort) else it },
+            subscriptions = s.subscriptions.map { if (it.id == groupId) it.copy(sort = sort) else it },
+        )
+    }
+
+    /** 按 [ids] 的顺序重排分组内节点，并把分组排序切回“原始”，使手动顺序生效。 */
+    fun reorderServers(groupId: String?, ids: List<String>) = mutate { s ->
+        fun inGroup(server: ServerProfile) =
+            if (groupId == null) server.subscriptionId == null && server.groupId == null
+            else server.groupId == groupId || server.subscriptionId == groupId
+        val members = s.servers.filter(::inGroup).associateBy { it.id }
+        val ordered = (ids.filter { it in members } + members.keys).distinct().map { members.getValue(it) }.iterator()
+        s.copy(
+            servers = s.servers.map { if (inGroup(it)) ordered.next() else it },
+            localSort = if (groupId == null) GroupSort.ORIGINAL else s.localSort,
+            localGroups = s.localGroups.map { if (it.id == groupId) it.copy(sort = GroupSort.ORIGINAL) else it },
+            subscriptions = s.subscriptions.map { if (it.id == groupId) it.copy(sort = GroupSort.ORIGINAL) else it },
+        )
+    }
 
     fun reorderGroups(keys: List<String>) = mutate { s ->
         val valid = s.orderedGroups.map { it.key }

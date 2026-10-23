@@ -64,6 +64,8 @@ data class ServerProfile(
     val groupId: String? = null,
     /** 延迟（毫秒）；null 表示未测试，-1 表示超时/失败 */
     val latencyMs: Int? = null,
+    val uploadBytes: Long = 0,
+    val downloadBytes: Long = 0,
 )
 
 @Serializable
@@ -121,7 +123,7 @@ data class GroupConfiguration(
             val uri = java.net.URI(url.trim())
             uri.scheme?.lowercase() in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null
         }.getOrDefault(false) -> "请输入有效的 HTTP 或 HTTPS 订阅链接"
-        subscription && intervalHours !in 1..720 -> "更新间隔应为 1–720 小时"
+        subscription && intervalHours !in 0..720 -> "更新间隔应为 0–720 小时（0 为不自动更新）"
         else -> null
     }
 }
@@ -134,6 +136,7 @@ data class ServerStore(
     val localGroups: List<LocalGroup> = emptyList(),
     val selectedGroupId: String? = null,
     val groupOrder: List<String> = emptyList(),
+    val localSort: GroupSort = GroupSort.ORIGINAL,
 ) {
     val selected: ServerProfile?
         get() = servers.firstOrNull { it.id == selectedId }
@@ -146,9 +149,18 @@ data class ServerStore(
             return (groupOrder + groups.map { it.key }).distinct().mapNotNull(byKey::get)
         }
 }
-
-const val LOCAL_GROUP_KEY = "builtin:local"
 enum class AppTheme { LIGHT_BLUE, MINT_GREEN, SAKURA_PINK, PEACH_ORANGE, OBSIDIAN_BLACK }
+enum class NightMode(val label: String) {
+    FOLLOW_SYSTEM("跟随系统"),
+    ENABLED("启用"),
+    DISABLED("禁用"),
+    AUTO("自动")
+}
+enum class RoutingMode(val label: String) {
+    RULE("规则"),
+    GLOBAL("全局"),
+    DIRECT("直连")
+}
 data class NodeGroup(val key: String, val id: String?, val name: String)
 
 data class AppSettings(
@@ -157,7 +169,7 @@ data class AppSettings(
     val bypassLan: Boolean = true,
     /** true：tun2proxy 虚拟 DNS（Fake-IP）；false：DNS over TCP 经代理转发 */
     val fakeDns: Boolean = true,
-    val testUrl: String = "https://www.gstatic.com/generate_204",
+    val testUrl: String = "https://www.google.com/generate_204",
     val routingRules: List<RoutingRule> = RoutingRules.defaults(),
     val bypassApps: List<String> = emptyList(),
     val proxyAppsOnly: Boolean = false,
@@ -165,7 +177,15 @@ data class AppSettings(
     val dnsServers: List<String> = listOf("1.1.1.1"),
     val socksEnabled: Boolean = true,
     val socksUdp: Boolean = true,
-    val httpProxyEnabled: Boolean = false,
+    val socksUsername: String = "",
+    val socksPassword: String = "",
     val dnsProxyEnabled: Boolean = true,
     val theme: AppTheme = AppTheme.LIGHT_BLUE,
+    val nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
+    val routingMode: RoutingMode = RoutingMode.RULE,
+    val showTrafficStats: Boolean = false,
+    val logRetentionDays: Int = 3,
+    val appRoutingEnabled: Boolean = false,
+    val appProxyMode: Boolean = false,
+    val language: String = "zh-CN",
 )

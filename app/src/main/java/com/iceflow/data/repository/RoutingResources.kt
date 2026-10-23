@@ -28,6 +28,7 @@ class RoutingResources(private val context: Context) {
     }
     @Synchronized fun update(name: String, source: String) {
         require(name in names)
+        prepare()
         val uri = java.net.URI(source.trim())
         require(uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null) { "资源地址须为 HTTPS .dat 下载链接" }
         val tmp = File(context.filesDir, "$name.download")
