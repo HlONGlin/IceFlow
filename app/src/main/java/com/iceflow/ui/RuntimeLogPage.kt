@@ -11,7 +11,7 @@ import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,7 +48,7 @@ fun RuntimeLogPage(readLogs: suspend () -> String, onBack: () -> Unit, logRetent
 
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.primary) }
+            IconButton(onClick = onBack) { Icon(Icons.Filled.Close, "返回", tint = MaterialTheme.colorScheme.primary) }
             Text("运行日志", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             IconButton(onClick = { refresh++ }) { Icon(Icons.Filled.Refresh, "刷新日志", tint = MaterialTheme.colorScheme.primary) }
         }

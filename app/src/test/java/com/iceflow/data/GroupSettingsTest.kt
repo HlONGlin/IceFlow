@@ -18,26 +18,39 @@ class GroupSettingsTest {
         val b = GroupConfiguration(id = "b", name = "Subscription", subscription = true, url = "https://example.com/b")
         repository.saveGroup(a); repository.saveGroup(b)
         repository.selectGroup(a.id)
-        repository.reorderGroups(listOf(b.id, LOCAL_GROUP_KEY, a.id, b.id, "unknown"))
-        assertEquals(listOf(b.id, LOCAL_GROUP_KEY, a.id), ServerRepository(file).store.value.orderedGroups.map { it.key })
+        repository.reorderGroups(listOf(b.id, a.id, b.id, "unknown"))
+        assertEquals(listOf(b.id, a.id), ServerRepository(file).store.value.orderedGroups.map { it.key })
         assertEquals(a.id, repository.store.value.selectedGroupId)
         repository.saveGroup(a.copy(subscription = true, url = "https://example.com/a"))
         repository.upsertSubscription(b.url, b.name, emptyList(), b.id)
-        assertEquals(listOf(b.id, LOCAL_GROUP_KEY, a.id), repository.store.value.groupOrder)
+        assertEquals(listOf(b.id, a.id), repository.store.value.groupOrder)
         repository.saveGroup(GroupConfiguration(id = "c", name = "New"))
-        assertEquals(listOf(b.id, LOCAL_GROUP_KEY, a.id, "c"), repository.store.value.groupOrder)
+        assertEquals(listOf(b.id, a.id, "c"), repository.store.value.groupOrder)
         repository.deleteSubscription(b.id)
-        assertEquals(listOf(LOCAL_GROUP_KEY, a.id, "c"), ServerRepository(file).store.value.groupOrder)
+        assertEquals(listOf(a.id, "c"), ServerRepository(file).store.value.groupOrder)
     }
 
     @Test fun legacyStoresGetCompleteDefaultOrderAndRetainItOnMutation() {
         val file = temp.newFile()
-        file.writeText("""{"localGroups":[{"id":"a","name":"Local"}],"subscriptions":[{"id":"b","name":"Sub","url":"https://example.com"}]}""")
+        file.writeText("""{"localGroups":[{"id":"a","name":"Local"}],"subscriptions":[{"id":"b","name":"Sub","url":"https://example.com"}],"groupOrder":["builtin:local","a","b"]}""")
         val repository = ServerRepository(file)
-        assertEquals(listOf(LOCAL_GROUP_KEY, "a", "b"), repository.store.value.orderedGroups.map { it.key })
+        assertEquals(listOf("a", "b"), repository.store.value.orderedGroups.map { it.key })
         repository.reorderGroups(listOf("b"))
-        assertEquals(listOf("b", LOCAL_GROUP_KEY, "a"), ServerRepository(file).store.value.orderedGroups.map { it.key })
-        assertEquals(1, repository.store.value.orderedGroups.count { it.id == null })
+        assertEquals(listOf("b", "a"), ServerRepository(file).store.value.orderedGroups.map { it.key })
+        assertTrue(repository.store.value.orderedGroups.none { it.id == null })
+    }
+
+    @Test fun newStoreStartsWithoutGroupsAndImportedNodesStayUngrouped() {
+        val repository = ServerRepository(temp.newFile())
+        assertTrue(repository.store.value.orderedGroups.isEmpty())
+        assertNull(repository.store.value.selectedGroupId)
+
+        val node = ServerProfile(name = "Imported", protocol = Protocol.VLESS, address = "example.com", port = 443)
+        repository.addServers(listOf(node))
+
+        assertTrue(repository.store.value.orderedGroups.isEmpty())
+        assertNull(repository.store.value.servers.single().groupId)
+        assertNull(repository.store.value.servers.single().subscriptionId)
     }
 
     @Test fun settingsSurviveReloadAndTypeConversionsPreserveNodes() {

@@ -143,16 +143,19 @@ data class ServerStore(
 
     val orderedGroups: List<NodeGroup>
         get() {
-            val groups = listOf(NodeGroup(LOCAL_GROUP_KEY, null, "本地")) +
-                localGroups.map { NodeGroup(it.id, it.id, it.name) } +
+            val groups = localGroups.map { NodeGroup(it.id, it.id, it.name) } +
                 subscriptions.map { NodeGroup(it.id, it.id, it.name) }
             val byKey = groups.associateBy { it.key }
             return (groupOrder + groups.map { it.key }).distinct().mapNotNull(byKey::get)
         }
 }
-
-const val LOCAL_GROUP_KEY = "builtin:local"
 enum class AppTheme { LIGHT_BLUE, MINT_GREEN, SAKURA_PINK, PEACH_ORANGE, OBSIDIAN_BLACK }
+enum class NightMode(val label: String) {
+    FOLLOW_SYSTEM("跟随系统"),
+    ENABLED("启用"),
+    DISABLED("禁用"),
+    AUTO("自动")
+}
 enum class RoutingMode(val label: String) {
     RULE("规则"),
     GLOBAL("全局"),
@@ -178,6 +181,7 @@ data class AppSettings(
     val socksPassword: String = "",
     val dnsProxyEnabled: Boolean = true,
     val theme: AppTheme = AppTheme.LIGHT_BLUE,
+    val nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
     val routingMode: RoutingMode = RoutingMode.RULE,
     val showTrafficStats: Boolean = false,
     val logRetentionDays: Int = 3,

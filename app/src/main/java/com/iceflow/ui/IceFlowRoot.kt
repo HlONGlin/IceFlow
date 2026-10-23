@@ -102,6 +102,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
@@ -152,6 +153,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val publicIp by vm.publicIp.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var groupSettingsOpen by remember { mutableStateOf(false) }
+    var settingsDetailOpen by remember { mutableStateOf(false) }
     var logsOpen by rememberSaveable { mutableStateOf(false) }
     var appsOpen by rememberSaveable { mutableStateOf(false) }
     var shareNodeId by remember { mutableStateOf<String?>(null) }
@@ -212,14 +214,15 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                             appVersion = vm.appVersion,
                             onUpdate = vm::updateSettings,
                             onOpenLogs = { vm.cleanOldLogs(); logsOpen = true },
-                            onOpenAppSelector = { appsOpen = true }
+                            onOpenAppSelector = { appsOpen = true },
+                            onDetailOpenChange = { settingsDetailOpen = it },
                         )
                         Tab.ROUTES -> RoutingPage(settings, vm::updateSettings, vm.routingResources, { groupSettingsOpen = it })
                     }
                 }
             }
             }
-            if (!groupSettingsOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Tab.entries.forEachIndexed { index, item ->
                     val moduleInteraction = remember { MutableInteractionSource() }
                     Column(Modifier.weight(1f).clickable(
@@ -260,6 +263,19 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
         if (action != null) TextButton(onClick = { onAction?.invoke() }, contentPadding = PaddingValues(0.dp)) { Text(action, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
+    }
+}
+
+@Composable
+private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
+    Box(modifier.fillMaxSize().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
+        )
     }
 }
 
@@ -326,10 +342,16 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 }
             }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
-            val visibleGroups = store.orderedGroups.filter { it.key != com.iceflow.data.model.LOCAL_GROUP_KEY }
+            val visibleGroups = store.orderedGroups
             if (visibleGroups.isEmpty()) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("暂无分组，请先在“分组”模块创建分组", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val ungroupedNodes = visibleNodes(null)
+                if (ungroupedNodes.isEmpty()) {
+                    EmptyStateMessage("暂无分组或节点。可在分组页点 + 创建分组，或在节点页点 + 导入节点。", Modifier.weight(1f))
+                } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    item { Text("未分组节点", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp)) }
+                    items(ungroupedNodes, key = { it.id }) { server ->
+                        NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, showTrafficStats = showTrafficStats)
+                    }
                 }
             } else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
                 val sorting = sortingKey == group.key
@@ -523,7 +545,9 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                 }
                 IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, "新增分组", tint = MaterialTheme.colorScheme.primary) }
             }
-            ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
+            if (store.orderedGroups.isEmpty()) {
+                EmptyStateMessage("暂无分组。点右上角 + 创建分组；也可到节点页点 + 导入节点。", Modifier.weight(1f))
+            } else ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
                 val sub = store.subscriptions.firstOrNull { it.id == group.id }
                 val subtitle = when {
                     sub != null -> "订阅链接 · ${store.servers.count { it.subscriptionId == sub.id }} 个节点\n${dateText(sub.updatedAt)} · ${if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时"}\n已用 ${formatBytes(sub.uploadBytes + sub.downloadBytes)}"

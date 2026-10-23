@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.compose.material.icons.extended)
 
     // 二维码扫描（扫码导入节点）
     implementation("com.journeyapps:zxing-android-embedded:4.3.0") { isTransitive = false }

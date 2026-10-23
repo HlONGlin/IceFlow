@@ -10,10 +10,15 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.iceflow.data.model.AppTheme
+import com.iceflow.data.model.NightMode
+import kotlinx.coroutines.delay
+import java.time.LocalTime
 
 /**
  * IceFlow 扩展语义色令牌
@@ -42,20 +47,46 @@ val LocalIceFlowColors = staticCompositionLocalOf {
 /**
  * 浅蓝主题配色方案（默认）
  */
-private fun lightBlueColorScheme() = lightColorScheme(
-    background = LightBlueColors.background,
-    surface = LightBlueColors.surface,
-    surfaceVariant = LightBlueColors.surface2,
-    primary = LightBlueColors.primary,
-    primaryContainer = LightBlueColors.primarySoft,
+private fun themedColorScheme(accent: Color, dark: Boolean): ColorScheme = if (dark) darkColorScheme(
+    background = Color.Black,
+    surface = Color(0xFF111111),
+    surfaceVariant = Color(0xFF1F1F1F),
+    primary = accent,
+    primaryContainer = when (accent) {
+        LightBlueColors.primary -> LightBlueColors.primarySoft
+        MintGreenColors.primary -> Color(0xFF123C31)
+        SakuraPinkColors.primary -> Color(0xFF472333)
+        PeachOrangeColors.primary -> Color(0xFF4A2D1A)
+        else -> ObsidianBlackColors.primarySoft
+    },
     onPrimary = Color.White,
-    onPrimaryContainer = LightBlueColors.primary,
-    onBackground = LightBlueColors.textPrimary,
-    onSurface = LightBlueColors.textPrimary,
-    onSurfaceVariant = LightBlueColors.textSecondary,
-    outline = LightBlueColors.border,
-    outlineVariant = LightBlueColors.border.copy(alpha = 0.5f),
-    surfaceTint = LightBlueColors.primary,
+    onPrimaryContainer = Color.White,
+    onBackground = Color.White,
+    onSurface = Color.White,
+    onSurfaceVariant = Color(0xFFB3B3B3),
+    outline = Color(0xFF707070),
+    outlineVariant = Color(0xFF404040),
+    surfaceTint = accent,
+) else lightColorScheme(
+    background = Color.White,
+    surface = Color.White,
+    surfaceVariant = Color.White,
+    primary = accent,
+    primaryContainer = when (accent) {
+        LightBlueColors.primary -> LightBlueColors.primarySoft
+        MintGreenColors.primary -> MintGreenColors.primarySoft
+        SakuraPinkColors.primary -> SakuraPinkColors.primarySoft
+        PeachOrangeColors.primary -> PeachOrangeColors.primarySoft
+        else -> Color(0xFFE5F3FF)
+    },
+    onPrimary = Color.White,
+    onPrimaryContainer = accent,
+    onBackground = Color(0xFF1C1C1E),
+    onSurface = Color(0xFF1C1C1E),
+    onSurfaceVariant = Color(0xFF6B6B6F),
+    outline = Color(0xFFD1D1D6),
+    outlineVariant = Color(0xFFD1D1D6),
+    surfaceTint = accent,
 )
 
 private fun lightBlueExtColors() = IceFlowColors(
@@ -68,22 +99,6 @@ private fun lightBlueExtColors() = IceFlowColors(
 /**
  * 薄荷绿主题配色方案
  */
-private fun mintGreenColorScheme() = lightColorScheme(
-    background = MintGreenColors.background,
-    surface = MintGreenColors.surface,
-    surfaceVariant = MintGreenColors.surface2,
-    primary = MintGreenColors.primary,
-    primaryContainer = MintGreenColors.primarySoft,
-    onPrimary = Color.White,
-    onPrimaryContainer = MintGreenColors.primary,
-    onBackground = MintGreenColors.textPrimary,
-    onSurface = MintGreenColors.textPrimary,
-    onSurfaceVariant = MintGreenColors.textSecondary,
-    outline = MintGreenColors.border,
-    outlineVariant = MintGreenColors.border.copy(alpha = 0.5f),
-    surfaceTint = MintGreenColors.primary,
-)
-
 private fun mintGreenExtColors() = IceFlowColors(
     success = MintGreenColors.success,
     warning = MintGreenColors.warning,
@@ -94,22 +109,6 @@ private fun mintGreenExtColors() = IceFlowColors(
 /**
  * 樱花粉主题配色方案
  */
-private fun sakuraPinkColorScheme() = lightColorScheme(
-    background = SakuraPinkColors.background,
-    surface = SakuraPinkColors.surface,
-    surfaceVariant = SakuraPinkColors.surface2,
-    primary = SakuraPinkColors.primary,
-    primaryContainer = SakuraPinkColors.primarySoft,
-    onPrimary = Color.White,
-    onPrimaryContainer = SakuraPinkColors.primary,
-    onBackground = SakuraPinkColors.textPrimary,
-    onSurface = SakuraPinkColors.textPrimary,
-    onSurfaceVariant = SakuraPinkColors.textSecondary,
-    outline = SakuraPinkColors.border,
-    outlineVariant = SakuraPinkColors.border.copy(alpha = 0.5f),
-    surfaceTint = SakuraPinkColors.primary,
-)
-
 private fun sakuraPinkExtColors() = IceFlowColors(
     success = SakuraPinkColors.success,
     warning = SakuraPinkColors.warning,
@@ -120,46 +119,11 @@ private fun sakuraPinkExtColors() = IceFlowColors(
 /**
  * 蜜桃橙主题配色方案
  */
-private fun peachOrangeColorScheme() = lightColorScheme(
-    background = PeachOrangeColors.background,
-    surface = PeachOrangeColors.surface,
-    surfaceVariant = PeachOrangeColors.surface2,
-    primary = PeachOrangeColors.primary,
-    primaryContainer = PeachOrangeColors.primarySoft,
-    onPrimary = Color.White,
-    onPrimaryContainer = PeachOrangeColors.primary,
-    onBackground = PeachOrangeColors.textPrimary,
-    onSurface = PeachOrangeColors.textPrimary,
-    onSurfaceVariant = PeachOrangeColors.textSecondary,
-    outline = PeachOrangeColors.border,
-    outlineVariant = PeachOrangeColors.border.copy(alpha = 0.5f),
-    surfaceTint = PeachOrangeColors.primary,
-)
-
 private fun peachOrangeExtColors() = IceFlowColors(
     success = PeachOrangeColors.success,
     warning = PeachOrangeColors.warning,
     error = PeachOrangeColors.error,
     info = PeachOrangeColors.info,
-)
-
-/**
- * 曜石黑主题配色方案（深色）
- */
-private fun obsidianBlackColorScheme() = darkColorScheme(
-    background = ObsidianBlackColors.background,
-    surface = ObsidianBlackColors.surface,
-    surfaceVariant = ObsidianBlackColors.surface2,
-    primary = ObsidianBlackColors.primary,
-    primaryContainer = ObsidianBlackColors.primarySoft,
-    onPrimary = Color.White,
-    onPrimaryContainer = ObsidianBlackColors.primary,
-    onBackground = ObsidianBlackColors.textPrimary,
-    onSurface = ObsidianBlackColors.textPrimary,
-    onSurfaceVariant = ObsidianBlackColors.textSecondary,
-    outline = ObsidianBlackColors.border,
-    outlineVariant = ObsidianBlackColors.border.copy(alpha = 0.5f),
-    surfaceTint = ObsidianBlackColors.primary,
 )
 
 private fun obsidianBlackExtColors() = IceFlowColors(
@@ -179,27 +143,47 @@ private fun obsidianBlackExtColors() = IceFlowColors(
 @Composable
 fun IceFlowTheme(
     theme: AppTheme = AppTheme.LIGHT_BLUE,
+    nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val systemDark = isSystemInDarkTheme()
+    val autoDark by produceState(initialValue = isAutoNightTime(), nightMode) {
+        if (nightMode == NightMode.AUTO) {
+            while (true) {
+                value = isAutoNightTime()
+                delay(60_000L)
+            }
+        }
+    }
+    val isDark = when (nightMode) {
+        NightMode.FOLLOW_SYSTEM -> systemDark
+        NightMode.ENABLED -> true
+        NightMode.DISABLED -> false
+        NightMode.AUTO -> autoDark
+    }
+    val accent = when (theme) {
+        AppTheme.LIGHT_BLUE -> LightBlueColors.primary
+        AppTheme.MINT_GREEN -> MintGreenColors.primary
+        AppTheme.SAKURA_PINK -> SakuraPinkColors.primary
+        AppTheme.PEACH_ORANGE -> PeachOrangeColors.primary
+        AppTheme.OBSIDIAN_BLACK -> ObsidianBlackColors.primary
+    }
+    val extColors = when (theme) {
+        AppTheme.LIGHT_BLUE -> lightBlueExtColors()
+        AppTheme.MINT_GREEN -> mintGreenExtColors()
+        AppTheme.SAKURA_PINK -> sakuraPinkExtColors()
+        AppTheme.PEACH_ORANGE -> peachOrangeExtColors()
+        AppTheme.OBSIDIAN_BLACK -> obsidianBlackExtColors()
+    }
     // 选择对应的主题配色方案
-    val (colorScheme, extColors) = when {
+    val colorScheme = when {
         // Material You 动态取色（Android 12+）
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val ctx = LocalContext.current
-            val isDark = theme == AppTheme.OBSIDIAN_BLACK
-            val scheme = if (isDark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
-            // 动态取色时使用默认浅蓝的扩展色
-            scheme to lightBlueExtColors()
+            if (isDark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         }
-        // 根据主题选择配色方案
-        else -> when (theme) {
-            AppTheme.LIGHT_BLUE -> lightBlueColorScheme() to lightBlueExtColors()
-            AppTheme.MINT_GREEN -> mintGreenColorScheme() to mintGreenExtColors()
-            AppTheme.SAKURA_PINK -> sakuraPinkColorScheme() to sakuraPinkExtColors()
-            AppTheme.PEACH_ORANGE -> peachOrangeColorScheme() to peachOrangeExtColors()
-            AppTheme.OBSIDIAN_BLACK -> obsidianBlackColorScheme() to obsidianBlackExtColors()
-        }
+        else -> themedColorScheme(accent, isDark)
     }
 
     androidx.compose.runtime.CompositionLocalProvider(
@@ -211,6 +195,11 @@ fun IceFlowTheme(
             content = content
         )
     }
+}
+
+private fun isAutoNightTime(): Boolean {
+    val hour = LocalTime.now().hour
+    return hour >= 22 || hour < 6
 }
 
 /**

@@ -54,7 +54,7 @@ object XrayConfigBuilder {
             if (chain.size == 1 && adapters.isNotEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
             else if (adapters.isNotEmpty()) put("iceflowAdapters", JsonArray(adapters))
             putJsonObject("log") { put("loglevel", "warning") }
-            if (includeInbound) {
+            if (includeInbound && settings.socksEnabled) {
                 putJsonArray("inbounds") {
                     addJsonObject {
                         put("tag", "socks-in")

@@ -20,7 +20,7 @@ Jetpack Compose UI ──► VpnService (TUN)
 | `rust-core/` | Rust 流量层，基于 tun2proxy，JNI 接口在 `src/ffi.rs` |
 | `xray-wrapper/` | xray-core 的 gomobile 封装（`libxray`），产物为 `app/libs/xray.aar` |
 
-支持的分享链接：`vmess://`、`vless://`（含 Reality）、`trojan://`、`ss://`（SIP002 / SS2022 / 旧格式），以及 Base64 订阅（仅 https）。
+支持 VMess、VLESS（含 Reality）、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP 和 SOCKS 节点；支持 Clash YAML、二维码导入/分享、HTTPS 订阅、规则分流与分应用代理。扩展协议的可用参数取决于分享链接或 Clash 配置所提供的信息。
 
 ## 构建
 
@@ -36,7 +36,7 @@ cargo install cargo-ndk
 .\xray-wrapper\build-aar.ps1
 
 # 3. APK
-.\gradlew.bat testDebugUnitTest assembleDebug
+.\gradlew.bat testDebugUnitTest assembleDebug assembleRelease
 ```
 
 Linux/macOS 使用对应的 `.sh` 脚本。两个原生产物缺失时 app 仍能编译运行，但连接时会提示缺少核心。
@@ -75,6 +75,7 @@ adb install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.
 adb shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-## 尚未实现
+## 已知限制
 
-Mieru 协议、geoip/geosite 分流规则、分应用代理、二维码导入、Lottie 动画。
+- 订阅仅接受 HTTPS 地址；下载内容上限为 4 MiB，路由数据库上限为 64 MiB。
+- Lottie 动画尚未集成。

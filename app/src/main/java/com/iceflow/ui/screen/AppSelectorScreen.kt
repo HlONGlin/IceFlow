@@ -4,7 +4,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -80,28 +82,30 @@ fun AppSelectorScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(if (proxyMode) "选择代理应用" else "选择绕过应用") },
-                navigationIcon = {
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, "关闭")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                )
-            )
+            Row(
+                Modifier.fillMaxWidth().height(64.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "返回", tint = MaterialTheme.colorScheme.primary) }
+                Text(if (proxyMode) "选择代理应用" else "选择绕过应用", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text("完成", color = MaterialTheme.colorScheme.primary) }
+            }
         }
     ) { padding ->
         Column(
             Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
         ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            ) {
             OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     placeholder = { Text("搜索应用名称或包名") },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = {
@@ -118,18 +122,19 @@ fun AppSelectorScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "${if (proxyMode) "代理" else "绕过"} ${selected.size} 个应用 · 当前显示 ${filteredApps.size} 个",
-                    style = MaterialTheme.typography.bodyMedium,
+                    "${selected.size} 个已选 · 共 ${filteredApps.size} 个",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("显示系统应用", style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.width(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
+                    Text("显示系统应用", style = MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.width(4.dp))
                     Switch(
                         checked = showSystemApps,
                         onCheckedChange = { showSystemApps = it }
@@ -137,7 +142,7 @@ fun AppSelectorScreen(
                 }
             }
 
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 FilterChip(selected = !selectedOnly, onClick = { selectedOnly = false }, label = { Text("全部") })
                 FilterChip(selected = selectedOnly, onClick = { selectedOnly = true }, label = { Text("仅已选") })
                 Spacer(Modifier.weight(1f))
@@ -150,7 +155,7 @@ fun AppSelectorScreen(
                     onSelectionChange(selectedApps.filterNot { it in visible })
                 }, enabled = filteredApps.any { it.packageName in selected }) { Text("清除") }
             }
-            HorizontalDivider()
+            }
 
             // 应用列表
             if (loading) {
@@ -159,8 +164,8 @@ fun AppSelectorScreen(
                 }
             } else {
                 LazyColumn(
-                    Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     if (filteredApps.isEmpty()) {
                         item {

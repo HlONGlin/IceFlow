@@ -5,6 +5,7 @@ import androidx.core.content.edit
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingRules
 import com.iceflow.data.model.AppTheme
+import com.iceflow.data.model.NightMode
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,7 @@ class SettingsRepository(context: Context) {
             putString("socks_password", next.socksPassword)
             putBoolean("dns_proxy_enabled", next.dnsProxyEnabled)
             putString("theme", next.theme.name)
+            putString("night_mode", next.nightMode.name)
             putString("routing_mode", next.routingMode.name)
             putBoolean("show_traffic_stats", next.showTrafficStats)
             putInt("log_retention_days", next.logRetentionDays)
@@ -67,6 +69,7 @@ class SettingsRepository(context: Context) {
             socksPassword = prefs.getString("socks_password", "") ?: "",
             dnsProxyEnabled = prefs.getBoolean("dns_proxy_enabled", true),
             theme = runCatching { AppTheme.valueOf(prefs.getString("theme", d.theme.name)!!) }.getOrDefault(d.theme),
+            nightMode = runCatching { NightMode.valueOf(prefs.getString("night_mode", d.nightMode.name)!!) }.getOrDefault(d.nightMode),
             routingMode = runCatching { com.iceflow.data.model.RoutingMode.valueOf(prefs.getString("routing_mode", d.routingMode.name)!!) }.getOrDefault(d.routingMode),
             showTrafficStats = prefs.getBoolean("show_traffic_stats", false),
             logRetentionDays = prefs.getInt("log_retention_days", 3),
