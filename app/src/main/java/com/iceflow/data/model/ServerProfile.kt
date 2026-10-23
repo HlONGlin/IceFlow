@@ -148,7 +148,7 @@ data class ServerStore(
 }
 
 const val LOCAL_GROUP_KEY = "builtin:local"
-enum class AppTheme { ICE, LAVENDER, MINT, SUNSET, DARK }
+enum class AppTheme { LIGHT_BLUE, MINT_GREEN, SAKURA_PINK, PEACH_ORANGE, OBSIDIAN_BLACK }
 data class NodeGroup(val key: String, val id: String?, val name: String)
 
 data class AppSettings(
@@ -167,5 +167,5 @@ data class AppSettings(
     val socksUdp: Boolean = true,
     val httpProxyEnabled: Boolean = false,
     val dnsProxyEnabled: Boolean = true,
-    val theme: AppTheme = AppTheme.ICE,
+    val theme: AppTheme = AppTheme.LIGHT_BLUE,
 )

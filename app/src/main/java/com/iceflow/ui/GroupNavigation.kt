@@ -2,7 +2,15 @@ package com.iceflow.ui
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -13,6 +21,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -23,6 +34,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.zIndex
 import com.iceflow.data.model.NodeGroup
 import com.iceflow.ui.theme.IceBlue
@@ -48,20 +60,37 @@ import kotlinx.coroutines.launch
         LaunchedEffect(pager) {
             snapshotFlow { pager.settledPage }.distinctUntilChanged().drop(1).collect { select(groups[it].id) }
         }
-        Column(modifier) {
-            ScrollableTabRow(
-                selectedTabIndex = pager.currentPage, edgePadding = 16.dp,
-                containerColor = Color.White, contentColor = IceBlue,
-                divider = { HorizontalDivider(color = Color(0xFFEEF2F6)) },
+        val colors = MaterialTheme.colorScheme
+        val nodeSurface = colors.surface
+        Column(modifier.background(nodeSurface)) {
+             ScrollableTabRow(
+                 selectedTabIndex = pager.currentPage, edgePadding = 12.dp,
+                  modifier = Modifier.height(42.dp),
+                  containerColor = colors.surface, contentColor = colors.primary,
+                  indicator = { positions ->
+                      if (positions.isNotEmpty()) {
+                          val position = positions[pager.currentPage.coerceIn(0, positions.lastIndex)]
+                           Canvas(Modifier.fillMaxSize()) {
+                               val y = size.height - 1.dp.toPx()
+                               drawLine(colors.primary, Offset(position.left.toPx() + 12.dp.toPx(), y), Offset(position.right.toPx() - 12.dp.toPx(), y), 2.dp.toPx())
+                           }
+                      }
+                  },
+                 divider = { HorizontalDivider(color = Color.Transparent) },
             ) {
                 groups.forEachIndexed { index, group ->
-                    Tab(selected = pager.currentPage == index, onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                        selectedContentColor = IceBlue, unselectedContentColor = Color(0xFF8E8E93),
-                        text = { Text(group.name, style = MaterialTheme.typography.bodySmall, maxLines = 1) },
-                        modifier = Modifier.testTag("group-tab:${group.key}"))
+                    val selected = pager.currentPage == index
+                    val textColor by animateColorAsState(if (selected) colors.primary else colors.onSurfaceVariant, tween(380), label = "groupText")
+                    Box(Modifier.height(38.dp)
+                        .selectable(selected = selected, role = Role.Tab,
+                            interactionSource = remember { MutableInteractionSource() }, indication = null,
+                            onClick = { scope.launch { pager.animateScrollToPage(index, animationSpec = tween(480, easing = FastOutSlowInEasing)) } })
+                        .padding(horizontal = 16.dp).testTag("group-tab:${group.key}"), contentAlignment = Alignment.Center) {
+                        Text(group.name, color = textColor, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+                    }
                 }
             }
-            HorizontalPager(pager, key = { groups[it].key }, modifier = Modifier.weight(1f).fillMaxWidth().testTag("group-pager")) { index -> content(groups[index]) }
+             HorizontalPager(pager, key = { groups[it].key }, modifier = Modifier.weight(1f).fillMaxWidth().testTag("group-pager")) { index -> content(groups[index]) }
         }
     }
 }

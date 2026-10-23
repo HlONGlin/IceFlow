@@ -162,7 +162,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     }
     LaunchedEffect(toast) { if (toast != null) { kotlinx.coroutines.delay(2000); toast = null } }
 
-    Box(Modifier.fillMaxSize().background(Color.White)) {
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             if (nodeEditorOpen) {
                 val initialJson = rememberSaveable(nodeEditorId) {
@@ -181,7 +181,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                transitionSpec = { fadeIn(tween(360)) togetherWith fadeOut(tween(300)) },
                 label = "tab",
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
@@ -194,11 +194,16 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 }
             }
             }
-            if (!groupSettingsOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(Color.White).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            if (!groupSettingsOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Tab.entries.forEachIndexed { index, item ->
-                    Column(Modifier.weight(1f).clickable { tab = index }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(item.icon, item.title, tint = if (tab == index) IceBlue else Color(0xFF8E8E93), modifier = Modifier.size(23.dp))
-                        Text(item.title, style = MaterialTheme.typography.labelSmall, color = if (tab == index) IceBlue else Color(0xFF8E8E93))
+                    val moduleInteraction = remember { MutableInteractionSource() }
+                    Column(Modifier.weight(1f).clickable(
+                        interactionSource = moduleInteraction,
+                        indication = null,
+                        onClick = { tab = index },
+                    ), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(item.icon, item.title, tint = if (tab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(23.dp))
+                        Text(item.title, style = MaterialTheme.typography.labelSmall, color = if (tab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -213,8 +218,8 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
 
 @Composable private fun PageTitle(title: String, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-        if (action != null) TextButton(onClick = { onAction?.invoke() }, contentPadding = PaddingValues(0.dp)) { Text(action, color = IceBlue, style = MaterialTheme.typography.bodyMedium) }
+        Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
+        if (action != null) TextButton(onClick = { onAction?.invoke() }, contentPadding = PaddingValues(0.dp)) { Text(action, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium) }
     }
 }
 
@@ -246,11 +251,11 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     }.filter { query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true) }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (searchOpen) "搜索" else "IceFlow", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }) { Icon(if (searchOpen) Icons.Filled.Close else Icons.Filled.Search, "搜索节点", tint = IceBlue) }
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (searchOpen) "搜索" else "IceFlow", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }) { Icon(if (searchOpen) Icons.Filled.Close else Icons.Filled.Search, "搜索节点", tint = MaterialTheme.colorScheme.primary) }
                 Box {
-                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, "添加节点", tint = IceBlue) }
+                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, "添加节点", tint = MaterialTheme.colorScheme.primary) }
                     IceDropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                         IceMenuItem("从剪贴板导入", Icons.Filled.List) { addMenu = false; onImportClipboard() }
                         IceMenuItem("手动输入", Icons.Filled.Add) { addMenu = false; onAddNode() }
@@ -259,34 +264,38 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                     }
                 }
                 Box {
-                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Filled.MoreVert, "更多操作", tint = IceBlue) }
+                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Filled.MoreVert, "更多操作", tint = MaterialTheme.colorScheme.primary) }
                     IceDropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
                         IceMenuItem("更新订阅", Icons.Filled.Refresh) { moreMenu = false; onRefreshSubs() }
                         IceMenuItem(if (testing) "测速中…" else "测试连接速度", Icons.Filled.Send, enabled = !testing) { moreMenu = false; onTest() }
-                        HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = Color(0xFFF0F2F5))
+                        HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                         IceMenuItem("按延迟排序", Icons.Filled.List) { moreMenu = false; onSort() }
                         IceMenuItem("节点去重", Icons.Filled.Check) { moreMenu = false; onDedupe() }
                     }
                 }
             }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                val nodes = store.servers.filter { query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true) }
-                if (nodes.isEmpty()) item { Text(if (query.isBlank()) "暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8E93), modifier = Modifier.fillMaxWidth().padding(24.dp)) }
-                items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }) }
+            GroupPager(store.orderedGroups, groupId, onSelectGroup, Modifier.weight(1f)) { group ->
+                val nodes = visibleNodes(group.id)
+                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    if (nodes.isEmpty()) item { Text(if (query.isBlank()) "此分组暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
+                    items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }) }
+                }
             }
         }
         AnimatedVisibility(
             visibleState = panelVisibility,
-            modifier = Modifier.align(Alignment.BottomCenter),
-            enter = expandVertically(expandFrom = Alignment.Bottom, animationSpec = spring(dampingRatio = .88f, stiffness = 340f)) + fadeIn(tween(220)),
-            exit = shrinkVertically(shrinkTowards = Alignment.Bottom, animationSpec = tween(220)),
+            // Keep the floating connect control visually separate from the expanded bar.
+             modifier = Modifier.align(Alignment.BottomCenter),
+            enter = expandVertically(expandFrom = Alignment.Bottom, animationSpec = tween(420)) + fadeIn(tween(380)),
+            exit = shrinkVertically(shrinkTowards = Alignment.Bottom, animationSpec = tween(360)),
         ) {
             val panelState = if (!running) lastRunningState else state
             ConnectionPanel(panelState, traffic, now, connectionTest, onTestConnection)
         }
-        Box(Modifier.align(Alignment.BottomCenter).padding(bottom = if (running) 8.dp else 10.dp)) { ConnectOrb(state, onToggle, 54.dp) }
-        if (toast != null) Text(toast, color = Color.White, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).background(Color(0xCC3C3C43), CircleShape).padding(horizontal = 18.dp, vertical = 9.dp))
+        // The control floats over the panel edge instead of leaving an empty gap.
+        Box(Modifier.align(Alignment.BottomCenter).offset(y = (-28).dp)) { ConnectOrb(state, onToggle, 54.dp) }
+        if (toast != null) Text(toast, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), CircleShape).padding(horizontal = 18.dp, vertical = 9.dp))
     }
 }
 
@@ -296,17 +305,20 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .91f else 1f, spring(dampingRatio = .6f, stiffness = 480f), label = "connectPress")
-    val orbColor by animateColorAsState(if (connected) IceBlue else Color.White, tween(280), label = "connectColor")
-    val iconColor by animateColorAsState(if (connected) Color.White else IceBlue, tween(220), label = "connectIcon")
-    val halo by animateFloatAsState(if (connected || busy) 1f else .35f, tween(360), label = "connectHalo")
-    Box(Modifier.size(size + 14.dp).graphicsLayer { scaleX = scale; scaleY = scale }, contentAlignment = Alignment.Center) {
-        Box(Modifier.size(size + 12.dp).background(IceCyan.copy(alpha = halo), CircleShape).border(1.dp, Color.White.copy(alpha = .7f), CircleShape))
-        Box(Modifier.size(size).shadow(if (pressed) 2.dp else 8.dp, CircleShape, ambientColor = IceBlue.copy(alpha = .25f), spotColor = IceBlue.copy(alpha = .32f))
-            .background(Brush.verticalGradient(listOf(if (connected) Color(0xFF60ACFF) else Color.White, orbColor)), CircleShape)
-            .border(1.dp, if (connected) Color.White.copy(alpha = .3f) else IceCyan, CircleShape).clip(CircleShape)
+    val orbColor by animateColorAsState(if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface, tween(420), label = "connectColor")
+    val iconColor by animateColorAsState(if (connected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary, tween(380), label = "connectIcon")
+    val rimColor by animateColorAsState(androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.surface, orbColor, .22f), tween(420), label = "connectRim")
+    Box(Modifier.size(size).graphicsLayer { scaleX = scale; scaleY = scale }
+        .shadow(5.dp, CircleShape, ambientColor = Color.Black.copy(alpha = .10f), spotColor = Color.Black.copy(alpha = .12f))
+        .background(Brush.radialGradient(listOf(orbColor, rimColor)), CircleShape)
+        .border(1.dp, rimColor, CircleShape)
+        .padding(2.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize()
+            .background(Brush.verticalGradient(if (connected) listOf(MaterialTheme.colorScheme.primary.copy(alpha = .84f), orbColor) else listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant)), CircleShape)
+            .clip(CircleShape)
             .clickable(enabled = !busy, interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick), contentAlignment = Alignment.Center) {
-            AnimatedContent(targetState = busy, transitionSpec = { fadeIn(tween(160)) togetherWith fadeOut(tween(120)) }, label = "connectStatus") { loading ->
-                if (loading) CircularProgressIndicator(color = IceBlue, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
+            AnimatedContent(targetState = busy, transitionSpec = { fadeIn(tween(320)) togetherWith fadeOut(tween(240)) }, label = "connectStatus") { loading ->
+                if (loading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
                 else Icon(Icons.Filled.Send, if (connected) "断开连接" else "连接", tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
             }
         }
@@ -316,9 +328,9 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
 @Composable internal fun ConnectionPanel(state: VpnState, traffic: TrafficSnapshot, now: Long, test: ConnectionTestState, onTest: () -> Unit, modifier: Modifier = Modifier) {
     val connected = state is VpnState.Connected
     val busy = state == VpnState.Connecting || state == VpnState.Stopping
-    val panelColor by animateColorAsState(if (connected) IceBlue else if (busy) IceCyan else Color.White, tween(280), label = "panelColor")
-    val textColor = if (connected) Color.White else Color(0xFF3C3C43)
-    val secondaryColor = if (connected) Color.White.copy(alpha = .78f) else Color(0xFF8E8E93)
+    val panelColor by animateColorAsState(if (connected) MaterialTheme.colorScheme.primary else if (busy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface, tween(420), label = "panelColor")
+    val textColor = if (connected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val secondaryColor = if (connected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .78f) else MaterialTheme.colorScheme.onSurfaceVariant
     Row(modifier.fillMaxWidth().padding(top = 8.dp).shadow(8.dp).background(panelColor)
         .clickable(enabled = connected && !test.testing, onClick = onTest)
         .height(64.dp).padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -344,13 +356,13 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
 }
 
 @Composable private fun InfoCard(selected: ServerProfile?, state: VpnState, traffic: TrafficSnapshot, publicIp: String?, now: Long, openNodes: () -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = openNodes).padding(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Info, null, tint = IceBlue, modifier = Modifier.size(22.dp)); Spacer(Modifier.size(10.dp)); Text(selected?.name ?: "选择一个节点", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis); Text(selected?.latencyMs?.let { "$it ms" } ?: "未测速", color = latencyColor(selected?.latencyMs), style = MaterialTheme.typography.bodyMedium) }
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp)).clickable(onClick = openNodes).padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)); Spacer(Modifier.size(10.dp)); Text(selected?.name ?: "选择一个节点", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis); Text(selected?.latencyMs?.let { "$it ms" } ?: "未测速", color = latencyColor(selected?.latencyMs), style = MaterialTheme.typography.bodyMedium) }
         Spacer(Modifier.height(18.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Metric("IP", publicIp ?: if (state is VpnState.Connected) "查询中" else "--"); Metric("连接时长", if (state is VpnState.Connected) formatDuration(now - state.since) else "--"); Metric("下载", formatSpeed(traffic.downSpeed)); Metric("上传", formatSpeed(traffic.upSpeed)) }
     }
 }
 
-@Composable private fun Metric(label: String, value: String) { Column { Text(label, color = Color(0xFF8E8E93), style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) } }
+@Composable private fun Metric(label: String, value: String) { Column { Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) } }
 private fun latencyColor(value: Int?): Color = when { value == null || value < 0 -> LatencyBad; value < 100 -> LatencyGood; value < 300 -> LatencyMedium; else -> LatencyBad }
 
 @Composable private fun NodesPage(store: ServerStore, groupId: String?, testing: Boolean, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImport: () -> Unit, onAddSub: (String) -> Unit, openGroups: () -> Unit) {
@@ -359,8 +371,8 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(groupName, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = openGroups, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("分组", color = IceBlue) }
-            TextButton(onClick = onTest, enabled = !testing, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (testing) "测速中…" else "测速", color = IceBlue) }
+            TextButton(onClick = openGroups, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("分组", color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onTest, enabled = !testing, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (testing) "测速中…" else "测速", color = MaterialTheme.colorScheme.primary) }
         }
         LazyColumn(contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             val visible = store.servers.filter {
@@ -371,8 +383,8 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                 }
             }
             items(visible, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, onSelect = { onSelect(server.id) }, onTest = { onTestOne(server) }, onDelete = { onDelete(server.id) }, onMove = { onMove(server.id, it) }, onShare = { onShare(server) }, onRename = { onUpdate(server.copy(name = it)) }) }
-            item { Spacer(Modifier.height(12.dp)); Button(onClick = onImport, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = IceBlue)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.size(8.dp)); Text("从剪贴板导入节点") } }
-            item { TextButton(onClick = { dialog = true }, modifier = Modifier.fillMaxWidth()) { Text("添加订阅链接", color = IceBlue) } }
+            item { Spacer(Modifier.height(12.dp)); Button(onClick = onImport, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.size(8.dp)); Text("从剪贴板导入节点") } }
+            item { TextButton(onClick = { dialog = true }, modifier = Modifier.fillMaxWidth()) { Text("添加订阅链接", color = MaterialTheme.colorScheme.primary) } }
         }
     }
     if (dialog) AddSubscriptionDialog({ dialog = false }, { dialog = false; onAddSub(it) })
@@ -385,23 +397,23 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (selected) IceCyan else Color.White, RoundedCornerShape(12.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
             .clickable(onClick = onSelect)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("●", color = if (selected) IceBlue else Color(0xFF8E8E93), modifier = Modifier.padding(end = 12.dp))
+        Text("●", color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 12.dp))
         Column(Modifier.weight(1f)) {
-            Text(server.name, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-            Text(server.protocol.label, color = Color(0xFF8E8E93), style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
+            Text(server.name, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface)
+            Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
         }
         Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "节点操作", tint = IceBlue) }
+            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "节点操作", tint = MaterialTheme.colorScheme.primary) }
             IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 IceMenuItem("测速", Icons.Filled.Info) { menu = false; onTest() }
                 IceMenuItem("编辑", Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
                 IceMenuItem("分享节点", Icons.Filled.Share) { menu = false; onShare() }
-                HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = Color(0xFFF0F2F5))
+                HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                 IceMenuItem("删除", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
             }
         }
@@ -435,10 +447,10 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = refresh, enabled = !refreshing) {
-                    if (refreshing) CircularProgressIndicator(Modifier.size(22.dp), color = IceBlue, strokeWidth = 2.dp)
-                    else Icon(Icons.Filled.Refresh, "刷新全部订阅", tint = IceBlue)
+                    if (refreshing) CircularProgressIndicator(Modifier.size(22.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
+                    else Icon(Icons.Filled.Refresh, "刷新全部订阅", tint = MaterialTheme.colorScheme.primary)
                 }
-                IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, "新增分组", tint = IceBlue) }
+                IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, "新增分组", tint = MaterialTheme.colorScheme.primary) }
             }
             ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
                 val sub = store.subscriptions.firstOrNull { it.id == group.id }
@@ -460,7 +472,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             if (subscription != null) deleteSubscription(id) else deleteLocal(id)
             if (editingId == id) settingsOpen = false
             deletingId = null
-        }) { Text("删除", color = Color(0xFFFF3B30)) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text("取消", color = IceBlue) } })
+        }) { Text("删除", color = Color(0xFFFF3B30)) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
     }
 }
 
@@ -482,11 +494,11 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     val dirty = config != initial
     val back = { if (dirty) discard = true else onBack() }
     BackHandler(onBack = back)
-    Column(Modifier.fillMaxSize().background(Color.White).navigationBarsPadding().imePadding()) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = back) { Icon(Icons.Filled.Close, "取消", tint = IceBlue) }
-            Text("分组设置", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            TextButton(onClick = { saveError = config.validationError() ?: onConfirm(config) }) { Text("保存", color = IceBlue) }
+            IconButton(onClick = back) { Icon(Icons.Filled.Close, "取消", tint = MaterialTheme.colorScheme.primary) }
+            Text("分组设置", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            TextButton(onClick = { saveError = config.validationError() ?: onConfirm(config) }) { Text("保存", color = MaterialTheme.colorScheme.primary) }
         }
         LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
             item { SettingGroup("基本设置") {
@@ -497,20 +509,20 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             item { SettingGroup("链式代理") {
                 GroupSettingChoice("前置节点", frontNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Send) { nodePicker = "前置节点" }
                 GroupSettingChoice("落地节点", landingNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Home) { nodePicker = "落地节点" }
-                Text("连接顺序：本机 → 前置节点 → 本分组节点 → 落地节点 → 目标。请选择其他分组的节点，保存后下次连接生效。", color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Text("连接顺序：本机 → 前置节点 → 本分组节点 → 落地节点 → 目标。请选择其他分组的节点，保存后下次连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
             if (subscription) item { SettingGroup("订阅设置") {
                 GroupSettingText("订阅链接", url, "https://example.com/subscription") { url = it; saveError = null }
                 TextButton(onClick = {
                     val text = readClipboard(context)
                     if (text.isNullOrBlank()) saveError = "剪贴板中没有链接" else { url = text.trim(); saveError = null }
-                }, modifier = Modifier.padding(start = 48.dp)) { Text("从剪贴板粘贴", color = IceBlue) }
+                }, modifier = Modifier.padding(start = 48.dp)) { Text("从剪贴板粘贴", color = MaterialTheme.colorScheme.primary) }
                 GroupSettingText("更新间隔（小时）", hours, "1–720", numeric = true) { hours = it; saveError = null }
-                Text("保存后自动更新订阅；更新失败时保留原有节点，可在分组页重试。", color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
-                if (editing && !initial.subscription) Text("转为订阅后，现有节点归入该订阅；首次更新成功时会替换为链接中的节点。", color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Text("保存后自动更新订阅；更新失败时保留原有节点，可在分组页重试。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+                if (editing && !initial.subscription) Text("转为订阅后，现有节点归入该订阅；首次更新成功时会替换为链接中的节点。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
-            if (!subscription && initial.subscription) item { Text("转为基本分组后保留现有节点，并停止订阅自动更新。", color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
-            item { Text("排序设置仅作用于本分组，未测速的节点排在最后。", color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
+            if (!subscription && initial.subscription) item { Text("转为基本分组后保留现有节点，并停止订阅自动更新。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
+            item { Text("排序设置仅作用于本分组，未测速的节点排在最后。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
             saveError?.let { error -> item { Text(error, color = Color(0xFFFF3B30), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)) } }
             if (editing) item {
                 TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -536,13 +548,13 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                     if (title == "分组类型") subscription = option == "订阅" else order = GroupSort.entries.first { it.label == option }.name
                     saveError = null; chooser = null
                 }, modifier = Modifier.fillMaxWidth()) {
-                    Text(option, color = IceBlue, modifier = Modifier.weight(1f))
-                    if (option == if (title == "分组类型") { if (subscription) "订阅" else "基本" } else config.sort.label) Icon(Icons.Filled.Check, "当前选项", tint = IceBlue)
+                    Text(option, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                    if (option == if (title == "分组类型") { if (subscription) "订阅" else "基本" } else config.sort.label) Icon(Icons.Filled.Check, "当前选项", tint = MaterialTheme.colorScheme.primary)
                 }
             } }
-        }, confirmButton = { TextButton(onClick = { chooser = null }) { Text("取消", color = IceBlue) } })
+        }, confirmButton = { TextButton(onClick = { chooser = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
     }
-    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("放弃修改？") }, text = { Text("当前修改尚未保存。") }, confirmButton = { TextButton(onClick = onBack) { Text("放弃", color = Color(0xFFFF3B30)) } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("继续编辑", color = IceBlue) } })
+    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("放弃修改？") }, text = { Text("当前修改尚未保存。") }, confirmButton = { TextButton(onClick = onBack) { Text("放弃", color = Color(0xFFFF3B30)) } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("继续编辑", color = MaterialTheme.colorScheme.primary) } })
 }
 
 @Composable private fun GroupNodePicker(title: String, servers: List<ServerProfile>, selected: String?, onDismiss: () -> Unit, onSelect: (String?) -> Unit) {
@@ -551,11 +563,11 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
         Column {
             OutlinedTextField(query, { query = it }, placeholder = { Text("搜索节点", style = MaterialTheme.typography.bodySmall) }, singleLine = true, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
             LazyColumn(Modifier.height(300.dp)) {
-                item { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("禁用", color = IceBlue, modifier = Modifier.weight(1f)); if (selected == null) Icon(Icons.Filled.Check, null, tint = IceBlue) } }
+                item { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("禁用", color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f)); if (selected == null) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary) } }
                 items(servers.filter { query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true) }, key = { it.id }) { node ->
                     TextButton(onClick = { onSelect(node.id) }, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.weight(1f)) { Text(node.name, color = Color(0xFF222B38), style = MaterialTheme.typography.bodySmall); Text(node.protocol.label, color = Color(0xFF8E8E93), style = MaterialTheme.typography.labelSmall) }
-                        if (selected == node.id) Icon(Icons.Filled.Check, null, tint = IceBlue)
+                        Column(Modifier.weight(1f)) { Text(node.name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodySmall); Text(node.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall) }
+                        if (selected == node.id) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
                 if (servers.isEmpty()) item { Text("暂无可选节点，请先导入其他分组的节点。", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp)) }
@@ -566,40 +578,40 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
 
 @Composable private fun GroupSettingText(title: String, value: String, placeholder: String, numeric: Boolean = false, onValueChange: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(if (title == "订阅链接") Icons.Filled.Refresh else Icons.Filled.Settings, null, tint = IceBlue, modifier = Modifier.size(21.dp))
+        Icon(if (title == "订阅链接") Icons.Filled.Refresh else Icons.Filled.Settings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
         Spacer(Modifier.size(14.dp))
         OutlinedTextField(value, onValueChange, label = { Text(title, style = MaterialTheme.typography.bodySmall) }, placeholder = { Text(placeholder, style = MaterialTheme.typography.bodySmall) }, textStyle = MaterialTheme.typography.bodySmall, singleLine = true, shape = RoundedCornerShape(12.dp),
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (numeric) androidx.compose.ui.text.input.KeyboardType.Number else if (title == "订阅链接") androidx.compose.ui.text.input.KeyboardType.Uri else androidx.compose.ui.text.input.KeyboardType.Text),
-            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedBorderColor = IceBlue, focusedLabelColor = IceBlue, cursorColor = IceBlue), modifier = Modifier.weight(1f))
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary, cursorColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f))
     }
 }
 
 @Composable private fun GroupSettingChoice(title: String, value: String, icon: ImageVector, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = IceBlue, modifier = Modifier.size(21.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
         Spacer(Modifier.size(14.dp))
-        Text(title, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-        Text(value, color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
-        Text(" ›", color = Color(0xFF8E8E93), style = MaterialTheme.typography.titleMedium)
+        Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+        Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 160.dp))
+        Text(" ›", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleMedium)
     }
 }
 
 @Composable private fun MoveNodeDialog(groups: List<com.iceflow.data.model.LocalGroup>, onDismiss: () -> Unit, onSelect: (String?) -> Unit) {
     AlertDialog(onDismissRequest = onDismiss, title = { Text("移动到分组") }, text = {
-        Column { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("本地节点", color = IceBlue) }; groups.forEach { group -> TextButton(onClick = { onSelect(group.id) }, modifier = Modifier.fillMaxWidth()) { Text(group.name, color = IceBlue) } } }
+        Column { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("本地节点", color = MaterialTheme.colorScheme.primary) }; groups.forEach { group -> TextButton(onClick = { onSelect(group.id) }, modifier = Modifier.fillMaxWidth()) { Text(group.name, color = MaterialTheme.colorScheme.primary) } } }
     }, confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
 }
 
 @Composable private fun GroupCard(title: String, subtitle: String, selected: Boolean, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?, handle: Modifier, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
-        if (selected) Box(Modifier.fillMaxWidth().height(3.dp).background(IceBlue, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)))
+    Box(Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
+        if (selected) Box(Modifier.fillMaxWidth().height(3.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)))
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(handle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.List, "长按拖动$title 排序", tint = if (selected) IceBlue else Color(0xFF8E8E93), modifier = Modifier.size(24.dp)) }
+            Box(handle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.List, "长按拖动$title 排序", tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.size(12.dp))
-            Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal); Text(subtitle, color = Color(0xFF8E8E93), style = MaterialTheme.typography.labelSmall, fontSize = 10.sp) }
-            if (onEdit != null) TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("编辑", color = IceBlue) }
+            Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp) }
+            if (onEdit != null) TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("编辑", color = MaterialTheme.colorScheme.primary) }
             if (onDelete != null) IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "删除$title", tint = Color(0xFFFF3B30), modifier = Modifier.size(20.dp)) }
-            if (selected) Icon(Icons.Filled.Check, "已选", tint = IceBlue, modifier = Modifier.size(22.dp))
+            if (selected) Icon(Icons.Filled.Check, "已选", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
         }
     }
 }
@@ -610,21 +622,21 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
         onDismissRequest = onDismissRequest,
         modifier = Modifier.widthIn(min = 208.dp, max = 264.dp),
         shape = RoundedCornerShape(18.dp),
-        containerColor = Color.White,
+        containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
         shadowElevation = 8.dp,
-        border = BorderStroke(1.dp, Color(0xFFEAF0F6)),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
         content = content,
     )
 }
 
 @Composable internal fun IceMenuItem(title: String, icon: ImageVector, enabled: Boolean = true, destructive: Boolean = false, onClick: () -> Unit) {
-    val tint = if (destructive) Color(0xFFFF3B30) else IceBlue
+    val tint = if (destructive) Color(0xFFFF3B30) else MaterialTheme.colorScheme.primary
     DropdownMenuItem(
-        text = { Text(title, style = MaterialTheme.typography.bodyMedium, color = if (!enabled) Color(0xFF8E8E93) else if (destructive) tint else Color(0xFF222B38)) },
+        text = { Text(title, style = MaterialTheme.typography.bodyMedium, color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant else if (destructive) tint else MaterialTheme.colorScheme.onSurface) },
         leadingIcon = {
             Box(Modifier.size(30.dp).background(tint.copy(alpha = if (enabled) .08f else .04f), RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = if (enabled) tint else Color(0xFF8E8E93), modifier = Modifier.size(18.dp))
+                Icon(icon, null, tint = if (enabled) tint else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         },
         enabled = enabled,
@@ -635,7 +647,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
 
 private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else SimpleDateFormat("MM月dd日 HH:mm", Locale.getDefault()).format(Date(value))
 
-@Composable internal fun SettingsPage(settings: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit, version: String, viewLogs: () -> Unit, openApps: () -> Unit) {
+@Composable internal fun SettingsPage(settings: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit, version: String, viewLogs: () -> Unit, openApps: () -> Unit = {}) {
     var urlOpen by rememberSaveable { mutableStateOf(false) }
     var dnsOpen by rememberSaveable { mutableStateOf(false) }
     var themeOpen by rememberSaveable { mutableStateOf(false) }
@@ -655,7 +667,7 @@ private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else
             SettingSwitch("DNS 路由", settings.dnsProxyEnabled, Icons.Filled.Settings) { update { it.copy(dnsProxyEnabled = !it.dnsProxyEnabled) } }
             Column(Modifier.fillMaxWidth().clickable { url = settings.testUrl; error = null; urlOpen = true }) {
                 SettingRow("测试 URL", "修改", Icons.Filled.Send)
-                Text(settings.testUrl, color = Color(0xFF8E8E93), style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 51.dp, end = 16.dp, bottom = 12.dp))
+                Text(settings.testUrl, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 51.dp, end = 16.dp, bottom = 12.dp))
             }
         } }
         item { SettingGroup("高级") { SettingAction("查看运行日志", Icons.Filled.List, viewLogs) } }
@@ -667,31 +679,138 @@ private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
     } }, confirmButton = { TextButton({ runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(url) }.onSuccess { valid -> update { it.copy(testUrl = valid) }; urlOpen = false }.onFailure { error = it.message } }) { Text("保存") } }, dismissButton = { TextButton({ urlOpen = false }) { Text("取消") } })
     if (dnsOpen) AlertDialog(onDismissRequest = { dnsOpen = false }, title = { Text("DNS 设置") }, text = { EditorInput("每行一个 DNS 地址", dns, { dns = it }, multiline = true) }, confirmButton = { TextButton({ val values = dns.lines().map { it.trim() }.filter { it.isNotEmpty() }; if (values.isNotEmpty()) { update { it.copy(dnsServers = values, remoteDns = values.first()) }; dnsOpen = false } }) { Text("保存") } }, dismissButton = { TextButton({ dnsOpen = false }) { Text("取消") } })
-    if (themeOpen) AlertDialog(onDismissRequest = { themeOpen = false }, title = { Text("选择主题") }, text = { Column { com.iceflow.data.model.AppTheme.values().forEach { item -> Row(Modifier.fillMaxWidth().clickable { update { it.copy(theme = item) }; themeOpen = false }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Text(themeLabel(item), modifier = Modifier.weight(1f)); if (item == settings.theme) Icon(Icons.Filled.Check, null, tint = IceBlue) } } } }, confirmButton = {})
+    if (themeOpen) ThemeSelectionDialog(
+        currentTheme = settings.theme,
+        onDismiss = { themeOpen = false },
+        onThemeSelected = { theme ->
+            update { it.copy(theme = theme) }
+            themeOpen = false
+        }
+    )
+}
+
+@Composable
+private fun ThemeSelectionDialog(
+    currentTheme: com.iceflow.data.model.AppTheme,
+    onDismiss: () -> Unit,
+    onThemeSelected: (com.iceflow.data.model.AppTheme) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = { 
+            Text(
+                "选择主题",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            ) 
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                com.iceflow.data.model.AppTheme.values().forEach { theme ->
+                    ThemePreviewCard(
+                        theme = theme,
+                        isSelected = theme == currentTheme,
+                        onClick = { onThemeSelected(theme) }
+                    )
+                }
+            }
+        },
+        confirmButton = {}
+    )
+}
+
+@Composable
+private fun ThemePreviewCard(
+    theme: com.iceflow.data.model.AppTheme,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val (primaryColor, secondaryColor) = when (theme) {
+        com.iceflow.data.model.AppTheme.LIGHT_BLUE -> Color(0xFF007AFF) to Color(0xFFE5F3FF)
+        com.iceflow.data.model.AppTheme.MINT_GREEN -> Color(0xFF00C896) to Color(0xFFE5F9F1)
+        com.iceflow.data.model.AppTheme.SAKURA_PINK -> Color(0xFFFF6B9D) to Color(0xFFFFE5EE)
+        com.iceflow.data.model.AppTheme.PEACH_ORANGE -> Color(0xFFFF9F5A) to Color(0xFFFFEDD9)
+        com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> Color(0xFF3A9DFF) to Color(0xFF1A3A52)
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                else MaterialTheme.colorScheme.surfaceVariant
+            )
+            .clickable(onClick = onClick)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // 配色预览
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(primaryColor)
+            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(secondaryColor)
+            )
+        }
+        
+        // 主题名称
+        Text(
+            text = themeLabel(theme),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f)
+        )
+        
+        // 选中标记
+        if (isSelected) {
+            Icon(
+                Icons.Filled.Check,
+                contentDescription = "已选中",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
 }
 
 private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
-    com.iceflow.data.model.AppTheme.ICE -> "冰蓝"
-    com.iceflow.data.model.AppTheme.LAVENDER -> "薰衣草紫"
-    com.iceflow.data.model.AppTheme.MINT -> "薄荷绿"
-    com.iceflow.data.model.AppTheme.SUNSET -> "日落橙"
-    com.iceflow.data.model.AppTheme.DARK -> "深夜蓝"
+    com.iceflow.data.model.AppTheme.LIGHT_BLUE -> "浅蓝"
+    com.iceflow.data.model.AppTheme.MINT_GREEN -> "薄荷绿"
+    com.iceflow.data.model.AppTheme.SAKURA_PINK -> "樱花粉"
+    com.iceflow.data.model.AppTheme.PEACH_ORANGE -> "蜜桃橙"
+    com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> "曜石黑"
 }
 
 @Composable private fun AppSelectionPage(selected: List<String>, update: (List<String>) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val packageManager = context.packageManager
     val apps = remember { packageManager.getInstalledApplications(0).sortedBy { it.loadLabel(packageManager).toString() } }
-    Column(modifier.statusBarsPadding().fillMaxSize().background(Color.White)) {
+    Column(modifier.statusBarsPadding().fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.fillMaxWidth().height(68.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = IceBlue) }
-            Text("选择绕过应用", style = MaterialTheme.typography.titleMedium)
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.primary) }
+            Text("选择绕过应用", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
         }
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
             items(apps, key = { it.packageName }) { app ->
                 val checked = app.packageName in selected
                 Row(Modifier.fillMaxWidth().clickable { update(if (checked) selected - app.packageName else selected + app.packageName) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(app.loadLabel(packageManager).toString(), style = MaterialTheme.typography.bodySmall); Text(app.packageName, style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8E93)) }
+                    Column(Modifier.weight(1f)) { Text(app.loadLabel(packageManager).toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface); Text(app.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Checkbox(checked, null)
                 }
             }
@@ -699,10 +818,10 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
     }
 }
 
-@Composable private fun SettingGroup(title: String, content: @Composable () -> Unit) { Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) { Text(title, color = Color(0xFF8E8E93), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)); Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(14.dp))) { content() } } }
-@Composable private fun SettingRow(title: String, value: String, icon: ImageVector) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = IceBlue, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); Text(value, color = Color(0xFF8E8E93), style = MaterialTheme.typography.bodySmall) } }
-@Composable private fun SettingAction(title: String, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = IceBlue, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); Text("查看", color = IceBlue, style = MaterialTheme.typography.bodySmall) } }
-@Composable private fun SettingSwitch(title: String, checked: Boolean, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = IceBlue, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)); Switch(checked, { onClick() }) } }
+@Composable private fun SettingGroup(title: String, content: @Composable () -> Unit) { Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) { Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)); Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))) { content() } } }
+@Composable private fun SettingRow(title: String, value: String, icon: ImageVector) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) } }
+@Composable private fun SettingAction(title: String, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Text("查看", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) } }
+@Composable private fun SettingSwitch(title: String, checked: Boolean, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Switch(checked, { onClick() }) } }
 
 @Composable private fun AddSubscriptionDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) { var url by rememberSaveable { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("添加订阅") }, text = { OutlinedTextField(url, { url = it }, label = { Text("订阅地址") }, singleLine = true) }, confirmButton = { TextButton(onClick = { onConfirm(url.trim()) }, enabled = url.startsWith("http")) { Text("添加") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }) }
 

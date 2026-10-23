@@ -52,14 +52,14 @@ import kotlinx.serialization.json.*
                 }
             }
             if (rawMode) {
-                Text("可编辑该节点全部嵌套参数。保存时保留原 ID 与分组。", style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8E93))
+                Text("可编辑该节点全部嵌套参数。保存时保留原 ID 与分组。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 EditorInput("Clash 节点 JSON", raw, { raw = it }, multiline = true)
             } else {
                 EditorInput("节点名称", profile.name, { value -> edit { it.copy(name = value) } })
                 if (initial.clashConfig == null) EditorChoice("协议", profile.protocol.label, Protocol.entries.map { it.label }) { index ->
                     val type = Protocol.entries[index]
                     edit { NodeEditing.blank(type).copy(id = it.id, name = it.name, address = it.address, port = it.port, groupId = it.groupId, subscriptionId = it.subscriptionId) }; options = "{}"; alterId = "0"
-                } else Text("协议：${profile.protocol.label} · 高级嵌套参数可在原始 JSON 编辑", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8E93))
+                } else Text("协议：${profile.protocol.label} · 高级嵌套参数可在原始 JSON 编辑", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 EditorInput("服务器地址", profile.address, { value -> edit { it.copy(address = value) } }, "域名 / IPv4 / IPv6")
                 EditorInput("服务器端口", port, { port = it })
                 if (profile.protocol in listOf(Protocol.VMESS, Protocol.VLESS, Protocol.TUIC)) EditorInput("UUID", profile.uuid, { value -> edit { it.copy(uuid = value) } })
@@ -103,10 +103,10 @@ import kotlinx.serialization.json.*
                     }
                     val map = runCatching { NodeEditing.options(options) }.getOrDefault(emptyMap())
                     keys.forEach { (key, label) -> EditorInput(label, if (profile.protocol == Protocol.WIREGUARD && key == "public-key") profile.publicKey.ifEmpty { map[key].orEmpty() } else map[key].orEmpty(), { value -> val next = map.toMutableMap(); if (value.isEmpty()) next.remove(key) else next[key] = value; options = JsonObject(next.mapValues { JsonPrimitive(it.value) }).toString(); if (profile.protocol == Protocol.WIREGUARD && key == "public-key") edit { it.copy(publicKey = value) } }) }
-                    Text("其他参数（JSON 字符串键值）", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8E93))
+                    Text("其他参数（JSON 字符串键值）", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     EditorInput("扩展参数 JSON", options, { options = it }, multiline = true)
                 }
-                if (initial.subscriptionId != null) Text("订阅刷新可能覆盖手动修改。", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8E93))
+                if (initial.subscriptionId != null) Text("订阅刷新可能覆盖手动修改。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

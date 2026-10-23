@@ -54,4 +54,10 @@ object VpnController {
         runCatching { context.startService(intent) }
             .onFailure { Log.w("VpnController", "stop failed: $it") }
     }
+
+    fun switch(context: Context) {
+        val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_SWITCH)
+        runCatching { context.startService(intent) }
+            .onFailure { Log.w("VpnController", "switch failed: $it") }
+    }
 }

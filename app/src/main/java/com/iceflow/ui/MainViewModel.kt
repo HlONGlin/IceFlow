@@ -106,7 +106,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    fun select(id: String) = container.servers.select(id)
+    fun select(id: String) {
+        container.servers.select(id)
+        if (vpnState.value is VpnState.Connected) VpnController.switch(getApplication())
+    }
     fun delete(id: String) = container.servers.delete(id)
     fun updateServer(server: ServerProfile) = container.servers.updateServer(server)
     fun saveServer(server: ServerProfile): String? = runCatching {

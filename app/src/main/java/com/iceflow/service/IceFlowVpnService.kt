@@ -38,6 +38,7 @@ class IceFlowVpnService : VpnService() {
     companion object {
         const val ACTION_START = "com.iceflow.action.START"
         const val ACTION_STOP = "com.iceflow.action.STOP"
+        const val ACTION_SWITCH = "com.iceflow.action.SWITCH"
         const val CHANNEL_ID = "vpn"
 
         private const val TAG = "IceFlowVpnService"
@@ -54,6 +55,15 @@ class IceFlowVpnService : VpnService() {
     private var statsJob: Job? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SWITCH) {
+            scope.launch {
+                cleanup()
+                VpnController.setState(VpnState.Idle)
+                delay(120)
+                startVpn()
+            }
+            return START_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             scope.launch { stopVpn() }
             return START_NOT_STICKY
