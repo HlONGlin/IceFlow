@@ -4,6 +4,7 @@ import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.Protocol
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
+import com.iceflow.data.model.RoutingMode
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonObject
@@ -61,8 +62,17 @@ object XrayConfigBuilder {
                         put("port", settings.socksPort)
                         put("protocol", "socks")
                         putJsonObject("settings") {
-                            put("auth", "noauth")
-                            put("udp", true)
+                            val hasCredentials = settings.socksUsername.isNotBlank() && settings.socksPassword.isNotBlank()
+                            put("auth", if (hasCredentials) "password" else "noauth")
+                            if (hasCredentials) {
+                                putJsonArray("accounts") {
+                                    addJsonObject {
+                                        put("user", settings.socksUsername)
+                                        put("pass", settings.socksPassword)
+                                    }
+                                }
+                            }
+                            put("udp", settings.socksUdp)
                         }
                         putJsonObject("sniffing") {
                             put("enabled", true)
@@ -96,7 +106,11 @@ object XrayConfigBuilder {
             putJsonObject("routing") {
                 put("domainStrategy", "IPIfNonMatch")
                 putJsonArray("rules") {
-                    settings.routingRules.filter { it.enabled && (it.id != "builtin:private" || settings.bypassLan) }.forEach { rule ->
+                    if (settings.routingMode == RoutingMode.GLOBAL) {
+                        add(buildJsonObject { put("type", "field"); put("outboundTag", PROXY_TAG) })
+                    } else if (settings.routingMode == RoutingMode.DIRECT) {
+                        add(buildJsonObject { put("type", "field"); put("outboundTag", "direct") })
+                    } else settings.routingRules.filter { it.enabled && (it.id != "builtin:private" || settings.bypassLan) }.forEach { rule ->
                         rule.validate()
                         if (rule.id == "builtin:private" && rule.ips == listOf("geoip:private")) add(buildJsonObject {
                             rule.toXray().forEach { (k, v) -> put(k, v) }

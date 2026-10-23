@@ -81,7 +81,7 @@ class GroupSettingsTest {
 
     @Test fun sortingAndValidationCoverInvalidInputAndUntestedNodes() {
         assertNotNull(GroupConfiguration(name = "Sub", subscription = true, url = "https:").validationError())
-        assertNotNull(GroupConfiguration(name = "Sub", subscription = true, url = "https://example.com", intervalHours = 0).validationError())
+        assertNull(GroupConfiguration(name = "Sub", subscription = true, url = "https://example.com", intervalHours = 0).validationError())
         val nodes = listOf(null, -1, 80, 10).map { ServerProfile(name = "N$it", protocol = Protocol.VLESS, address = "example.com", port = 443, latencyMs = it) }
         assertEquals(listOf(10, 80, -1, null), GroupSort.LATENCY.apply(nodes).map { it.latencyMs })
         assertEquals(nodes, GroupSort.ORIGINAL.apply(nodes))
@@ -118,6 +118,48 @@ class GroupSettingsTest {
         assertTrue(runCatching { repository.saveGroup(config) }.isFailure)
         assertNotNull(config.copy(landingNodeId = front.id).validationError())
         assertTrue(runCatching { repository.saveGroup(config.copy(frontNodeId = middle.id)) }.isFailure)
+    }
+
+    @Test fun reorderServersUpdatesOrderAndSetsOriginalSort() {
+        val file = temp.newFile()
+        val repository = ServerRepository(file)
+        val groupA = GroupConfiguration(name = "A")
+        repository.saveGroup(groupA)
+        val groupB = GroupConfiguration(name = "B", subscription = true, url = "https://example.com/b")
+        repository.saveGroup(groupB)
+        // 三个节点在 groupA 里
+        val n1 = ServerProfile(name = "N1", protocol = Protocol.VLESS, address = "a.example", port = 443, groupId = groupA.id)
+        val n2 = ServerProfile(name = "N2", protocol = Protocol.VLESS, address = "b.example", port = 443, groupId = groupA.id)
+        val n3 = ServerProfile(name = "N3", protocol = Protocol.VLESS, address = "c.example", port = 443, groupId = groupA.id)
+        // 一个节点在 groupB（不应受影响）
+        val nOther = ServerProfile(name = "Other", protocol = Protocol.VLESS, address = "other.example", port = 443, subscriptionId = groupB.id)
+        repository.addServers(listOf(n1, n2, n3, nOther))
+        // 改变为 N3, N1, N2 的顺序
+        repository.reorderServers(groupA.id, listOf(n3.id, n1.id, n2.id))
+        val store = repository.store.value
+        val groupANodes = store.servers.filter { it.groupId == groupA.id }
+        assertEquals(listOf(n3.id, n1.id, n2.id), groupANodes.map { it.id })
+        assertEquals(GroupSort.ORIGINAL, store.localGroups.first { it.id == groupA.id }.sort)
+        // groupB 中的节点顺序未变
+        assertEquals(nOther.id, store.servers.first { it.subscriptionId == groupB.id }.id)
+        // 持久化后重新加载结果一致
+        val reloaded = ServerRepository(file).store.value
+        assertEquals(listOf(n3.id, n1.id, n2.id), reloaded.servers.filter { it.groupId == groupA.id }.map { it.id })
+    }
+
+    @Test fun reorderServersOnLocalGroup_setsLocalSort() {
+        val repository = ServerRepository(temp.newFile())
+        val n1 = ServerProfile(name = "N1", protocol = Protocol.VLESS, address = "a.example", port = 443)
+        val n2 = ServerProfile(name = "N2", protocol = Protocol.VLESS, address = "b.example", port = 443)
+        repository.addServers(listOf(n1, n2))
+        // 先设置为 NAME 排序
+        repository.setGroupSort(null, GroupSort.NAME)
+        assertEquals(GroupSort.NAME, repository.store.value.localSort)
+        // 手动重排后，本地分组排序应切回 ORIGINAL
+        repository.reorderServers(null, listOf(n2.id, n1.id))
+        assertEquals(GroupSort.ORIGINAL, repository.store.value.localSort)
+        val localNodes = repository.store.value.servers.filter { it.subscriptionId == null && it.groupId == null }
+        assertEquals(listOf(n2.id, n1.id), localNodes.map { it.id })
     }
 
     @Test fun subscriptionRefreshKeepsReferencedNodeIdentityAndDoesNotReplaceRemovedHop() {

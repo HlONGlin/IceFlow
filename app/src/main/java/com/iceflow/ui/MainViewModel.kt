@@ -5,12 +5,12 @@ import com.iceflow.BuildConfig
 import com.iceflow.IceFlowApp
 import com.iceflow.core.XrayBridge
 import com.iceflow.core.RustBridge
-import com.iceflow.core.ConnectionProbe
+import com.iceflow.data.XrayConfigBuilder
 import com.iceflow.service.VpnState
 import com.iceflow.data.ShareLinkParser
-import com.iceflow.data.XrayConfigBuilder
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.GroupConfiguration
+import com.iceflow.data.model.GroupSort
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.repository.SubscriptionFetcher
 import com.iceflow.service.VpnController
@@ -74,6 +74,47 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
+            while (true) {
+                withContext(Dispatchers.IO) {
+                    AppLog.cleanOldLogs(getApplication(), settings.value.logRetentionDays)
+                }
+                kotlinx.coroutines.delay(24 * 60 * 60 * 1000L)
+            }
+        }
+        viewModelScope.launch {
+            var activeServerId: String? = null
+            var lastUp = 0L
+            var lastDown = 0L
+            traffic.collect { snapshot ->
+                val connected = vpnState.value as? VpnState.Connected
+                if (connected == null) {
+                    activeServerId = null
+                    lastUp = snapshot.upTotal
+                    lastDown = snapshot.downTotal
+                } else {
+                    val selectedId = container.servers.selected?.id
+                    if (selectedId != activeServerId) {
+                        activeServerId = selectedId
+                        lastUp = snapshot.upTotal
+                        lastDown = snapshot.downTotal
+                    } else if (selectedId != null) {
+                        val uploadDelta = (snapshot.upTotal - lastUp).coerceAtLeast(0)
+                        val downloadDelta = (snapshot.downTotal - lastDown).coerceAtLeast(0)
+                        if (uploadDelta > 0 || downloadDelta > 0) {
+                            container.servers.store.value.servers.firstOrNull { it.id == selectedId }?.let { server ->
+                                container.servers.updateServer(server.copy(
+                                    uploadBytes = server.uploadBytes + uploadDelta,
+                                    downloadBytes = server.downloadBytes + downloadDelta,
+                                ))
+                            }
+                        }
+                        lastUp = snapshot.upTotal
+                        lastDown = snapshot.downTotal
+                    }
+                }
+            }
+        }
+        viewModelScope.launch {
             vpnState.collectLatest {
                 connectionTestJob?.cancel()
                 _connectionTest.value = ConnectionTestState()
@@ -82,18 +123,45 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun testRunningConnection() {
-        val session = vpnState.value as? VpnState.Connected ?: return
-        if (_connectionTest.value.testing) return
+        val session = vpnState.value as? VpnState.Connected ?: run {
+            android.util.Log.w("MainViewModel", "testRunningConnection: VPN未连接")
+            return
+        }
+        if (_connectionTest.value.testing) {
+            android.util.Log.w("MainViewModel", "testRunningConnection: 测速进行中，跳过")
+            return
+        }
+
+        val profile = container.servers.selected ?: run {
+            android.util.Log.w("MainViewModel", "testRunningConnection: 未选择节点")
+            return
+        }
+
+        android.util.Log.i("MainViewModel", "testRunningConnection: 开始测速节点 ${profile.name}, testUrl=${settings.value.testUrl}")
         _connectionTest.value = ConnectionTestState(testing = true)
         connectionTestJob = viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
             val latency = withContext(Dispatchers.IO) {
-                runCatching { ConnectionProbe.measure(session.socksPort, settings.value.testUrl) }.getOrDefault(-1)
+                runCatching {
+                    // 使用 XrayBridge.measureDelay 直接测试代理节点，而不是通过已连接的 SOCKS 端口
+                    // 这样能真正测量节点到目标的延迟，而不受 VPN 排除自身应用的影响
+                    val config = XrayConfigBuilder.build(profile, settings.value, store = container.servers.store.value)
+                    XrayBridge.measureDelay(config, settings.value.testUrl, 5000L).toInt()
+                }.onSuccess { result ->
+                    android.util.Log.i("MainViewModel", "测速成功: ${result}ms")
+                }.onFailure { error ->
+                    android.util.Log.e("MainViewModel", "测速失败: ${error.message}", error)
+                }.getOrDefault(-1)
             }
+            val elapsed = System.currentTimeMillis() - startTime
+            android.util.Log.i("MainViewModel", "testRunningConnection: 测速完成, latency=${latency}ms, 耗时=${elapsed}ms")
             if (vpnState.value == session) {
                 _connectionTest.value = ConnectionTestState(latencyMs = latency)
                 withContext(Dispatchers.IO) {
                     AppLog.write(getApplication(), "INFO", if (latency >= 0) "当前连接测速：$latency ms" else "当前连接测速失败或超时")
                 }
+            } else {
+                android.util.Log.w("MainViewModel", "testRunningConnection: VPN会话已变更，丢弃测速结果")
             }
         }
     }
@@ -127,6 +195,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun moveServerToGroup(serverId: String, groupId: String?) = container.servers.moveServerToLocalGroup(serverId, groupId)
     fun selectGroup(groupId: String?) = container.servers.selectGroup(groupId)
     fun reorderGroups(keys: List<String>) = container.servers.reorderGroups(keys)
+
+    fun reorderServers(groupId: String?, ids: List<String>) = container.servers.reorderServers(groupId, ids)
     fun updateSubscription(id: String, name: String, intervalHours: Int) {
         container.servers.updateSubscription(id, name, intervalHours)
         container.servers.store.value.subscriptions.firstOrNull { it.id == id }?.let { SubscriptionScheduler.schedule(getApplication(), it) }
@@ -149,7 +219,37 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun updateSettings(transform: (AppSettings) -> AppSettings) = container.settings.update(transform)
 
-    fun sortServersByLatency() = container.servers.sortByLatency()
+    fun setGroupSort(groupId: String?, sort: GroupSort) = container.servers.setGroupSort(groupId, sort)
+
+    fun sortGroupByLatency(groupId: String?) {
+        if (_testing.value || _nodeTest.value.testing) return
+        val nodes = store.value.servers.filter { server ->
+            if (groupId == null) server.subscriptionId == null && server.groupId == null
+            else server.groupId == groupId || server.subscriptionId == groupId
+        }
+        if (nodes.isEmpty()) {
+            container.servers.setGroupSort(groupId, GroupSort.LATENCY)
+            return
+        }
+        _testing.value = true
+        _bulkTest.value = BulkTestState(testing = true, nodes = nodes)
+        viewModelScope.launch {
+            val results = linkedMapOf<String, Int>()
+            try {
+                nodes.forEachIndexed { index, server ->
+                    _bulkTest.value = BulkTestState(true, nodes, server.id, index, results.toMap())
+                    val latency = measure(server)
+                    results[server.id] = latency
+                    container.servers.updateLatency(server.id, latency)
+                    _bulkTest.value = BulkTestState(true, nodes, if (index + 1 < nodes.size) nodes[index + 1].id else null, index + 1, results.toMap())
+                }
+                container.servers.setGroupSort(groupId, GroupSort.LATENCY)
+            } finally {
+                _testing.value = false
+                _bulkTest.value = BulkTestState(false, nodes, null, nodes.size, results.toMap())
+            }
+        }
+    }
 
     fun dedupeServers() {
         val removed = container.servers.dedupe()
@@ -238,6 +338,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     suspend fun readLogs(): String = withContext(Dispatchers.IO) { AppLog.read(getApplication()) }
+
+    fun cleanOldLogs() {
+        viewModelScope.launch(Dispatchers.IO) {
+            AppLog.cleanOldLogs(getApplication(), settings.value.logRetentionDays)
+        }
+    }
 
     /** 优先用 xray 真实请求测速；未集成 xray 时退化为 TCP 握手耗时。 */
     private suspend fun measure(server: ServerProfile): Int = withContext(Dispatchers.IO) {

@@ -39,4 +39,32 @@ object AppLog {
             }
         }.ifBlank { "暂无日志" }
     }.getOrDefault("无法读取日志")
+
+    @Synchronized
+    fun cleanOldLogs(context: Context, retentionDays: Int) {
+        if (retentionDays <= 0) return // 永久保留；也避免外部旧配置误删日志
+
+        runCatching {
+            val cutoffTime = System.currentTimeMillis() - (retentionDays * 24 * 60 * 60 * 1000L)
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
+            listOf(FILE_NAME, PREVIOUS).forEach { fileName ->
+                val file = File(context.filesDir, fileName)
+                if (!file.exists()) return@forEach
+
+                val lines = file.readLines()
+                val filteredLines = lines.filter { line ->
+                    // Keep malformed or legacy lines; only remove entries with a valid old timestamp.
+                    val timestamp = line.substringBefore(" [").trim()
+                    val logTime = runCatching { dateFormat.parse(timestamp)?.time }.getOrNull()
+                    logTime == null || logTime >= cutoffTime
+                }
+
+                // 如果有内容被过滤，重写文件
+                if (filteredLines.size < lines.size) {
+                    file.writeText(filteredLines.joinToString("\n"))
+                }
+            }
+        }
+    }
 }

@@ -103,7 +103,8 @@ class IceFlowVpnService : VpnService() {
 
         try {
             AppLog.write(this, "INFO", "准备连接节点：${profile.name} [${profile.protocol.label}] ${profile.address}:${profile.port}")
-            AppLog.write(this, "INFO", "代理方案：Xray 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=${settings.proxyAppsOnly}")
+            val appProxyMode = if (settings.appRoutingEnabled) settings.appProxyMode else settings.proxyAppsOnly
+            AppLog.write(this, "INFO", "代理方案：Xray 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=$appProxyMode")
             if (settings.bypassApps.isNotEmpty()) AppLog.write(this, "INFO", "应用策略包数量：${settings.bypassApps.size}")
             XrayBridge.setAssetDir(filesDir.absolutePath)
             XrayBridge.start(XrayConfigBuilder.build(profile, settings, store = container.servers.store.value))
@@ -120,10 +121,12 @@ class IceFlowVpnService : VpnService() {
                 builder.addAddress(TUN_ADDRESS_V6, 126).addRoute("::", 0)
             }
             val installed = packageManager.getInstalledApplications(0).map { it.packageName }.filter { it != packageName }
-            if (settings.proxyAppsOnly) {
-                installed.filterNot { it in settings.bypassApps }.forEach { runCatching { builder.addDisallowedApplication(it) } }
-            } else {
-                settings.bypassApps.forEach { runCatching { builder.addDisallowedApplication(it) } }
+            if (settings.appRoutingEnabled || settings.proxyAppsOnly) {
+                if (appProxyMode) {
+                    installed.filterNot { it in settings.bypassApps }.forEach { runCatching { builder.addDisallowedApplication(it) } }
+                } else {
+                    settings.bypassApps.forEach { runCatching { builder.addDisallowedApplication(it) } }
+                }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 

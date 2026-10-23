@@ -1,4 +1,4 @@
-package com.iceflow.ui.screen
+﻿package com.iceflow.ui.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,10 +9,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +43,8 @@ fun SettingsScreen(
     coreVersion: String?,
     appVersion: String,
     onUpdate: ((AppSettings) -> AppSettings) -> Unit,
+    onOpenLogs: () -> Unit = {},
+    onOpenAppSelector: () -> Unit = {},
 ) {
     var port by rememberSaveable { mutableStateOf(settings.socksPort.toString()) }
     var dns by rememberSaveable { mutableStateOf(settings.remoteDns) }
@@ -88,11 +95,28 @@ fun SettingsScreen(
             )
         }
         GlassCard(Modifier.fillMaxWidth()) {
+            Text("工具", style = MaterialTheme.typography.titleMedium)
+            ActionRow("分应用代理", "选择走代理或绕过代理的应用", Icons.Filled.Settings, onOpenAppSelector)
+            ActionRow("运行日志", "查看 VPN 运行记录", Icons.Filled.List, onOpenLogs)
+        }
+        GlassCard(Modifier.fillMaxWidth()) {
             Text("关于", style = MaterialTheme.typography.titleMedium)
             Text("IceFlow $appVersion", style = MaterialTheme.typography.bodyMedium)
             Text("xray-core: ${xrayVersion ?: "未集成"}", style = MaterialTheme.typography.bodyMedium)
             Text("Rust 核心: ${coreVersion ?: "未集成"}", style = MaterialTheme.typography.bodyMedium)
         }
+    }
+}
+
+@Composable
+private fun ActionRow(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = onClick) { Text("查看") }
     }
 }
 
