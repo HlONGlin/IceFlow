@@ -41,6 +41,7 @@ class SettingsRepository(context: Context) {
             putInt("log_retention_days", next.logRetentionDays)
             putBoolean("app_proxy_mode", next.appProxyMode)
             putBoolean("app_routing_enabled", next.appRoutingEnabled)
+            putString("language", next.language)
         }
         _settings.value = next
     }
@@ -71,6 +72,7 @@ class SettingsRepository(context: Context) {
             logRetentionDays = prefs.getInt("log_retention_days", 3),
             appProxyMode = prefs.getBoolean("app_proxy_mode", legacyProxyAppsOnly),
             appRoutingEnabled = prefs.getBoolean("app_routing_enabled", legacyProxyAppsOnly || bypassApps.isNotEmpty()),
+            language = prefs.getString("language", d.language) ?: d.language,
         )
     }
 

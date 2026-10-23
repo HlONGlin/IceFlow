@@ -326,7 +326,12 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 }
             }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
-            GroupPager(store.orderedGroups, groupId, onSelectGroup, Modifier.weight(1f)) { group ->
+            val visibleGroups = store.orderedGroups.filter { it.key != com.iceflow.data.model.LOCAL_GROUP_KEY }
+            if (visibleGroups.isEmpty()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text("暂无分组，请先在“分组”模块创建分组", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
                 val sorting = sortingKey == group.key
                 val nodes = if (sorting) visibleNodes(group.id, "") else visibleNodes(group.id)
                 if (sorting) Column(Modifier.fillMaxSize()) {

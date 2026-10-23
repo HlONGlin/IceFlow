@@ -183,4 +183,5 @@ data class AppSettings(
     val logRetentionDays: Int = 3,
     val appRoutingEnabled: Boolean = false,
     val appProxyMode: Boolean = false,
+    val language: String = "zh-CN",
 )

@@ -25,7 +25,7 @@ import kotlinx.coroutines.delay
 
 /** One selectable text block allows copying arbitrary ranges across log lines. */
 @Composable
-fun RuntimeLogPage(readLogs: suspend () -> String, onBack: () -> Unit, logRetentionDays: Int, modifier: Modifier = Modifier) {
+fun RuntimeLogPage(readLogs: suspend () -> String, onBack: () -> Unit, logRetentionDays: Int = 3, modifier: Modifier = Modifier) {
     var logs by remember { mutableStateOf<String?>(null) }
     var live by rememberSaveable { mutableStateOf(true) }
     var refresh by remember { mutableIntStateOf(0) }
