@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose 负责实际主题，这里只提供无标题栏的窗口底色 -->
+    <style name="Theme.IceFlow" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ice_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

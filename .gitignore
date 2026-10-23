@@ -1,0 +1,29 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# 原生产物（由脚本编译生成）
+app/src/main/jniLibs/
+app/libs/*.aar
+app/libs/*.jar
+
+# Rust
+rust-core/target/
+
+# Go
+xray-wrapper/build/
+
+# OS
+.DS_Store
+Thumbs.db
