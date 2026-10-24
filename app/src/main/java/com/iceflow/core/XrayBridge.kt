@@ -65,6 +65,10 @@ object XrayBridge {
             socksPort.toLong(), url, timeoutMs.toLong(),
         ) as Long
 
+    /** 查询 xray-core 统计信息，返回格式：每行 "name,value"。失败抛出异常。 */
+    fun queryStats(): String =
+        call("queryStats", emptyArray()) as String
+
     private fun call(name: String, types: Array<Class<*>>, vararg args: Any?): Any? {
         val c = clazz ?: throw IllegalStateException("未集成 xray-core（缺少 app/libs/xray.aar）")
         val method = c.getMethod(name, *types)

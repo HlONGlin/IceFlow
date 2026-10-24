@@ -63,6 +63,15 @@ object XrayConfigBuilder {
             if (chain.size == 1 && adapters.isNotEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
             else if (adapters.isNotEmpty()) put("iceflowAdapters", JsonArray(adapters))
             putJsonObject("log") { put("loglevel", "warning") }
+            putJsonObject("stats") {}
+            putJsonObject("policy") {
+                putJsonObject("system") {
+                    put("statsInboundUplink", true)
+                    put("statsInboundDownlink", true)
+                    put("statsOutboundUplink", true)
+                    put("statsOutboundDownlink", true)
+                }
+            }
             if (includeInbound && (settings.socksEnabled || tunnelPort != null)) {
                 putJsonArray("inbounds") {
                     if (tunnelPort != null) addJsonObject {

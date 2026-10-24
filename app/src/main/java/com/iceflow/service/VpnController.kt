@@ -24,6 +24,8 @@ data class TrafficSnapshot(
     val upSpeed: Long = 0,
     val downSpeed: Long = 0,
     val history: List<TrafficPoint> = emptyList(),
+    /** 按出站标签分类的流量（proxy / direct / block 等）*/
+    val byOutbound: Map<String, Pair<Long, Long>> = emptyMap(),
 )
 
 /** 进程内 VPN 状态中心，UI / 快捷开关 / 服务共享。 */

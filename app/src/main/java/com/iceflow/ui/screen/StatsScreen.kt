@@ -57,6 +57,30 @@ fun StatsScreen(state: VpnState, traffic: TrafficSnapshot) {
             StatTile("下载总量", formatBytes(traffic.downTotal), Modifier.weight(1f))
         }
         StatTile("连接时长", formatDuration(duration), Modifier.fillMaxWidth())
+
+        if (traffic.byOutbound.isNotEmpty()) {
+            Text("分流统计", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+            traffic.byOutbound.entries.sortedByDescending { it.value.first + it.value.second }.forEach { (tag, stats) ->
+                val (up, down) = stats
+                val tagLabel = when (tag) {
+                    "proxy" -> "代理"
+                    "direct" -> "直连"
+                    "block" -> "阻止"
+                    else -> tag
+                }
+                GlassCard(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(tagLabel, style = MaterialTheme.typography.labelLarge)
+                        Text(
+                            "↑ ${formatBytes(up)}  ↓ ${formatBytes(down)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
         GlassCard(Modifier.fillMaxWidth()) {
             Text("最近 60 秒", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))

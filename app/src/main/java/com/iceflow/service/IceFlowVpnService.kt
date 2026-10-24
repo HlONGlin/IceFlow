@@ -366,7 +366,26 @@ class IceFlowVpnService : VpnService() {
                     return
                 }
                 val stats = RustBridge.stats()
-                VpnController.setTraffic(sampler.sample(stats[0], stats[1], SystemClock.elapsedRealtime()))
+
+                // 查询 xray 详细统计
+                val xrayStats = runCatching {
+                    com.iceflow.data.XrayStats.parse(XrayBridge.queryStats())
+                }.getOrNull()
+
+                val byOutbound = xrayStats?.let { xs ->
+                    buildMap {
+                        xs.outboundUplink.keys.union(xs.outboundDownlink.keys).forEach { tag ->
+                            val up = xs.outboundUplink[tag] ?: 0
+                            val down = xs.outboundDownlink[tag] ?: 0
+                            put(tag, up to down)
+                        }
+                    }
+                } ?: emptyMap()
+
+                VpnController.setTraffic(
+                    sampler.sample(stats[0], stats[1], SystemClock.elapsedRealtime())
+                        .copy(byOutbound = byOutbound)
+                )
                 persistTraffic()
                 val session = VpnController.state.value as? VpnState.Connected
                 if (session != null && System.currentTimeMillis() - session.since >= 30_000) retryAttempt = 0
