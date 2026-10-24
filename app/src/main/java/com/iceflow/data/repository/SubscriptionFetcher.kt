@@ -7,16 +7,13 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URI
 
+data class SubscriptionDownload(val body: String, val userInfo: String?, val downloadedBytes: Long)
+
 object SubscriptionFetcher {
 
     private const val MAX_BYTES = 4 * 1024 * 1024
     private const val MAX_REDIRECTS = 5
-    @Volatile var lastUserInfo: String? = null
-        private set
-    @Volatile var lastDownloadedBytes: Long = 0
-        private set
-
-    suspend fun fetch(url: String): String = withContext(Dispatchers.IO) {
+    suspend fun fetch(url: String): SubscriptionDownload = withContext(Dispatchers.IO) {
         var current = requireHttpsUri(url.trim())
         repeat(MAX_REDIRECTS + 1) { redirects ->
             val conn = URL(current.toString()).openConnection() as HttpURLConnection
@@ -33,12 +30,11 @@ object SubscriptionFetcher {
                     current = requireHttpsUri(current.resolve(location.trim()).toString())
                 } else {
                     check(code in 200..299) { "HTTP $code" }
-                    lastUserInfo = conn.getHeaderField("subscription-userinfo")
+                    val userInfo = conn.getHeaderField("subscription-userinfo")
                     conn.inputStream.use { input ->
                         val bytes = input.readNBytesCompat(MAX_BYTES + 1)
                         check(bytes.size <= MAX_BYTES) { "订阅内容过大" }
-                        lastDownloadedBytes = bytes.size.toLong()
-                        return@withContext String(bytes, Charsets.UTF_8)
+                        return@withContext SubscriptionDownload(String(bytes, Charsets.UTF_8), userInfo, bytes.size.toLong())
                     }
                 }
             } finally {

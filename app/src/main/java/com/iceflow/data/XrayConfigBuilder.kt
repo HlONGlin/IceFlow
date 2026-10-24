@@ -35,7 +35,8 @@ object XrayConfigBuilder {
     /**
      * @param includeInbound 测速时传 false，避免与正在运行的 SOCKS 端口冲突
      */
-    fun build(profile: ServerProfile, settings: AppSettings, includeInbound: Boolean = true, store: ServerStore? = null): String {
+    fun build(profile: ServerProfile, settings: AppSettings, includeInbound: Boolean = true, store: ServerStore? = null, tunnelPort: Int? = null): String {
+        require(tunnelPort == null || (tunnelPort in 1..65535 && (!settings.socksEnabled || tunnelPort != settings.socksPort)))
         val local = store?.localGroups?.firstOrNull { it.id == profile.groupId }
         val subscription = store?.subscriptions?.firstOrNull { it.id == profile.subscriptionId }
         val frontId = subscription?.frontNodeId ?: local?.frontNodeId
@@ -54,9 +55,21 @@ object XrayConfigBuilder {
             if (chain.size == 1 && adapters.isNotEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
             else if (adapters.isNotEmpty()) put("iceflowAdapters", JsonArray(adapters))
             putJsonObject("log") { put("loglevel", "warning") }
-            if (includeInbound && settings.socksEnabled) {
+            if (includeInbound && (settings.socksEnabled || tunnelPort != null)) {
                 putJsonArray("inbounds") {
-                    addJsonObject {
+                    if (tunnelPort != null) addJsonObject {
+                        put("tag", "tun-in")
+                        put("listen", "127.0.0.1")
+                        put("port", tunnelPort)
+                        put("protocol", "socks")
+                        putJsonObject("settings") { put("auth", "noauth"); put("udp", true) }
+                        putJsonObject("sniffing") {
+                            put("enabled", true)
+                            putJsonArray("destOverride") { add("http"); add("tls"); add("quic") }
+                            put("routeOnly", true)
+                        }
+                    }
+                    if (settings.socksEnabled) addJsonObject {
                         put("tag", "socks-in")
                         put("listen", "127.0.0.1")
                         put("port", settings.socksPort)
@@ -107,9 +120,9 @@ object XrayConfigBuilder {
                 put("domainStrategy", "IPIfNonMatch")
                 putJsonArray("rules") {
                     if (settings.routingMode == RoutingMode.GLOBAL) {
-                        add(buildJsonObject { put("type", "field"); put("outboundTag", PROXY_TAG) })
+                        add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); put("outboundTag", PROXY_TAG) })
                     } else if (settings.routingMode == RoutingMode.DIRECT) {
-                        add(buildJsonObject { put("type", "field"); put("outboundTag", "direct") })
+                        add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); put("outboundTag", "direct") })
                     } else settings.routingRules.filter { it.enabled && (it.id != "builtin:private" || settings.bypassLan) }.forEach { rule ->
                         rule.validate()
                         if (rule.id == "builtin:private" && rule.ips == listOf("geoip:private")) add(buildJsonObject {

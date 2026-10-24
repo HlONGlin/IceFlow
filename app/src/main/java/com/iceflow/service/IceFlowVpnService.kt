@@ -5,6 +5,10 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -26,6 +30,14 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.combine
+import java.net.InetAddress
+import java.net.ServerSocket
 
 /**
  * VPN 前台服务。
@@ -48,50 +60,169 @@ class IceFlowVpnService : VpnService() {
         private const val TUN_ADDRESS_V6 = "fdfe:dcba:9876::1"
     }
 
-    // 启停操作串行执行，避免竞态
+    private sealed interface Command {
+        data object Start : Command
+        data class Stop(val startId: Int? = null) : Command
+        data object Switch : Command
+        data object CoreFailed : Command
+        data class Retry(val generation: Long) : Command
+        data class Available(val network: Network) : Command
+        data class Lost(val network: Network) : Command
+    }
+
+    // A single consumer also serializes commands across retry delays.
     @OptIn(ExperimentalCoroutinesApi::class)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+    private val commands = Channel<Command>(Channel.UNLIMITED)
+    private val operationLock = Any()
     private var tun: ParcelFileDescriptor? = null
     private var statsJob: Job? = null
+    private var retryJob: Job? = null
+    private var generation = 0L
+    private var retryAttempt = 0
+    private var desiredRunning = false
+    private var activeServerId: String? = null
+    private var persistedUp = 0L
+    private var persistedDown = 0L
+    private var persistedAt = 0L
+    @Volatile private var destroyed = false
+    private val networks = mutableSetOf<Network>()
+    private var networkCallbackRegistered = false
+    private val connectivity by lazy { getSystemService(ConnectivityManager::class.java) }
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) { commands.trySend(Command.Available(network)) }
+        override fun onLost(network: Network) { commands.trySend(Command.Lost(network)) }
+    }
+
+    @OptIn(FlowPreview::class)
+    override fun onCreate() {
+        super.onCreate()
+        scope.launch {
+            for (command in commands) synchronized(operationLock) {
+                if (!destroyed) handle(command)
+            }
+        }
+        scope.launch {
+            val container = (application as IceFlowApp).container
+            combine(container.settings.settings, container.servers.store) { settings, store ->
+                settings to runCatching {
+                    store.selected?.let { XrayConfigBuilder.build(it, settings, includeInbound = false, store = store) }
+                }.fold({ it }, { "invalid:${it.message}" })
+            }
+                .distinctUntilChanged { old, new -> old.first.hasSameConnection(new.first) && old.second == new.second }
+                .drop(1)
+                .debounce(400)
+                .collect { commands.send(Command.Switch) }
+        }
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .build()
+        runCatching { connectivity.registerNetworkCallback(request, networkCallback) }
+            .onSuccess { networkCallbackRegistered = true }
+            .onFailure { AppLog.write(this, "WARN", "无法监听网络变化：${it.message}") }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_SWITCH) {
-            scope.launch {
-                cleanup()
-                VpnController.setState(VpnState.Idle)
-                delay(120)
-                startVpn()
-            }
-            return START_STICKY
+        val command = when (intent?.action) {
+            ACTION_STOP -> Command.Stop(startId)
+            ACTION_SWITCH -> Command.Switch
+            else -> Command.Start
         }
-        if (intent?.action == ACTION_STOP) {
-            scope.launch { stopVpn() }
-            return START_NOT_STICKY
+        if (command !is Command.Stop) {
+            val connected = VpnController.state.value as? VpnState.Connected
+            val text = if (command == Command.Start && connected != null) getString(R.string.notification_connected, connected.serverName)
+                else getString(R.string.notification_connecting)
+            startForegroundCompat(buildNotification(text))
         }
-        // startForegroundService 后必须尽快调用 startForeground
-        startForegroundCompat(buildNotification(getString(R.string.notification_connecting)))
-        scope.launch { startVpn() }
-        return START_STICKY
+        commands.trySend(command)
+        return if (command is Command.Stop) START_NOT_STICKY else START_STICKY
     }
 
     override fun onRevoke() {
-        // 其他 VPN 应用接管或用户在系统设置中断开
-        scope.launch { stopVpn() }
+        commands.trySend(Command.Stop())
     }
 
     override fun onDestroy() {
+        destroyed = true
+        if (networkCallbackRegistered) runCatching { connectivity.unregisterNetworkCallback(networkCallback) }
+        commands.close()
         scope.cancel()
-        if (tun != null) {
-            Thread({
-                cleanup()
-                VpnController.setState(VpnState.Idle)
-            }, "iceflow-cleanup").start()
+        synchronized(operationLock) {
+            desiredRunning = false
+            cleanup()
+            if (VpnController.state.value !is VpnState.Error) VpnController.setState(VpnState.Idle)
         }
         super.onDestroy()
     }
 
+    private fun handle(command: Command) {
+        when (command) {
+            is Command.Stop -> stopVpn(command.startId)
+            Command.Start -> {
+                if (desiredRunning && VpnController.state.value is VpnState.Connected) return
+                desiredRunning = true
+                resetRetry()
+                startVpn()
+            }
+            Command.Switch -> if (desiredRunning) {
+                resetRetry()
+                cleanup(closeTun = false)
+                startVpn()
+            }
+            is Command.Retry -> if (desiredRunning && command.generation == generation) {
+                cleanup(closeTun = false)
+                startVpn()
+            }
+            Command.CoreFailed -> if (desiredRunning && VpnController.state.value is VpnState.Connected) {
+                AppLog.write(this, "ERROR", "流量核心已退出，正在恢复连接")
+                cleanup(closeTun = false)
+                scheduleRetry()
+            }
+            is Command.Available -> if (networks.add(command.network) && desiredRunning) {
+                resetRetry()
+                cleanup(closeTun = false)
+                scheduleRetry(500)
+            }
+            is Command.Lost -> if (networks.remove(command.network) && desiredRunning) {
+                resetRetry()
+                cleanup(closeTun = false)
+                if (networks.isNotEmpty()) scheduleRetry(500) else {
+                    VpnController.setState(VpnState.Connecting)
+                    updateNotification("等待网络恢复")
+                }
+            }
+        }
+    }
+
+    private fun resetRetry() {
+        generation++
+        retryJob?.cancel()
+        retryJob = null
+        retryAttempt = 0
+    }
+
+    private fun scheduleRetry(delayMs: Long? = null) {
+        if (!desiredRunning || destroyed) return
+        if (delayMs == null && retryAttempt >= 5) {
+            VpnController.setState(VpnState.Error("连接恢复失败，请检查节点或网络后重试"))
+            updateNotification("连接恢复失败，VPN 仍接管流量")
+            return
+        }
+        val waitMs = delayMs ?: (1000L shl retryAttempt++)
+        val expectedGeneration = ++generation
+        retryJob?.cancel()
+        VpnController.setState(VpnState.Connecting)
+        updateNotification("正在恢复连接")
+        retryJob = scope.launch {
+            delay(waitMs)
+            commands.send(Command.Retry(expectedGeneration))
+        }
+    }
+
     private fun startVpn() {
-        if (tun != null) return
+        if (!desiredRunning || destroyed) return
+        startForegroundCompat(buildNotification(getString(R.string.notification_connecting)))
         VpnController.setState(VpnState.Connecting)
         AppLog.write(this, "INFO", "开始连接 VPN")
 
@@ -102,13 +233,17 @@ class IceFlowVpnService : VpnService() {
         if (!RustBridge.isAvailable) return fail("未集成 Rust 核心（缺少 libiceflow_core.so）")
 
         try {
+            settings.validate()
             AppLog.write(this, "INFO", "准备连接节点：${profile.name} [${profile.protocol.label}] ${profile.address}:${profile.port}")
             container.routingResources.prepare()
             val appProxyMode = if (settings.appRoutingEnabled) settings.appProxyMode else settings.proxyAppsOnly
             AppLog.write(this, "INFO", "代理方案：Xray 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=$appProxyMode")
             if (settings.bypassApps.isNotEmpty()) AppLog.write(this, "INFO", "应用策略包数量：${settings.bypassApps.size}")
             XrayBridge.setAssetDir(filesDir.absolutePath)
-            XrayBridge.start(XrayConfigBuilder.build(profile, settings, store = container.servers.store.value))
+            val tunnelPort = generateSequence {
+                ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+            }.first { !settings.socksEnabled || it != settings.socksPort }
+            XrayBridge.start(XrayConfigBuilder.build(profile, settings, store = container.servers.store.value, tunnelPort = tunnelPort))
 
             val builder = Builder()
                 .setSession(profile.name)
@@ -116,57 +251,76 @@ class IceFlowVpnService : VpnService() {
                 .addAddress(TUN_ADDRESS_V4, 30)
                 .addRoute("0.0.0.0", 0)
                 // 同时接管 IPv6，防止 IPv6 流量绕过隧道泄漏
-                .addDnsServer(settings.dnsServers.firstOrNull() ?: settings.remoteDns)
-                .addDisallowedApplication(packageName)
+            settings.dnsServers.forEach { builder.addDnsServer(it) }
             if (settings.ipv6Enabled) {
                 builder.addAddress(TUN_ADDRESS_V6, 126).addRoute("::", 0)
             }
-            val installed = packageManager.getInstalledApplications(0).map { it.packageName }.filter { it != packageName }
-            if (settings.appRoutingEnabled || settings.proxyAppsOnly) {
-                if (appProxyMode) {
-                    installed.filterNot { it in settings.bypassApps }.forEach { runCatching { builder.addDisallowedApplication(it) } }
-                } else {
-                    settings.bypassApps.forEach { runCatching { builder.addDisallowedApplication(it) } }
+            if ((settings.appRoutingEnabled || settings.proxyAppsOnly) && appProxyMode) {
+                val installed = packageManager.getInstalledApplications(0).map { it.packageName }.toSet()
+                val allowed = settings.bypassApps.filter { it != packageName && it in installed }
+                require(allowed.isNotEmpty()) { "分应用代理模式下请至少选择一个已安装的应用" }
+                allowed.forEach { builder.addAllowedApplication(it) }
+            } else {
+                builder.addDisallowedApplication(packageName)
+                if (settings.appRoutingEnabled) settings.bypassApps.filter { it != packageName }.forEach {
+                    runCatching { builder.addDisallowedApplication(it) }
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
             val pfd = builder.establish() ?: throw IllegalStateException("VPN 权限未授予")
+            val previousTun = tun
             tun = pfd
+            previousTun?.close()
 
-            val dnsMode = if (settings.fakeDns) RustBridge.DNS_VIRTUAL else RustBridge.DNS_OVER_TCP
+            val dnsMode = when {
+                !settings.dnsProxyEnabled -> RustBridge.DNS_DIRECT
+                settings.fakeDns -> RustBridge.DNS_VIRTUAL
+                else -> RustBridge.DNS_OVER_TCP
+            }
             val code = RustBridge.startTun(
                 fd = pfd.fd,
                 mtu = MTU,
-                proxyUrl = "socks5://127.0.0.1:${settings.socksPort}",
+                proxyUrl = "socks5://127.0.0.1:$tunnelPort",
                 dnsMode = dnsMode,
                 dnsAddr = settings.remoteDns,
             )
             check(code == 0) { RustBridge.describe(code) }
 
-            VpnController.setState(VpnState.Connected(profile.name, System.currentTimeMillis(), settings.socksPort))
+            if (destroyed) { cleanup(); return }
+            activeServerId = profile.id
+            persistedUp = 0
+            persistedDown = 0
+            persistedAt = SystemClock.elapsedRealtime()
+            VpnController.setState(VpnState.Connected(profile.name, System.currentTimeMillis(), tunnelPort))
             getSystemService(NotificationManager::class.java).notify(
                 NOTIFICATION_ID,
                 buildNotification(getString(R.string.notification_connected, profile.name)),
             )
-            statsJob = scope.launch(Dispatchers.Default) { statsLoop() }
+            statsJob = scope.launch { statsLoop() }
             Log.i(TAG, "VPN started: ${profile.name}")
             AppLog.write(this, "INFO", "VPN 已连接: ${profile.name}")
         } catch (t: Throwable) {
             Log.e(TAG, "start failed", t)
-            fail(t.message ?: t.toString())
+            AppLog.write(this, "ERROR", "VPN 连接失败：${t.message}")
+            cleanup(closeTun = false)
+            if (tun == null || t is IllegalArgumentException) fail(t.message ?: t.toString()) else scheduleRetry()
         }
     }
 
-    private fun stopVpn() {
+    private fun stopVpn(startId: Int? = null) {
+        desiredRunning = false
+        resetRetry()
         VpnController.setState(VpnState.Stopping)
         cleanup()
         VpnController.setState(VpnState.Idle)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        if (startId == null) stopSelf() else stopSelf(startId)
     }
 
     private fun fail(message: String) {
+        desiredRunning = false
+        resetRetry()
         cleanup()
         VpnController.setState(VpnState.Error(message))
         AppLog.write(this, "ERROR", "VPN 失败: $message")
@@ -176,13 +330,17 @@ class IceFlowVpnService : VpnService() {
 
     /** 释放顺序：统计 → tun2proxy（不持有 fd）→ xray-core → 关闭 TUN fd。 */
     @Synchronized
-    private fun cleanup() {
+    private fun cleanup(closeTun: Boolean = true) {
         statsJob?.cancel()
         statsJob = null
+        persistTraffic(force = true)
+        activeServerId = null
         runCatching { RustBridge.stopTun() }.onFailure { Log.w(TAG, "stopTun: $it") }
         runCatching { XrayBridge.stop() }.onFailure { Log.w(TAG, "xray stop: $it") }
-        runCatching { tun?.close() }
-        tun = null
+        if (closeTun) {
+            runCatching { tun?.close() }
+            tun = null
+        }
         VpnController.setTraffic(TrafficSnapshot())
     }
 
@@ -191,9 +349,36 @@ class IceFlowVpnService : VpnService() {
         val sampler = TrafficSampler(initial[0], initial[1], SystemClock.elapsedRealtime())
         while (true) {
             delay(1000)
-            val stats = RustBridge.stats()
-            VpnController.setTraffic(sampler.sample(stats[0], stats[1], SystemClock.elapsedRealtime()))
+            synchronized(operationLock) {
+                if (!RustBridge.isRunning() || !XrayBridge.isRunning()) {
+                    commands.trySend(Command.CoreFailed)
+                    return
+                }
+                val stats = RustBridge.stats()
+                VpnController.setTraffic(sampler.sample(stats[0], stats[1], SystemClock.elapsedRealtime()))
+                persistTraffic()
+                val session = VpnController.state.value as? VpnState.Connected
+                if (session != null && System.currentTimeMillis() - session.since >= 30_000) retryAttempt = 0
+            }
         }
+    }
+
+    private fun persistTraffic(force: Boolean = false) {
+        val id = activeServerId ?: return
+        if (!force && SystemClock.elapsedRealtime() - persistedAt < 30_000) return
+        runCatching {
+            val stats = RustBridge.stats()
+            val up = (stats[0] - persistedUp).coerceAtLeast(0)
+            val down = (stats[1] - persistedDown).coerceAtLeast(0)
+            if (up > 0 || down > 0) (application as IceFlowApp).container.servers.addTraffic(id, up, down)
+            persistedUp = stats[0]
+            persistedDown = stats[1]
+            persistedAt = SystemClock.elapsedRealtime()
+        }.onFailure { AppLog.write(this, "WARN", "流量统计保存失败：${it.message}") }
+    }
+
+    private fun updateNotification(text: String) {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
     }
 
     private fun buildNotification(text: String): Notification {

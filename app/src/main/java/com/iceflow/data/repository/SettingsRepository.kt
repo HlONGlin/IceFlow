@@ -1,7 +1,6 @@
 package com.iceflow.data.repository
 
 import android.content.Context
-import androidx.core.content.edit
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingRules
 import com.iceflow.data.model.AppTheme
@@ -16,11 +15,12 @@ class SettingsRepository(context: Context) {
     private val _settings = MutableStateFlow(load())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
+    @Synchronized
     fun update(transform: (AppSettings) -> AppSettings) {
         val next = transform(_settings.value)
-        RoutingRules.validateTestUrl(next.testUrl)
+        next.validate()
         val encodedRules = RoutingRules.encode(next.routingRules)
-        prefs.edit {
+        val editor = prefs.edit().apply {
             putInt(KEY_SOCKS_PORT, next.socksPort)
             putString(KEY_REMOTE_DNS, next.remoteDns)
             putBoolean(KEY_BYPASS_LAN, next.bypassLan)
@@ -45,6 +45,7 @@ class SettingsRepository(context: Context) {
             putBoolean("app_routing_enabled", next.appRoutingEnabled)
             putString("language", next.language)
         }
+        check(editor.commit()) { "设置保存失败，请检查存储空间" }
         _settings.value = next
     }
 

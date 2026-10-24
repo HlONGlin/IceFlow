@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -167,7 +168,7 @@ private fun themePreviewColors(theme: AppTheme): Pair<Color, Color> = when (them
     AppTheme.MINT_GREEN -> Color(0xFF00C896) to Color(0xFFE5F9F1)
     AppTheme.SAKURA_PINK -> Color(0xFFFF6B9D) to Color(0xFFFFE5EE)
     AppTheme.PEACH_ORANGE -> Color(0xFFFF9F5A) to Color(0xFFFFEDD9)
-    AppTheme.OBSIDIAN_BLACK -> Color(0xFF3A9DFF) to Color(0xFF1A3A52)
+    AppTheme.OBSIDIAN_BLACK -> Color(0xFFA6A6A6) to Color(0xFF2A2A2A)
 }
 
 @Composable
@@ -367,6 +368,7 @@ fun SettingsScreen(
     appVersion: String,
     onUpdate: ((AppSettings) -> AppSettings) -> Unit,
     onOpenLogs: () -> Unit = {},
+    onOpenBackup: () -> Unit = {},
     onOpenAppSelector: () -> Unit = {},
     onDetailOpenChange: (Boolean) -> Unit = {},
 ) {
@@ -406,11 +408,12 @@ fun SettingsScreen(
             )
             "dns" -> TextSettingsPage("远程 DNS", "每行一个 DNS 地址", settings.dnsServers.joinToString("\n"), multiline = true, onBack = { detail = null }, onSave = { text ->
                 val values = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-                if (values.isEmpty()) "至少输入一个 DNS 地址" else {
+                runCatching {
+                    require(values.isNotEmpty()) { "至少输入一个 DNS 地址" }
+                    settings.copy(dnsServers = values, remoteDns = values.first()).validate()
                     onUpdate { it.copy(dnsServers = values, remoteDns = values.first()) }
                     detail = null
-                    null
-                }
+                }.exceptionOrNull()?.message
             })
             "testUrl" -> TextSettingsPage("测速 URL", "HTTP / HTTPS 链接", settings.testUrl, onBack = { detail = null }, onSave = { text ->
                 runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(text) }
@@ -473,7 +476,7 @@ fun SettingsScreen(
             RowDivider()
             SettingAction(Icons.Outlined.Dns, "远程 DNS", settings.remoteDns.ifBlank { "未设置" }) { detail = "dns" }
             RowDivider()
-            ToggleRow(Icons.Outlined.VpnKey, "DNS 代理", "DNS 请求经代理转发", settings.dnsProxyEnabled) { v -> onUpdate { it.copy(dnsProxyEnabled = v) } }
+            ToggleRow(Icons.Outlined.VpnKey, "DNS 代理", "关闭后 DNS 请求按普通 UDP 跟随路由规则", settings.dnsProxyEnabled) { v -> onUpdate { it.copy(dnsProxyEnabled = v) } }
             RowDivider()
             ToggleRow(Icons.Outlined.FilterAlt, "虚拟 DNS（Fake-IP）", "关闭后使用 DNS over TCP", settings.fakeDns) { v -> onUpdate { it.copy(fakeDns = v) } }
             RowDivider()
@@ -524,6 +527,11 @@ fun SettingsScreen(
         }
 
         // ── 关于 ──────────────────────────────────────────────────────────────────
+        SectionHeader("数据")
+        SettingsCard {
+            SettingAction(Icons.Outlined.Save, "备份与恢复", "节点、订阅、路由规则和设置") { onOpenBackup() }
+        }
+
         SectionHeader("关于")
         SettingsCard {
             InfoRow("IceFlow", appVersion)

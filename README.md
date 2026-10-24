@@ -39,7 +39,7 @@ cargo install cargo-ndk
 .\gradlew.bat testDebugUnitTest assembleDebug assembleRelease
 ```
 
-Linux/macOS 使用对应的 `.sh` 脚本。两个原生产物缺失时 app 仍能编译运行，但连接时会提示缺少核心。
+Linux/macOS 使用对应的 `.sh` 脚本。缺失原生产物时仍可构建 debug 进行界面开发，连接时会提示缺少核心；release 构建会拒绝缺失原生库的产物。
 
 ## Windows 注意事项
 
@@ -79,3 +79,27 @@ adb shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRun
 
 - 订阅仅接受 HTTPS 地址；下载内容上限为 4 MiB，路由数据库上限为 64 MiB。
 - Lottie 动画尚未集成。
+- 设置中的“备份与恢复”导出节点、订阅、分组、规则及设置。备份是包含凭据的 JSON 文件，恢复前会预览数量并要求确认；路由数据库不包含在备份中。
+- 连接参数、所选节点或代理链改变后自动重连；外观设置不重连。内部 TUN 入口与可选的 SOCKS 服务独立。
+- 当前连接测速通过运行中的内部 SOCKS 入口，与节点测速共用 Go HTTP/TLS 实现，避免 Android 系统版本造成握手耗时差异。
+- 网络中断和核心异常时保留已建立的 TUN，网络恢复后重试；核心重启最多连续重试 5 次。进程被系统终止时的强制阻断需启用 Android 系统的“始终开启 VPN”和“阻止无 VPN 连接”。
+- “DNS 代理”关闭后 DNS 按普通 UDP 跟随路由规则，不会强制直连。IPv6 关闭时由 Android VPN 默认阻断该地址族。
+
+## 发布与回归
+
+构建使用 `JAVA_HOME` 或 IDE 的 Gradle JDK 设置，仓库不指定本机 JDK 路径。
+`assembleRelease` 会检查三个 ABI 的 Rust/Xray 原生产物。未提供签名配置时输出 unsigned APK；正式签名通过四个环境变量配置：
+`ICEFLOW_KEYSTORE_PATH`、`ICEFLOW_KEYSTORE_PASSWORD`、`ICEFLOW_KEY_ALIAS`、`ICEFLOW_KEY_PASSWORD`。密钥和密码不写入仓库。
+版本通过 `-Piceflow.versionCode=2 -Piceflow.versionName=0.1.1` 指定；每次正式更新需递增 versionCode。
+
+CI 运行单元测试、lint、debug/release 构建和 Android 35 模拟器测试。
+本地多设备测试请手动安装并明确指定设备，避免 `connectedDebugAndroidTest` 对所有设备安装和卸载应用：
+
+```powershell
+adb -s emulator-5556 install -r app\build\outputs\apk\debug\app-debug.apk
+adb -s emulator-5556 install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
+adb -s emulator-5556 shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+`VpnLifecycleTest` 暂时替换并恢复原节点及设置，使用独立 UID 验证真实 IPv4/IPv6 TUN 转发。
+物理网络开关测试需要 `-e networkToggle true`；仅在 ADB 不依赖被切换网络时启用。

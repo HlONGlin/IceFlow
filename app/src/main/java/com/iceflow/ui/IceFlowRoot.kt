@@ -139,6 +139,9 @@ private enum class Tab(val title: String, val icon: ImageVector) {
 @Composable
 fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val context = LocalContext.current
+    LaunchedEffect(vm) {
+        vm.recoveryMessage?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
+    }
     val state by vm.vpnState.collectAsStateWithLifecycle()
     val traffic by vm.traffic.collectAsStateWithLifecycle()
     val store by vm.store.collectAsStateWithLifecycle()
@@ -155,6 +158,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     var groupSettingsOpen by remember { mutableStateOf(false) }
     var settingsDetailOpen by remember { mutableStateOf(false) }
     var logsOpen by rememberSaveable { mutableStateOf(false) }
+    var backupOpen by rememberSaveable { mutableStateOf(false) }
     var appsOpen by rememberSaveable { mutableStateOf(false) }
     var shareNodeId by remember { mutableStateOf<String?>(null) }
     val nodeToShare = remember(shareNodeId) { store.servers.firstOrNull { it.id == shareNodeId } }
@@ -180,6 +184,8 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 }
                 val initial = remember(initialJson) { com.iceflow.data.NodeEditing.json.decodeFromString(ServerProfile.serializer(), initialJson) }
                 NodeEditorPage(initial, nodeEditorId == null, { nodeEditorOpen = false }, vm::saveServer)
+            } else if (backupOpen) {
+                BackupPage(vm::exportBackup, vm::restoreBackup, { backupOpen = false })
             } else if (logsOpen) {
                 RuntimeLogPage(
                     readLogs = vm::readLogs,
@@ -214,6 +220,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                             appVersion = vm.appVersion,
                             onUpdate = vm::updateSettings,
                             onOpenLogs = { vm.cleanOldLogs(); logsOpen = true },
+                            onOpenBackup = { backupOpen = true },
                             onOpenAppSelector = { appsOpen = true },
                             onDetailOpenChange = { settingsDetailOpen = it },
                         )
@@ -222,7 +229,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 }
             }
             }
-            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !backupOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
                 Tab.entries.forEachIndexed { index, item ->
                     val moduleInteraction = remember { MutableInteractionSource() }
                     Column(Modifier.weight(1f).clickable(
@@ -828,7 +835,7 @@ private fun ThemePreviewCard(
         com.iceflow.data.model.AppTheme.MINT_GREEN -> Color(0xFF00C896) to Color(0xFFE5F9F1)
         com.iceflow.data.model.AppTheme.SAKURA_PINK -> Color(0xFFFF6B9D) to Color(0xFFFFE5EE)
         com.iceflow.data.model.AppTheme.PEACH_ORANGE -> Color(0xFFFF9F5A) to Color(0xFFFFEDD9)
-        com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> Color(0xFF3A9DFF) to Color(0xFF1A3A52)
+        com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> Color(0xFFA6A6A6) to Color(0xFF2A2A2A)
     }
     
     Row(

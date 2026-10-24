@@ -11,12 +11,20 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.nio.file.AtomicMoveNotSupportedException
 
 /** 节点与订阅的持久化（JSON 文件，原子写入）。 */
 class ServerRepository(private val file: File) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val lock = Any()
+    private val backup = File(file.path + ".bak")
+    var recoveryMessage: String? = null
+        private set
+    private var unreadable = false
     private val _store = MutableStateFlow(load())
     val store: StateFlow<ServerStore> = _store.asStateFlow()
 
@@ -27,6 +35,10 @@ class ServerRepository(private val file: File) {
     }
 
     fun updateServer(server: ServerProfile) = mutate { s -> s.copy(servers = s.servers.map { if (it.id == server.id) server else it }) }
+
+    fun addTraffic(id: String, upload: Long, download: Long) = mutate { s ->
+        s.copy(servers = s.servers.map { if (it.id == id) it.copy(uploadBytes = it.uploadBytes + upload, downloadBytes = it.downloadBytes + download) else it })
+    }
 
     fun select(id: String) = mutate { it.copy(selectedId = id) }
 
@@ -141,14 +153,14 @@ class ServerRepository(private val file: File) {
     }
 
     /** 新增或更新订阅，并用新节点替换该订阅下的旧节点。 */
-    fun upsertSubscription(url: String, name: String, servers: List<ServerProfile>, expectedId: String? = null) = mutate { s ->
+    fun upsertSubscription(url: String, name: String, servers: List<ServerProfile>, expectedId: String? = null, userInfo: String? = null, downloadedBytes: Long = 0) = mutate { s ->
         val existing = s.subscriptions.firstOrNull { it.url == url && (expectedId == null || it.id == expectedId) }
         if (expectedId != null && existing == null) return@mutate s
         val sub = (existing ?: Subscription(name = name, url = url)).copy(
             updatedAt = System.currentTimeMillis(),
-            uploadBytes = parseTrafficHeader(SubscriptionFetcher.lastUserInfo, "upload"),
-            downloadBytes = parseTrafficHeader(SubscriptionFetcher.lastUserInfo, "download"),
-            downloadedConfigBytes = SubscriptionFetcher.lastDownloadedBytes,
+            uploadBytes = parseTrafficHeader(userInfo, "upload"),
+            downloadBytes = parseTrafficHeader(userInfo, "download"),
+            downloadedConfigBytes = downloadedBytes,
         )
         val previous = s.servers.filter { it.subscriptionId == sub.id }
         val available = previous.toMutableList()
@@ -177,24 +189,62 @@ class ServerRepository(private val file: File) {
         }.firstOrNull() ?: 0L
     }
 
-    private fun load(): ServerStore = runCatching {
-        if (file.exists()) json.decodeFromString<ServerStore>(file.readText()) else ServerStore()
-    }.getOrDefault(ServerStore()).let { store ->
-        if (store.selectedGroupId == null && store.localGroups.isNotEmpty()) store.copy(selectedGroupId = store.localGroups.first().id) else store
+    private fun load(): ServerStore {
+        val primary = runCatching { json.decodeFromString<ServerStore>(file.readText()) }.getOrNull()
+        val recovered = if (primary == null) runCatching { json.decodeFromString<ServerStore>(backup.readText()) }.getOrNull() else null
+        if (recovered != null) recoveryMessage = "节点文件读取失败，已从上一次有效副本恢复"
+        if (primary == null && recovered == null && (file.length() > 0 || backup.exists())) {
+            unreadable = true
+            recoveryMessage = "节点文件及恢复副本读取失败，已保护原文件，请从备份恢复"
+        }
+        val store = primary ?: recovered ?: ServerStore()
+        return if (store.selectedGroupId == null && store.localGroups.isNotEmpty()) store.copy(selectedGroupId = store.localGroups.first().id) else store
     }
 
-    private fun mutate(block: (ServerStore) -> ServerStore) {
+    fun replace(store: ServerStore) {
         synchronized(lock) {
+            val wasUnreadable = unreadable
+            if (wasUnreadable) {
+                val suffix = ".corrupt-${System.currentTimeMillis()}"
+                listOf(file, backup).filter { it.exists() }.forEach {
+                    Files.copy(it.toPath(), File(it.path + suffix).toPath())
+                }
+            }
+            unreadable = false
+            try {
+                mutate(force = true) { store }
+                recoveryMessage = null
+            } catch (error: Exception) {
+                unreadable = wasUnreadable
+                throw error
+            }
+        }
+    }
+
+    private fun writeAtomic(target: File, content: String) {
+        val tmp = File(target.path + ".tmp")
+        FileOutputStream(tmp).use { output ->
+            output.write(content.toByteArray(Charsets.UTF_8))
+            output.fd.sync()
+        }
+        try {
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    private fun mutate(force: Boolean = false, block: (ServerStore) -> ServerStore) {
+        synchronized(lock) {
+            check(!unreadable) { recoveryMessage.orEmpty() }
             val changed = block(_store.value)
             val next = changed.copy(groupOrder = changed.orderedGroups.map { it.key })
-            _store.value = next
+            if (!force && next == _store.value && file.exists()) return
             file.parentFile?.mkdirs()
-            val tmp = File(file.parentFile, "${file.name}.tmp")
-            tmp.writeText(json.encodeToString(ServerStore.serializer(), next))
-            if (!tmp.renameTo(file)) {
-                file.delete()
-                tmp.renameTo(file)
-            }
+            // Back up the decoded state, never a damaged primary file.
+            writeAtomic(backup, json.encodeToString(ServerStore.serializer(), _store.value))
+            writeAtomic(file, json.encodeToString(ServerStore.serializer(), next))
+            _store.value = next
         }
     }
 }

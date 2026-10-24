@@ -168,7 +168,7 @@ func metadataFor(dest XN.Destination) (*C.Metadata, error) {
 	if dest.Network == XN.Network_UDP {
 		m.NetWork = C.UDP
 	}
-	if err := m.SetRemoteAddress(net.JoinHostPort(dest.Address.String(), dest.Port.String())); err != nil {
+	if err := m.SetRemoteAddress(dest.NetAddr()); err != nil {
 		return nil, err
 	}
 	return m, nil

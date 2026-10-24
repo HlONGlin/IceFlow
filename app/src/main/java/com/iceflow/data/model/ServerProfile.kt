@@ -150,13 +150,16 @@ data class ServerStore(
             return (groupOrder + groups.map { it.key }).distinct().mapNotNull(byKey::get)
         }
 }
+@Serializable
 enum class AppTheme { LIGHT_BLUE, MINT_GREEN, SAKURA_PINK, PEACH_ORANGE, OBSIDIAN_BLACK }
+@Serializable
 enum class NightMode(val label: String) {
     FOLLOW_SYSTEM("跟随系统"),
     ENABLED("启用"),
     DISABLED("禁用"),
     AUTO("自动")
 }
+@Serializable
 enum class RoutingMode(val label: String) {
     RULE("规则"),
     GLOBAL("全局"),
@@ -164,6 +167,7 @@ enum class RoutingMode(val label: String) {
 }
 data class NodeGroup(val key: String, val id: String?, val name: String)
 
+@Serializable
 data class AppSettings(
     val socksPort: Int = 10808,
     val remoteDns: String = "1.1.1.1",
@@ -189,4 +193,23 @@ data class AppSettings(
     val appRoutingEnabled: Boolean = false,
     val appProxyMode: Boolean = false,
     val language: String = "zh-CN",
-)
+) {
+    fun hasSameConnection(other: AppSettings): Boolean = copy(
+        theme = other.theme, nightMode = other.nightMode, language = other.language,
+        showTrafficStats = other.showTrafficStats, logRetentionDays = other.logRetentionDays,
+        testUrl = other.testUrl,
+    ) == other
+
+    fun validate() {
+        require(socksPort in 1024..65535) { "SOCKS 端口应为 1024–65535" }
+        require(dnsServers.isNotEmpty()) { "至少输入一个 DNS 地址" }
+        (dnsServers + remoteDns).forEach { value ->
+            val v4 = value.split('.').let { parts -> parts.size == 4 && parts.all { part -> part.isNotEmpty() && part.all(Char::isDigit) && part.toIntOrNull() in 0..255 } }
+            val v6 = ':' in value && value.matches(Regex("[0-9a-fA-F:.]+")) && runCatching { java.net.InetAddress.getByName(value) }.isSuccess
+            require(v4 || v6) { "DNS 必须是 IPv4 或 IPv6 地址：$value" }
+        }
+        RoutingRules.validateTestUrl(testUrl)
+        RoutingRules.encode(routingRules)
+        require(logRetentionDays in 0..365) { "日志保留天数应为 0–365" }
+    }
+}

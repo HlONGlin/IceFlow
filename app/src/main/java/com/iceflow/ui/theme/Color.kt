@@ -70,13 +70,13 @@ object PeachOrangeColors {
     val info = Color(0xFF4A9AFF)
 }
 
-// ==================== 曜石黑主题（深色）====================
+// ==================== 曜石黑主题（黑白）====================
 object ObsidianBlackColors {
     val background = Color(0xFF000000)
     val surface = Color(0xFF111111)
     val surface2 = Color(0xFF1F1F1F)
-    val primary = Color(0xFF3A9DFF)
-    val primarySoft = Color(0xFF1A3A52)
+    val primary = Color(0xFFA6A6A6)
+    val primarySoft = Color(0xFF2A2A2A)
     val textPrimary = Color(0xFFFFFFFF)
     val textSecondary = Color(0xFFB3B3B3)
     val textTertiary = Color(0xFF808080)
@@ -84,7 +84,7 @@ object ObsidianBlackColors {
     val success = Color(0xFF32D74B)
     val warning = Color(0xFFFF9F0A)
     val error = Color(0xFFFF453A)
-    val info = Color(0xFF64D2FF)
+    val info = Color(0xFF9E9E9E)
 }
 
 // ==================== 遗留颜色（用于延迟显示等特殊场景）====================

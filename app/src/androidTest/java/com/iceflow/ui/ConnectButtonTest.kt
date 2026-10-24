@@ -26,7 +26,7 @@ class ConnectButtonTest {
         rule.setContent {
             IceFlowTheme { ConnectButton(state = VpnState.Idle, onClick = { clicks++ }) }
         }
-        rule.onNodeWithText("点击连接").assertIsDisplayed()
+        rule.onNodeWithText("连接").assertIsDisplayed()
         rule.onNodeWithTag("ConnectButton").performClick()
         assertEquals(1, clicks)
     }
@@ -34,6 +34,6 @@ class ConnectButtonTest {
     @Test
     fun connectingStateShowsProgressLabel() {
         rule.setContent { IceFlowTheme { ConnectButton(state = VpnState.Connecting, onClick = {}) } }
-        rule.onNodeWithText("连接中...").assertIsDisplayed()
+        rule.onNodeWithText("连接中").assertIsDisplayed()
     }
 }

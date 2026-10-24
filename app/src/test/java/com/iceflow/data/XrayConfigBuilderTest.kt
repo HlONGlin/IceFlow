@@ -75,6 +75,22 @@ class XrayConfigBuilderTest {
         assertFalse(cfg.containsKey("inbounds"))
     }
 
+    @Test fun `vpn forwarding survives disabling the public socks listener`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings(socksEnabled = false, socksUdp = false), tunnelPort = 23456))
+        val inbound = cfg.getValue("inbounds").jsonArray.single().jsonObject
+        assertEquals("tun-in", inbound.str("tag"))
+        assertEquals(23456, inbound.getValue("port").jsonPrimitive.int)
+        assertEquals("noauth", inbound.obj("settings").str("auth"))
+        assertTrue(inbound.obj("settings").getValue("udp").jsonPrimitive.boolean)
+    }
+
+    @Test fun `public socks credentials do not apply to vpn forwarding`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings(socksUsername = "user", socksPassword = "secret"), tunnelPort = 23456))
+        val inbounds = cfg.getValue("inbounds").jsonArray.map { it.jsonObject }
+        assertEquals("noauth", inbounds.first { it.str("tag") == "tun-in" }.obj("settings").str("auth"))
+        assertEquals("password", inbounds.first { it.str("tag") == "socks-in" }.obj("settings").str("auth"))
+    }
+
     @Test
     fun `bypass lan toggles direct rule`() {
         val on = parse(XrayConfigBuilder.build(vless, AppSettings(bypassLan = true)))

@@ -15,7 +15,9 @@ import (
 	"io"
 	gonet "net"
 	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -110,15 +112,47 @@ func MeasureDelay(configJSON string, testURL string, timeoutMs int64) (int64, er
 			return core.Dial((&taggedDialer{instance: inst, tag: "proxy"}).context(ctx), inst, dest)
 		},
 	}
-	client := &http.Client{Transport: transport, Timeout: time.Duration(timeoutMs) * time.Millisecond}
+	return measureHTTPDelay(transport, testURL, timeoutMs)
+}
 
-	start := time.Now()
-	resp, err := client.Get(testURL)
+// MeasureSocksDelay measures the running VPN through its internal SOCKS listener.
+// It uses the same HTTP/TLS implementation as MeasureDelay without starting a core.
+func MeasureSocksDelay(socksPort int64, testURL string, timeoutMs int64) (int64, error) {
+	if socksPort < 1 || socksPort > 65535 || timeoutMs <= 0 {
+		return -1, errors.New("invalid SOCKS port or timeout")
+	}
+	transport := &http.Transport{
+		DisableKeepAlives: true,
+		Proxy:             http.ProxyURL(&url.URL{Scheme: "socks5", Host: gonet.JoinHostPort("127.0.0.1", strconv.FormatInt(socksPort, 10))}),
+		DialContext:       (&gonet.Dialer{}).DialContext,
+	}
+	return measureHTTPDelay(transport, testURL, timeoutMs)
+}
+
+func measureHTTPDelay(transport *http.Transport, testURL string, timeoutMs int64) (int64, error) {
+	defer transport.CloseIdleConnections()
+	request, err := http.NewRequest(http.MethodGet, testURL, nil)
 	if err != nil {
 		return -1, err
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
+	if (request.URL.Scheme != "http" && request.URL.Scheme != "https") || request.URL.Hostname() == "" {
+		return -1, errors.New("test URL must use HTTP or HTTPS")
+	}
+	query := request.URL.Query()
+	query.Set("_t", strconv.FormatInt(time.Now().UnixNano(), 10))
+	request.URL.RawQuery = query.Encode()
+	request.Header.Set("Cache-Control", "no-cache")
+	client := &http.Client{Transport: transport, Timeout: time.Duration(timeoutMs) * time.Millisecond}
+
+	start := time.Now()
+	resp, err := client.Do(request)
+	if err != nil {
+		return -1, err
+	}
+	defer resp.Body.Close()
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		return -1, err
+	}
 	if resp.StatusCode >= 400 {
 		return -1, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,8 +16,8 @@ android {
         applicationId = "com.iceflow"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("iceflow.versionCode").getOrElse("1").toInt().also { require(it > 0) }
+        versionName = providers.gradleProperty("iceflow.versionName").getOrElse("0.1.0")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -25,8 +26,23 @@ android {
         }
     }
 
+    val signingValues = listOf("ICEFLOW_KEYSTORE_PATH", "ICEFLOW_KEYSTORE_PASSWORD", "ICEFLOW_KEY_ALIAS", "ICEFLOW_KEY_PASSWORD")
+        .map { providers.environmentVariable(it).orNull }
+    require(signingValues.all { it == null } || signingValues.all { !it.isNullOrBlank() }) {
+        "Set all four ICEFLOW signing environment variables, or leave all unset."
+    }
+    if (signingValues.all { it != null }) {
+        signingConfigs.create("release") {
+            storeFile = file(signingValues[0]!!)
+            storePassword = signingValues[1]
+            keyAlias = signingValues[2]
+            keyPassword = signingValues[3]
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -54,6 +70,20 @@ android {
         jniLibs.useLegacyPackaging = true
     }
 }
+
+val verifyReleaseNativeLibraries by tasks.registering {
+    doLast {
+        val aar = file("libs/xray.aar")
+        check(aar.isFile) { "Build xray-wrapper before creating a release APK." }
+        ZipFile(aar).use { archive ->
+            listOf("arm64-v8a", "armeabi-v7a", "x86_64").forEach { abi ->
+                check(file("src/main/jniLibs/$abi/libiceflow_core.so").isFile) { "Rust core missing for $abi" }
+                check(archive.getEntry("jni/$abi/libgojni.so") != null) { "Xray core missing for $abi" }
+            }
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(verifyReleaseNativeLibraries) }
 
 kotlin {
     compilerOptions {
@@ -86,6 +116,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("org.yaml:snakeyaml:2.5")
 
     testImplementation(libs.junit)

@@ -11,9 +11,44 @@ import (
 	"testing"
 	"time"
 
+	C "github.com/metacubex/mihomo/constant"
 	XN "github.com/xtls/xray-core/common/net"
 	"github.com/xtls/xray-core/core"
 )
+
+func TestAdapterMetadataPreservesIPv6AndAddressFamilies(t *testing.T) {
+	for _, network := range []string{"tcp", "udp"} {
+		for _, host := range []string{"198.51.100.1", "2001:db8::1", "proxy.invalid"} {
+			t.Run(network+"/"+host, func(t *testing.T) {
+				dest, err := XN.ParseDestination(network + ":" + net.JoinHostPort(host, "80"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				metadata, err := metadataFor(dest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if metadata.DstPort != 80 {
+					t.Fatalf("unexpected port: %d", metadata.DstPort)
+				}
+				if ip := net.ParseIP(host); ip != nil {
+					if metadata.DstIP.String() != host || metadata.Host != "" {
+						t.Fatalf("unexpected IP metadata: %+v", metadata)
+					}
+				} else if metadata.Host != host {
+					t.Fatalf("unexpected domain metadata: %+v", metadata)
+				}
+				want := C.TCP
+				if network == "udp" {
+					want = C.UDP
+				}
+				if metadata.NetWork != want {
+					t.Fatalf("unexpected network: %v", metadata.NetWork)
+				}
+			})
+		}
+	}
+}
 
 func adapterConfig(options map[string]any) string {
 	options["name"] = "test-proxy"

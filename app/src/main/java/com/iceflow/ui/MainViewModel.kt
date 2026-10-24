@@ -5,7 +5,9 @@ import com.iceflow.BuildConfig
 import com.iceflow.IceFlowApp
 import com.iceflow.core.XrayBridge
 import com.iceflow.core.RustBridge
+import com.iceflow.core.ConnectionProbe
 import com.iceflow.data.XrayConfigBuilder
+import com.iceflow.data.BackupCodec
 import com.iceflow.service.VpnState
 import com.iceflow.data.ShareLinkParser
 import com.iceflow.data.model.AppSettings
@@ -19,9 +21,6 @@ import com.iceflow.service.AppLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -31,8 +30,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
-import java.net.URL
 import java.net.InetSocketAddress
 import java.net.Socket
 
@@ -49,6 +49,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val store = container.servers.store
     val settings: StateFlow<AppSettings> = container.settings.settings
     val routingResources get() = container.routingResources
+    val recoveryMessage get() = container.servers.recoveryMessage
 
     private val _testing = MutableStateFlow(false)
     val testing: StateFlow<Boolean> = _testing.asStateFlow()
@@ -82,42 +83,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            var activeServerId: String? = null
-            var lastUp = 0L
-            var lastDown = 0L
-            traffic.collect { snapshot ->
-                val connected = vpnState.value as? VpnState.Connected
-                if (connected == null) {
-                    activeServerId = null
-                    lastUp = snapshot.upTotal
-                    lastDown = snapshot.downTotal
-                } else {
-                    val selectedId = container.servers.selected?.id
-                    if (selectedId != activeServerId) {
-                        activeServerId = selectedId
-                        lastUp = snapshot.upTotal
-                        lastDown = snapshot.downTotal
-                    } else if (selectedId != null) {
-                        val uploadDelta = (snapshot.upTotal - lastUp).coerceAtLeast(0)
-                        val downloadDelta = (snapshot.downTotal - lastDown).coerceAtLeast(0)
-                        if (uploadDelta > 0 || downloadDelta > 0) {
-                            container.servers.store.value.servers.firstOrNull { it.id == selectedId }?.let { server ->
-                                container.servers.updateServer(server.copy(
-                                    uploadBytes = server.uploadBytes + uploadDelta,
-                                    downloadBytes = server.downloadBytes + downloadDelta,
-                                ))
-                            }
-                        }
-                        lastUp = snapshot.upTotal
-                        lastDown = snapshot.downTotal
-                    }
-                }
-            }
-        }
-        viewModelScope.launch {
             vpnState.collectLatest {
                 connectionTestJob?.cancel()
                 _connectionTest.value = ConnectionTestState()
+                _publicIp.value = null
             }
         }
     }
@@ -132,21 +101,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
 
-        val profile = container.servers.selected ?: run {
-            android.util.Log.w("MainViewModel", "testRunningConnection: 未选择节点")
-            return
-        }
-
-        android.util.Log.i("MainViewModel", "testRunningConnection: 开始测速节点 ${profile.name}, testUrl=${settings.value.testUrl}")
+        android.util.Log.i("MainViewModel", "testRunningConnection: 开始测速节点 ${session.serverName}, testUrl=${settings.value.testUrl}")
         _connectionTest.value = ConnectionTestState(testing = true)
         connectionTestJob = viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             val latency = withContext(Dispatchers.IO) {
                 runCatching {
-                    // 使用 XrayBridge.measureDelay 直接测试代理节点，而不是通过已连接的 SOCKS 端口
-                    // 这样能真正测量节点到目标的延迟，而不受 VPN 排除自身应用的影响
-                    val config = XrayConfigBuilder.build(profile, settings.value, store = container.servers.store.value)
-                    XrayBridge.measureDelay(config, settings.value.testUrl, 5000L).toInt()
+                    ConnectionProbe.measure(session.socksPort, settings.value.testUrl, 5000)
                 }.onSuccess { result ->
                     android.util.Log.i("MainViewModel", "测速成功: ${result}ms")
                 }.onFailure { error ->
@@ -176,7 +137,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun select(id: String) {
         container.servers.select(id)
-        if (vpnState.value is VpnState.Connected) VpnController.switch(getApplication())
     }
     fun delete(id: String) = container.servers.delete(id)
     fun updateServer(server: ServerProfile) = container.servers.updateServer(server)
@@ -283,9 +243,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun refreshOne(url: String, name: String, expectedId: String? = null) {
         runCatching {
-            val servers = ShareLinkParser.parseMany(SubscriptionFetcher.fetch(url))
+            val download = SubscriptionFetcher.fetch(url)
+            val servers = ShareLinkParser.parseMany(download.body)
             check(servers.isNotEmpty()) { "订阅中没有可识别的节点" }
-            container.servers.upsertSubscription(url, name, servers, expectedId)
+            container.servers.upsertSubscription(url, name, servers, expectedId, download.userInfo, download.downloadedBytes)
             container.servers.store.value.subscriptions.firstOrNull { it.url == url }?.let { SubscriptionScheduler.schedule(getApplication(), it) }
             servers.size
         }.onSuccess { _messages.emit("订阅 $name：$it 个节点") }
@@ -330,14 +291,40 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun refreshPublicIp() {
+        val session = vpnState.value as? VpnState.Connected ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            _publicIp.value = runCatching {
-                URL("https://api.ipify.org").openStream().bufferedReader().use { it.readText().trim() }
-            }.getOrNull()
+            val result = runCatching { ConnectionProbe.publicIp(session.socksPort) }.getOrNull()
+            if (vpnState.value == session) _publicIp.value = result
         }
     }
 
     suspend fun readLogs(): String = withContext(Dispatchers.IO) { AppLog.read(getApplication()) }
+
+    suspend fun exportBackup(): String = withContext(Dispatchers.IO) {
+        BackupCodec.encode(store.value, settings.value)
+    }
+
+    suspend fun restoreBackup(text: String) {
+        val backup = withContext(Dispatchers.IO) { BackupCodec.decode(text) }
+        if (vpnState.value != VpnState.Idle) {
+            VpnController.stop(getApplication())
+            withTimeout(10_000) { vpnState.first { it == VpnState.Idle } }
+        }
+        withContext(Dispatchers.IO) {
+            val previousStore = store.value
+            val previousSettings = settings.value
+            container.servers.replace(backup.store)
+            try {
+                container.settings.update { backup.settings }
+            } catch (error: Exception) {
+                container.servers.replace(previousStore)
+                container.settings.update { previousSettings }
+                throw error
+            }
+            previousStore.subscriptions.forEach { SubscriptionScheduler.cancel(getApplication(), it.id) }
+            backup.store.subscriptions.forEach { SubscriptionScheduler.schedule(getApplication(), it) }
+        }
+    }
 
     fun cleanOldLogs() {
         viewModelScope.launch(Dispatchers.IO) {

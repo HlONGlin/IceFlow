@@ -1,6 +1,7 @@
 package com.iceflow.service
 
 import android.app.PendingIntent
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.net.VpnService
@@ -82,6 +83,7 @@ class IceFlowTileService : TileService() {
         tile.updateTile()
     }
 
+    @SuppressLint("StartActivityAndCollapseDeprecated") // Intent overload is only used below API 34.
     private fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

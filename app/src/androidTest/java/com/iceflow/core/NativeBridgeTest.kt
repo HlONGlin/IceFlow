@@ -195,6 +195,9 @@ class NativeBridgeTest {
                         assertEquals("Virtual DNS did not respond through TUN", 1, Os.poll(arrayOf(poll), 5000))
                         val response = ByteArray(1500)
                         val count = Os.read(peer, response, 0, response.size)
+                        // Reading the peer can finish before the writer thread increments its counter.
+                        val deadline = SystemClock.elapsedRealtime() + 1000
+                        while (RustBridge.stats()[1] < count && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(1)
                         val stats = RustBridge.stats()
                         assertEquals("Upload must be counted immediately, including short bursts", packet.size.toLong(), stats[0])
                         assertEquals("Download must match actual TUN bytes", count.toLong(), stats[1])
@@ -238,6 +241,35 @@ class NativeBridgeTest {
                     ConnectionProbe.measure(freePort(), "http://127.0.0.1:${target.localPort}/generate_204", 500)
                     fail("Probe must not fall back to direct traffic when SOCKS is unavailable")
                 } catch (_: java.io.IOException) { }
+            } finally { XrayBridge.stop() }
+        }
+    }
+
+    @Test
+    fun directModeBypassesUnavailableProxyWhileGlobalModeFailsClosed() {
+        ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { target ->
+            target.soTimeout = 5000
+            val worker = thread {
+                target.accept().use { socket ->
+                    socket.soTimeout = 5000
+                    val reader = socket.getInputStream().bufferedReader()
+                    while (!reader.readLine().isNullOrEmpty()) { }
+                    socket.getOutputStream().write("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n".toByteArray())
+                }
+            }
+            val profile = ServerProfile(name = "unavailable", protocol = Protocol.SOCKS, address = "127.0.0.1", port = freePort())
+            val port = freePort()
+            val url = "http://127.0.0.1:${target.localPort}/generate_204"
+            try {
+                XrayBridge.start(XrayConfigBuilder.build(profile, AppSettings(socksPort = port, routingMode = com.iceflow.data.model.RoutingMode.DIRECT)))
+                assertTrue(ConnectionProbe.measure(port, url) > 0)
+                worker.join(6000)
+                XrayBridge.stop()
+                XrayBridge.start(XrayConfigBuilder.build(profile, AppSettings(socksPort = port, routingMode = com.iceflow.data.model.RoutingMode.GLOBAL)))
+                try {
+                    ConnectionProbe.measure(port, url, 500)
+                    fail("Global mode must not bypass an unavailable proxy")
+                } catch (_: Exception) { }
             } finally { XrayBridge.stop() }
         }
     }
@@ -408,7 +440,12 @@ class NativeBridgeTest {
                         assertTrue(connect.contains("Proxy-Authorization: Basic dXNlcjpzZWNyZXQ=", ignoreCase = true))
                         c.getOutputStream().write("HTTP/1.1 200 Connection Established\r\n\r\n".toByteArray())
                         c.getOutputStream().flush()
-                        assertTrue(headers().startsWith("GET /generate_204 "))
+                        val request = headers()
+                        assertTrue(request.startsWith("GET "))
+                        val target = java.net.URI(request.lineSequence().first().split(' ')[1])
+                        assertEquals("/generate_204", target.path)
+                        assertTrue(target.rawQuery.startsWith("_t="))
+                        assertTrue(request.contains("Cache-Control: no-cache", ignoreCase = true))
                         c.getOutputStream().write("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n".toByteArray())
                         c.getOutputStream().flush()
                     }

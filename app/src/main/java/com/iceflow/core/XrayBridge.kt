@@ -42,6 +42,8 @@ object XrayBridge {
         call("stop", emptyArray())
     }
 
+    fun isRunning(): Boolean = call("isRunning", emptyArray()) as Boolean
+
     fun version(): String? = runCatching { call("version", emptyArray()) as String }.getOrNull()
 
     /** 官方 mieru:// Protobuf 配置可包含多个配置及服务器，统一转换为 mierus:// 列表。 */
@@ -54,6 +56,13 @@ object XrayBridge {
             "measureDelay",
             arrayOf(String::class.java, String::class.java, Long::class.javaPrimitiveType!!),
             configJson, url, timeoutMs,
+        ) as Long
+
+    fun measureSocksDelay(socksPort: Int, url: String, timeoutMs: Int): Long =
+        call(
+            "measureSocksDelay",
+            arrayOf(Long::class.javaPrimitiveType!!, String::class.java, Long::class.javaPrimitiveType!!),
+            socksPort.toLong(), url, timeoutMs.toLong(),
         ) as Long
 
     private fun call(name: String, types: Array<Class<*>>, vararg args: Any?): Any? {

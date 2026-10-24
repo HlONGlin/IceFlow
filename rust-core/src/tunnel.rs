@@ -98,6 +98,8 @@ pub fn build_args(cfg: &TunnelConfig) -> Result<Args, TunnelError> {
     args.proxy(proxy).dns(cfg.dns_mode.to_arg()).dns_addr(dns_addr);
     // Android 上路由由 VpnService 负责，不能让 tun2proxy 改系统路由
     args.setup(false);
+    // Android's VpnService decides which address families enter this tunnel.
+    args.ipv6_enabled(true);
     args.mtu = cfg.mtu;
     #[cfg(unix)]
     {
@@ -225,6 +227,7 @@ mod tests {
         let args = build_args(&cfg()).expect("valid config");
         assert_eq!(args.mtu, 1500);
         assert!(!args.setup);
+        assert!(args.ipv6_enabled);
         assert_eq!(args.dns, ArgDns::Virtual);
     }
 
