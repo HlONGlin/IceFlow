@@ -62,6 +62,16 @@ import kotlinx.coroutines.withContext
                         menu = false
                         runCatching { RoutingRules.decode(clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()) }.onSuccess { incoming = it }.onFailure { notice = it.message ?: "导入失败" }
                     }
+                    IceMenuItem("从剪贴板导入 Clash 规则", Icons.Default.Add) {
+                        menu = false
+                        runCatching {
+                            val text = clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+                            com.iceflow.data.ClashYamlParser.parseRules(text)
+                        }.onSuccess { rules ->
+                            if (rules.isEmpty()) notice = "未找到可导入的规则"
+                            else incoming = rules
+                        }.onFailure { notice = it.message ?: "导入失败" }
+                    }
                     IceMenuItem("导出到剪贴板", Icons.Default.Send) { menu = false; clipboard?.setPrimaryClip(ClipData.newPlainText("IceFlow 路由规则", RoutingRules.encode(settings.routingRules))); notice = "已复制 ${settings.routingRules.size} 条规则" }
                     IceMenuItem("管理路由资源", Icons.Default.Settings) { menu = false; resourcePage = true }
                 }
