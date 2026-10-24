@@ -160,6 +160,12 @@ enum class NightMode(val label: String) {
     AUTO("自动")
 }
 @Serializable
+enum class TextSize(val label: String, val scale: Float) {
+    SMALL("小", 1.0f),
+    MEDIUM("中", 1.15f),
+    LARGE("大", 1.3f),
+}
+@Serializable
 enum class RoutingMode(val label: String) {
     RULE("规则"),
     GLOBAL("全局"),
@@ -189,6 +195,7 @@ data class AppSettings(
     val dnsProxyEnabled: Boolean = true,
     val theme: AppTheme = AppTheme.LIGHT_BLUE,
     val nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
+    val textSize: TextSize = TextSize.MEDIUM,
     val showTrafficStats: Boolean = false,
     /** 是否在节点卡片显示延迟；关闭时不显示延迟与未测速提示 */
     val showNodeLatency: Boolean = false,

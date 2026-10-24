@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.iceflow.data.model.AppTheme
 import com.iceflow.data.model.NightMode
+import com.iceflow.data.model.TextSize
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 
@@ -148,6 +149,7 @@ private fun obsidianBlackExtColors() = IceFlowColors(
 fun IceFlowTheme(
     theme: AppTheme = AppTheme.LIGHT_BLUE,
     nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
+    textSize: TextSize = TextSize.MEDIUM,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -197,8 +199,10 @@ fun IceFlowTheme(
         else -> themedColorScheme(accent, accentSecondary, isDark)
     }
 
+    val density = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(
-        LocalIceFlowColors provides extColors
+        LocalIceFlowColors provides extColors,
+        androidx.compose.ui.platform.LocalDensity provides density.copy(fontScale = density.fontScale * textSize.scale),
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

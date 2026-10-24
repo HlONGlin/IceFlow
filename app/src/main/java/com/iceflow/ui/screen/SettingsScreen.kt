@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Brightness4
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Lan
@@ -60,6 +61,8 @@ import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingMode
 import com.iceflow.data.model.AppTheme
 import com.iceflow.data.model.NightMode
+import com.iceflow.data.model.TextSize
+import com.iceflow.ui.component.SegmentedSelector
 import com.iceflow.ui.theme.IceRadius
 
 private val IPV4 = Regex("""^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$""")
@@ -237,28 +240,6 @@ private fun SettingsOptionRow(title: String, selected: Boolean, onClick: () -> U
 }
 
 @Composable
-private fun ApplicationRouteMode(title: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Row(
-        modifier.clip(RoundedCornerShape(9.dp))
-            .background(if (selected) colors.primaryContainer else Color.Transparent)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (selected) colors.onPrimaryContainer else colors.onSurfaceVariant,
-            maxLines = 2,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-    }
-}
-
-@Composable
 private fun SettingsDetailDivider() {
     HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
 }
@@ -372,6 +353,13 @@ fun SettingsScreen(
                 { label -> onUpdate { it.copy(nightMode = NightMode.entries.first { mode -> mode.label == label }) } },
                 { label -> if (label == NightMode.AUTO.label) "每天 22:00 至次日 06:00 自动切换" else null },
             )
+            "textSize" -> ChoiceSettingsPage(
+                "文字大小",
+                TextSize.entries.map { it.label },
+                settings.textSize.label,
+                { detail = null },
+                { label -> onUpdate { it.copy(textSize = TextSize.entries.first { size -> size.label == label }) } },
+            )
             "routing" -> ChoiceSettingsPage(
                 "路由模式", RoutingMode.entries.map { it.label }, settings.routingMode.label,
                 onBack = { detail = null },
@@ -418,6 +406,8 @@ fun SettingsScreen(
             SettingAction(Icons.Outlined.Palette, "主题", themeLabel(settings.theme)) { detail = "theme" }
             RowDivider()
             SettingAction(Icons.Outlined.Brightness4, "夜间模式", settings.nightMode.label) { detail = "nightMode" }
+            RowDivider()
+            SettingAction(Icons.Outlined.FormatSize, "文字大小", settings.textSize.label) { detail = "textSize" }
             RowDivider()
             SettingRow(icon = Icons.Outlined.Language, title = "语言", trailing = {
                 Text(if (settings.language == "zh-CN") "简体中文" else settings.language, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -470,22 +460,16 @@ fun SettingsScreen(
         SettingsCard {
             ToggleRow(Icons.Outlined.Apps, "应用路由", "启用所选应用的绕过或代理策略", settings.appRoutingEnabled) { v -> onUpdate { it.copy(appRoutingEnabled = v) } }
             RowDivider()
-            // 两个模式按钮：分应用代理 / 允许应用绕过代理
-            Row(
-                Modifier.fillMaxWidth().padding(start = 52.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                ApplicationRouteMode("分应用代理", settings.appProxyMode, Modifier.weight(1f)) {
-                    onUpdate { it.copy(appProxyMode = true, proxyAppsOnly = true) }
-                }
-                ApplicationRouteMode("允许应用绕过代理", !settings.appProxyMode, Modifier.weight(1f)) {
-                    onUpdate { it.copy(appProxyMode = false, proxyAppsOnly = false) }
-                }
-            }
+            // 两个模式：分应用代理 / 允许应用绕过代理
+            SegmentedSelector(
+                options = listOf("分应用代理", "允许应用绕过"),
+                selectedIndex = if (settings.appProxyMode) 0 else 1,
+                onSelect = { index ->
+                    val proxyOnly = index == 0
+                    onUpdate { it.copy(appProxyMode = proxyOnly, proxyAppsOnly = proxyOnly) }
+                },
+                modifier = Modifier.padding(start = 52.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+            )
             RowDivider()
             SettingRow(icon = Icons.Outlined.Checklist, title = "选择应用", onClick = onOpenAppSelector, trailing = {
                 Text("${settings.bypassApps.size} 个应用", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

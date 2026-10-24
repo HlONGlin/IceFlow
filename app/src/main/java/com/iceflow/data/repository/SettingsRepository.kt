@@ -5,6 +5,7 @@ import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingRules
 import com.iceflow.data.model.AppTheme
 import com.iceflow.data.model.NightMode
+import com.iceflow.data.model.TextSize
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +40,7 @@ class SettingsRepository(context: Context) {
             putBoolean("dns_proxy_enabled", next.dnsProxyEnabled)
             putString("theme", next.theme.name)
             putString("night_mode", next.nightMode.name)
+            putString("text_size", next.textSize.name)
             putString("routing_mode", next.routingMode.name)
             putBoolean("show_traffic_stats", next.showTrafficStats)
             putBoolean("show_node_latency", next.showNodeLatency)
@@ -74,6 +76,7 @@ class SettingsRepository(context: Context) {
             dnsProxyEnabled = prefs.getBoolean("dns_proxy_enabled", true),
             theme = runCatching { AppTheme.valueOf(prefs.getString("theme", d.theme.name)!!) }.getOrDefault(d.theme),
             nightMode = runCatching { NightMode.valueOf(prefs.getString("night_mode", d.nightMode.name)!!) }.getOrDefault(d.nightMode),
+            textSize = runCatching { TextSize.valueOf(prefs.getString("text_size", d.textSize.name)!!) }.getOrDefault(d.textSize),
             routingMode = runCatching { com.iceflow.data.model.RoutingMode.valueOf(prefs.getString("routing_mode", d.routingMode.name)!!) }.getOrDefault(d.routingMode),
             showTrafficStats = prefs.getBoolean("show_traffic_stats", false),
             showNodeLatency = prefs.getBoolean("show_node_latency", false),

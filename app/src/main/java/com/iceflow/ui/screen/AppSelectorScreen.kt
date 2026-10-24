@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.iceflow.ui.component.SegmentedSelector
 import com.iceflow.ui.theme.IceRadius
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,9 @@ data class AppInfo(
     val icon: Bitmap?,
     val isSystemApp: Boolean
 )
+
+/** 应用列表的筛选条件。 */
+enum class AppFilter { ALL, SELECTED, UNSELECTED }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +50,7 @@ fun AppSelectorScreen(
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
-    var selectedOnly by remember { mutableStateOf(false) }
+    var filter by remember { mutableStateOf(AppFilter.ALL) }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -71,10 +75,14 @@ fun AppSelectorScreen(
     }
 
     val selected = remember(selectedApps) { selectedApps.toSet() }
-    val filteredApps = remember(apps, searchQuery, showSystemApps, selectedOnly, selected) {
+    val filteredApps = remember(apps, searchQuery, showSystemApps, filter, selected) {
         apps.filter { app ->
             (showSystemApps || !app.isSystemApp) &&
-            (!selectedOnly || app.packageName in selected) &&
+            when (filter) {
+                AppFilter.ALL -> true
+                AppFilter.SELECTED -> app.packageName in selected
+                AppFilter.UNSELECTED -> app.packageName !in selected
+            } &&
             (searchQuery.isEmpty() ||
              app.label.contains(searchQuery, ignoreCase = true) ||
              app.packageName.contains(searchQuery, ignoreCase = true))
@@ -123,7 +131,7 @@ fun AppSelectorScreen(
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -134,7 +142,7 @@ fun AppSelectorScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
-                    Text("显示系统应用", style = MaterialTheme.typography.labelSmall)
+                    Text("系统应用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
                     Switch(
                         checked = showSystemApps,
@@ -143,13 +151,21 @@ fun AppSelectorScreen(
                 }
             }
 
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(selected = !selectedOnly, onClick = { selectedOnly = false }, label = { Text("全部") })
-                FilterChip(selected = selectedOnly, onClick = { selectedOnly = true }, label = { Text("仅已选") })
-                Spacer(Modifier.weight(1f))
+            // 筛选：全部 / 已选 / 未选
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SegmentedSelector(
+                    options = listOf("全部", "已选", "未选"),
+                    selectedIndex = filter.ordinal,
+                    onSelect = { filter = AppFilter.entries[it] },
+                    modifier = Modifier.weight(1f),
+                )
                 TextButton(onClick = {
                     val visible = filteredApps.map { it.packageName }.toSet()
-                    onSelectionChange((selected - visible + visible).toList())
+                    onSelectionChange((selected + visible).toList())
                 }, enabled = filteredApps.isNotEmpty()) { Text("全选") }
                 TextButton(onClick = {
                     val visible = filteredApps.map { it.packageName }.toSet()
@@ -241,13 +257,6 @@ private fun AppItem(app: AppInfo, isSelected: Boolean, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (app.isSystemApp) {
-                    Text(
-                        text = "系统应用",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.tertiary
-                    )
-                }
             }
 
             // 选择框
