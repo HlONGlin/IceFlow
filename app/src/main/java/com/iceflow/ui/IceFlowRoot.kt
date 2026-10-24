@@ -31,6 +31,8 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -118,6 +120,8 @@ import com.iceflow.service.TrafficSnapshot
 import com.iceflow.service.VpnState
 import com.iceflow.core.XrayBridge
 import com.iceflow.ui.component.ShareNodeDialog
+import com.iceflow.ui.component.latencyColor
+import com.iceflow.ui.component.latencyText
 import com.iceflow.ui.screen.AppSelectorScreen
 import com.iceflow.ui.screen.SettingsScreen
 import com.iceflow.ui.theme.IceBlue
@@ -496,27 +500,55 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
             .clickable(onClick = onSelect)
-            .padding(14.dp),
+            .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("●", color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(server.name, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface)
-            Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
-            if (showTrafficStats) Text("↑ ${formatBytes(server.uploadBytes)}   ↓ ${formatBytes(server.downloadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
+        if (dragHandle != null) {
+            Box(dragHandle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Menu, "拖动排序", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+            Spacer(Modifier.size(10.dp))
+        } else {
+            Box(Modifier.size(8.dp).background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, androidx.compose.foundation.shape.CircleShape))
+            Spacer(Modifier.size(12.dp))
         }
-        if (dragHandle != null) Box(dragHandle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Menu, "拖动排序", tint = MaterialTheme.colorScheme.primary) }
-        else Box {
-            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "节点操作", tint = MaterialTheme.colorScheme.primary) }
-            IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                IceMenuItem("测速", Icons.Filled.Info) { menu = false; onTest() }
-                IceMenuItem("编辑", Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
-                IceMenuItem("分享节点", Icons.Filled.Share) { menu = false; onShare() }
-                if (onSort != null) IceMenuItem("单独排序", Icons.Filled.List) { menu = false; onSort() }
-                HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                IceMenuItem("删除", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    server.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    latencyText(server.latencyMs),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = latencyColor(server.latencyMs, MaterialTheme.colorScheme.onSurfaceVariant),
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                if (showTrafficStats) {
+                    Text("↑ ${formatBytes(server.uploadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                    Text("↓ ${formatBytes(server.downloadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        if (dragHandle == null) {
+            Box {
+                IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) { Icon(Icons.Filled.MoreVert, "节点操作", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp)) }
+                IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    IceMenuItem("测速", Icons.Filled.Info) { menu = false; onTest() }
+                    IceMenuItem("编辑", Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
+                    IceMenuItem("分享节点", Icons.Filled.Share) { menu = false; onShare() }
+                    if (onSort != null) IceMenuItem("单独排序", Icons.Filled.List) { menu = false; onSort() }
+                    HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                    IceMenuItem("删除", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
+                }
             }
         }
     }
@@ -568,12 +600,16 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                 EmptyStateMessage("暂无分组。点右上角 + 创建分组；也可到节点页点 + 导入节点。", Modifier.weight(1f))
             } else ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
                 val sub = store.subscriptions.firstOrNull { it.id == group.id }
-                val subtitle = when {
-                    sub != null -> "订阅链接 · ${store.servers.count { it.subscriptionId == sub.id }} 个节点\n${dateText(sub.updatedAt)} · ${if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时"}\n已用 ${formatBytes(sub.uploadBytes + sub.downloadBytes)}"
-                    group.id != null -> "本地分组 · ${store.servers.count { it.groupId == group.id }} 个节点"
-                    else -> "无链接 · ${store.servers.count { it.subscriptionId == null && it.groupId == null }} 个节点"
+                val tags = when {
+                    sub != null -> buildList {
+                        add("${store.servers.count { it.subscriptionId == sub.id }} 节点")
+                        add(dateText(sub.updatedAt))
+                        add(if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时")
+                    }
+                    group.id != null -> listOf("${store.servers.count { it.groupId == group.id }} 节点", "本地分组")
+                    else -> listOf("${store.servers.count { it.subscriptionId == null && it.groupId == null }} 节点", "未分组")
                 }
-                GroupCard(group.name, subtitle, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle, onRefresh = if (sub != null) ({ refreshGroup(group.id!!) }) else null, refreshing = group.id in refreshingGroups) { onSelect(group.id) }
+                GroupCard(group.name, tags, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle, onRefresh = if (sub != null) ({ refreshGroup(group.id!!) }) else null, refreshing = group.id in refreshingGroups) { onSelect(group.id) }
             }
         }
     }
@@ -764,20 +800,85 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     }, confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
 }
 
-@Composable private fun GroupCard(title: String, subtitle: String, selected: Boolean, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?, handle: Modifier, onRefresh: (() -> Unit)? = null, refreshing: Boolean = false, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
-        if (selected) Box(Modifier.fillMaxWidth().height(3.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)))
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(handle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.List, "长按拖动$title 排序", tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp)) }
-            Spacer(Modifier.size(12.dp))
-            Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp) }
-            if (onRefresh != null) IconButton(onClick = onRefresh, enabled = !refreshing) {
-                if (refreshing) CircularProgressIndicator(Modifier.size(18.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                else Icon(Icons.Filled.Refresh, "刷新$title", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+@OptIn(ExperimentalLayoutApi::class)
+@Composable private fun GroupCard(
+    title: String,
+    tags: List<String>,
+    selected: Boolean,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+    handle: Modifier,
+    onRefresh: (() -> Unit)? = null,
+    refreshing: Boolean = false,
+    onClick: () -> Unit,
+) {
+    var menu by remember { mutableStateOf(false) }
+    Box(
+        Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        if (selected) Box(
+            Modifier.fillMaxWidth().height(3.dp)
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+        )
+        Column(Modifier.padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(handle, contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.List, "长按拖动$title 排序",
+                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Spacer(Modifier.size(10.dp))
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (selected) {
+                    Spacer(Modifier.size(6.dp))
+                    Icon(Icons.Filled.Check, "已选", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                }
+                if (onRefresh != null) {
+                    IconButton(onClick = onRefresh, enabled = !refreshing, modifier = Modifier.size(38.dp)) {
+                        if (refreshing) CircularProgressIndicator(Modifier.size(17.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
+                        else Icon(Icons.Filled.Refresh, "刷新$title", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))
+                    }
+                }
+                Box {
+                    IconButton(onClick = { menu = true }, modifier = Modifier.size(38.dp)) {
+                        Icon(Icons.Filled.MoreVert, "更多操作", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+                    }
+                    IceDropdownMenu(menu, { menu = false }) {
+                        if (onEdit != null) IceMenuItem("编辑分组", Icons.Filled.Settings) { menu = false; onEdit() }
+                        if (onDelete != null) IceMenuItem("删除分组", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
+                    }
+                }
             }
-            if (onEdit != null) TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("编辑", color = MaterialTheme.colorScheme.primary) }
-            if (onDelete != null) IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "删除$title", tint = Color(0xFFFF3B30), modifier = Modifier.size(20.dp)) }
-            if (selected) Icon(Icons.Filled.Check, "已选", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+            if (tags.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    tags.forEach { tag ->
+                        Box(
+                            Modifier.background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(6.dp),
+                            ).padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(tag, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
+                    }
+                }
+            }
         }
     }
 }
