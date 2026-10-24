@@ -34,8 +34,16 @@ object XrayConfigBuilder {
 
     /**
      * @param includeInbound 测速时传 false，避免与正在运行的 SOCKS 端口冲突
+     * @param tunnelAuth 可选的 TUN 入站鉴权凭据 (username, password)；为 null 时不鉴权
      */
-    fun build(profile: ServerProfile, settings: AppSettings, includeInbound: Boolean = true, store: ServerStore? = null, tunnelPort: Int? = null): String {
+    fun build(
+        profile: ServerProfile,
+        settings: AppSettings,
+        includeInbound: Boolean = true,
+        store: ServerStore? = null,
+        tunnelPort: Int? = null,
+        tunnelAuth: Pair<String, String>? = null
+    ): String {
         require(tunnelPort == null || (tunnelPort in 1..65535 && (!settings.socksEnabled || tunnelPort != settings.socksPort)))
         val local = store?.localGroups?.firstOrNull { it.id == profile.groupId }
         val subscription = store?.subscriptions?.firstOrNull { it.id == profile.subscriptionId }
@@ -62,7 +70,20 @@ object XrayConfigBuilder {
                         put("listen", "127.0.0.1")
                         put("port", tunnelPort)
                         put("protocol", "socks")
-                        putJsonObject("settings") { put("auth", "noauth"); put("udp", true) }
+                        putJsonObject("settings") {
+                            if (tunnelAuth != null) {
+                                put("auth", "password")
+                                putJsonArray("accounts") {
+                                    addJsonObject {
+                                        put("user", tunnelAuth.first)
+                                        put("pass", tunnelAuth.second)
+                                    }
+                                }
+                            } else {
+                                put("auth", "noauth")
+                            }
+                            put("udp", true)
+                        }
                         putJsonObject("sniffing") {
                             put("enabled", true)
                             putJsonArray("destOverride") { add("http"); add("tls"); add("quic") }

@@ -243,7 +243,18 @@ class IceFlowVpnService : VpnService() {
             val tunnelPort = generateSequence {
                 ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
             }.first { !settings.socksEnabled || it != settings.socksPort }
-            XrayBridge.start(XrayConfigBuilder.build(profile, settings, store = container.servers.store.value, tunnelPort = tunnelPort))
+
+            // 生成随机凭据保护 TUN 入站，防止本机其他应用探测或滥用内部 SOCKS
+            val tunnelUser = java.util.UUID.randomUUID().toString().take(16)
+            val tunnelPass = java.util.UUID.randomUUID().toString()
+            val tunnelAuth = tunnelUser to tunnelPass
+
+            XrayBridge.start(XrayConfigBuilder.build(
+                profile, settings,
+                store = container.servers.store.value,
+                tunnelPort = tunnelPort,
+                tunnelAuth = tunnelAuth
+            ))
 
             val builder = Builder()
                 .setSession(profile.name)
@@ -281,7 +292,7 @@ class IceFlowVpnService : VpnService() {
             val code = RustBridge.startTun(
                 fd = pfd.fd,
                 mtu = MTU,
-                proxyUrl = "socks5://127.0.0.1:$tunnelPort",
+                proxyUrl = "socks5://$tunnelUser:$tunnelPass@127.0.0.1:$tunnelPort",
                 dnsMode = dnsMode,
                 dnsAddr = settings.remoteDns,
             )

@@ -27,3 +27,6 @@ xray-wrapper/build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code session data
+.opencode/
