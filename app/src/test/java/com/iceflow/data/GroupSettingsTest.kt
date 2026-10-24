@@ -175,6 +175,27 @@ class GroupSettingsTest {
         assertEquals(listOf(n2.id, n1.id), localNodes.map { it.id })
     }
 
+    @Test fun partialReorderPreservesOtherGroupsAndDisplayedOrderAfterReload() {
+        val file = temp.newFile()
+        val repository = ServerRepository(file)
+        val group = GroupConfiguration(name = "Group", sort = GroupSort.NAME)
+        repository.saveGroup(group)
+        val first = ServerProfile(id = "first", name = "A", protocol = Protocol.SOCKS, address = "a.example", port = 1080, groupId = group.id)
+        val second = first.copy(id = "second", name = "B")
+        val third = first.copy(id = "third", name = "C")
+        val other = first.copy(id = "other", groupId = null)
+        repository.addServers(listOf(first, other, second, third))
+
+        repository.reorderServers(group.id, listOf(third.id, "deleted", third.id, other.id))
+
+        val reloaded = ServerRepository(file).store.value
+        assertEquals(listOf(third.id, other.id, first.id, second.id), reloaded.servers.map { it.id })
+        assertEquals(other, reloaded.servers[1])
+        val savedGroup = reloaded.localGroups.single()
+        assertEquals(GroupSort.ORIGINAL, savedGroup.sort)
+        assertEquals(listOf(third.id, first.id, second.id), savedGroup.sort.apply(reloaded.servers.filter { it.groupId == group.id }).map { it.id })
+    }
+
     @Test fun subscriptionRefreshKeepsReferencedNodeIdentityAndDoesNotReplaceRemovedHop() {
         val repository = ServerRepository(temp.newFile())
         val sub = GroupConfiguration(name = "Provider", subscription = true, url = "https://example.com/sub")

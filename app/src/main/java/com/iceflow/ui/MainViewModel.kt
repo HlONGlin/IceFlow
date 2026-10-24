@@ -251,15 +251,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 设置当前分组的排序方式（原始/名称/延迟），分组内节点列表据此自动排序，与分组设置页的"排序"选项保持同步。 */
-    fun setGroupSort(groupId: String?, sort: com.iceflow.data.model.GroupSort) = container.servers.setGroupSort(groupId, sort)
-
-    /** 手动调序：按用户拖动后的最终顺序写回节点的 sortOrder 字段。 */
-    fun reorderServers(orderedIds: List<String>) = container.servers.reorderServers(orderedIds)
-
-    /** 在当前分组内将节点上移或下移一位，与"排序"功能完全独立。 */
-    fun moveServerWithinGroup(serverId: String, groupId: String?, up: Boolean) = container.servers.moveServerWithinGroup(serverId, groupId, up)
-
     fun dedupeServers() {
         val removed = container.servers.dedupe()
         _messages.tryEmit(if (removed > 0) "已移除 $removed 个重复节点" else "没有发现重复节点")
@@ -348,7 +339,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun readLogs(): String = withContext(Dispatchers.IO) { AppLog.read(getApplication()) }
 
-<<<<<<< Updated upstream
     fun cleanOldLogs() {
         viewModelScope.launch(Dispatchers.IO) {
             AppLog.cleanOldLogs(getApplication(), settings.value.logRetentionDays)
@@ -356,27 +346,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 优先用 xray 真实请求测速；未集成 xray 时退化为 TCP 握手耗时。 */
-=======
-    /** 测速策略说明：
-     * - 若该节点正是当前已连接并选中的节点，使用真实隧道（ConnectionProbe）测速，
-     *   以保证结果与"点击测速"面板显示的当前连接延迟一致。
-     * - 其余节点直接对节点自身的地址:端口做 TCP 握手计时。这个值才能真实反映
-     *   手机到该服务器的网络距离（例如美国节点应明显高于本地节点）。
-     *   之前版本改用 xray 发起一次到 generate_204（Google Anycast/CDN）的完整请求，
-     *   但 Anycast 会把请求路由到"离代理服务器最近"的 Google 边缘节点，而不是固定地址，
-     *   导致几乎所有服务器测出的结果都趋近同一个值（代理到最近 CDN 节点的距离），
-     *   而不是"手机到代理服务器"的距离，这正是之前所有节点延迟都在 200ms 左右的根因。
-     *   直接测 TCP 握手耗时没有这个问题，且更快、更贴近用户对"延迟"的直觉认知。 */
->>>>>>> Stashed changes
     private suspend fun measure(server: ServerProfile): Int = withContext(Dispatchers.IO) {
         runCatching {
-            val session = vpnState.value as? VpnState.Connected
-            if (session != null && store.value.selectedId == server.id) {
-                ConnectionProbe.measure(session.socksPort, settings.value.testUrl, TIMEOUT_MS.toInt())
+            if (XrayBridge.isAvailable) {
+                val config = XrayConfigBuilder.build(server, settings.value, includeInbound = false, store = store.value)
+                XrayBridge.measureDelay(config, settings.value.testUrl, TIMEOUT_MS).toInt()
             } else {
                 val start = System.nanoTime()
                 Socket().use { it.connect(InetSocketAddress(server.address, server.port), TIMEOUT_MS.toInt()) }
-                ((System.nanoTime() - start) / 1_000_000).coerceAtLeast(1).toInt()
+                ((System.nanoTime() - start) / 1_000_000).toInt()
             }
         }.getOrDefault(-1)
     }

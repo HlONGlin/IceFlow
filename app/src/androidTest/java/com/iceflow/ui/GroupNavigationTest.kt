@@ -11,12 +11,15 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.iceflow.data.model.NodeGroup
-import com.iceflow.data.model.LOCAL_GROUP_KEY
+import com.iceflow.data.model.Protocol
+import com.iceflow.data.model.ServerProfile
 import com.iceflow.ui.theme.IceFlowTheme
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+
+private const val LOCAL_GROUP_KEY = "local-fixture"
 
 @RunWith(AndroidJUnit4::class)
 class GroupNavigationTest {
@@ -85,5 +88,47 @@ class GroupNavigationTest {
         }
         rule.waitForIdle()
         rule.runOnIdle { assertEquals(groups.map { it.key }, ordered.value.map { it.key }); assertEquals(2, commits) }
+    }
+
+    @Test fun nodeHandleDragsImmediatelyCommitsOrderAndCancelDoesNotSave() {
+        val nodes = listOf("a", "b", "c").map { id ->
+            ServerProfile(id = id, name = "Node $id", protocol = Protocol.SOCKS, address = "127.0.0.1", port = 1080)
+        }
+        val ordered = mutableStateOf(nodes)
+        var commits = 0
+        rule.setContent { IceFlowTheme {
+            ReorderableNodeList(ordered.value, { ids ->
+                commits++; ordered.value = ids.map { id -> nodes.first { it.id == id } }
+            }, Modifier.fillMaxSize(), PaddingValues(0.dp)) { node, handle ->
+                Row(Modifier.fillMaxWidth().height(80.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(handle) { Text("=") }; Text(node.name)
+                }
+            }
+        } }
+        val first = rule.onNodeWithTag("node-drag:a")
+        val firstBounds = first.fetchSemanticsNode().boundsInRoot
+        val start = firstBounds.center
+        val overshoot = firstBounds.height / 2f
+        val end = rule.onNodeWithTag("node-drag:c").fetchSemanticsNode().boundsInRoot.center
+        first.performTouchInput {
+            down(center)
+            for (step in 1..20) { moveTo(center + Offset(0f, (end.y - start.y + overshoot) * step / 20f), delayMillis = 16) }
+            up()
+        }
+        rule.waitForIdle()
+        rule.runOnIdle { assertEquals(listOf("b", "c", "a"), ordered.value.map { it.id }); assertEquals(1, commits) }
+        assertTrue(rule.onNodeWithText("Node a").fetchSemanticsNode().boundsInRoot.top > rule.onNodeWithText("Node c").fetchSemanticsNode().boundsInRoot.top)
+
+        val last = rule.onNodeWithTag("node-drag:a")
+        val lastCenter = last.fetchSemanticsNode().boundsInRoot.center
+        val topCenter = rule.onNodeWithTag("node-drag:b").fetchSemanticsNode().boundsInRoot.center
+        last.performTouchInput {
+            down(center)
+            for (step in 1..20) { moveTo(center + Offset(0f, (topCenter.y - lastCenter.y - overshoot) * step / 20f), delayMillis = 16) }
+            cancel()
+        }
+        rule.waitForIdle()
+        rule.runOnIdle { assertEquals(listOf("b", "c", "a"), ordered.value.map { it.id }); assertEquals(1, commits) }
+        assertTrue(rule.onNodeWithText("Node a").fetchSemanticsNode().boundsInRoot.top > rule.onNodeWithText("Node c").fetchSemanticsNode().boundsInRoot.top)
     }
 }

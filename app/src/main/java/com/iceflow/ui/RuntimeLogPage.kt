@@ -113,13 +113,8 @@ fun RuntimeLogPage(readLogs: suspend () -> String, onBack: () -> Unit, logRetent
                 if (textView.text.toString() != text && textView.selectionStart == textView.selectionEnd) {
                     textView.text = text
                     // 自动滚动到底部
-<<<<<<< Updated upstream
                     if (live) {
                         scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
-=======
-                    textView.post {
-                        scroll.fullScroll(ScrollView.FOCUS_DOWN)
->>>>>>> Stashed changes
                     }
                 }
             },

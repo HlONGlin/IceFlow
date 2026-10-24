@@ -50,7 +50,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -100,7 +99,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -108,19 +106,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
-import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.zIndex
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.LocalGroup
 import com.iceflow.data.model.GroupConfiguration
@@ -174,7 +160,6 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val nodeToShare = remember(shareNodeId) { store.servers.firstOrNull { it.id == shareNodeId } }
     var nodeEditorOpen by rememberSaveable { mutableStateOf(false) }
     var nodeEditorId by rememberSaveable { mutableStateOf<String?>(null) }
-    var shareDialogNode by remember { mutableStateOf<ServerProfile?>(null) }
     var groupId by rememberSaveable { mutableStateOf<String?>(store.selectedGroupId) }
     LaunchedEffect(store.selectedGroupId) { if (groupId != store.selectedGroupId) groupId = store.selectedGroupId }
     var toast by remember { mutableStateOf<String?>(null) }
@@ -220,11 +205,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-<<<<<<< Updated upstream
                         Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers)
-=======
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareDialogNode = it }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, { mode -> vm.setGroupSort(groupId, mode) }, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, { id, up -> vm.moveServerWithinGroup(id, groupId, up) })
->>>>>>> Stashed changes
                         Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups)
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
@@ -260,7 +241,6 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             if (bulkTest.testing || bulkTest.completed > 0) BulkTestOverlay(bulkTest, dismissBulkTest)
             if (!bulkTest.testing && bulkTest.completed == 0 && nodeTest.serverId != null) Box(Modifier.align(Alignment.TopCenter).padding(top = 80.dp)) { NodeLatencyToast(nodeTest) }
         }
-<<<<<<< Updated upstream
 
         // 分享节点对话框
         if (nodeToShare != null) {
@@ -276,26 +256,6 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             // VPN 连接时自动清理旧日志
             vm.cleanOldLogs()
         }
-=======
-    LaunchedEffect(state) { if (state is VpnState.Connected) vm.refreshPublicIp() }
-    
-    // 分享对话框
-    shareDialogNode?.let { node ->
-        ShareNodeDialog(
-            node = node,
-            onDismiss = { shareDialogNode = null },
-            onCopyToClipboard = {
-                val cm = context.getSystemService(ClipboardManager::class.java)
-                cm?.setPrimaryClip(android.content.ClipData.newPlainText("节点链接", ShareLinkParser.encode(node)))
-                android.widget.Toast.makeText(context, "已复制到剪贴板", android.widget.Toast.LENGTH_SHORT).show()
-                shareDialogNode = null
-            },
-            onShowQRCode = {
-                shareNode(context, node)
-                shareDialogNode = null
-            }
-        )
->>>>>>> Stashed changes
     }
 }
 
@@ -306,7 +266,6 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     }
 }
 
-<<<<<<< Updated upstream
 @Composable
 private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     Box(modifier.fillMaxSize().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
@@ -321,9 +280,6 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit) {
-=======
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSort: (GroupSort) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onMoveNode: (String, Boolean) -> Unit) {
->>>>>>> Stashed changes
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -333,11 +289,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     var addMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
-<<<<<<< Updated upstream
     var sortingKey by remember { mutableStateOf<String?>(null) }
     if (sortingKey != null) BackHandler { sortingKey = null }
-=======
->>>>>>> Stashed changes
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let(onImportText) }
     val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()?.let(onImportText)
@@ -347,7 +300,6 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     val running = state is VpnState.Connected || state is VpnState.Connecting || state is VpnState.Stopping
     LaunchedEffect(running) { panelVisibility.targetState = running }
     LaunchedEffect(state) { if (running) lastRunningState = state }
-<<<<<<< Updated upstream
     fun visibleNodes(id: String?, filter: String = query) = store.servers.filter { server ->
         if (id == null) server.subscriptionId == null && server.groupId == null
         else server.groupId == id || server.subscriptionId == id
@@ -356,18 +308,6 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             ?: store.subscriptions.firstOrNull { it.id == id }?.sort
             ?: GroupSort.ORIGINAL).apply(servers)
     }.filter { filter.isBlank() || it.name.contains(filter, true) || it.address.contains(filter, true) }
-=======
-    fun groupSort(id: String?) = if (id == null) store.ungroupedSort
-        else store.localGroups.firstOrNull { it.id == id }?.sort
-            ?: store.subscriptions.firstOrNull { it.id == id }?.sort
-            ?: GroupSort.ORIGINAL
-    fun visibleNodes(id: String?) = store.servers.filter { server ->
-        if (id == null) server.subscriptionId == null && server.groupId == null
-        else server.groupId == id || server.subscriptionId == id
-    }.let { servers -> groupSort(id).apply(servers) }
-        .filter { query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true) }
-    val currentSort = groupSort(groupId)
->>>>>>> Stashed changes
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -402,7 +342,6 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 }
             }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
-<<<<<<< Updated upstream
             val visibleGroups = store.orderedGroups
             if (visibleGroups.isEmpty()) {
                 val ungroupedNodes = visibleNodes(null)
@@ -428,24 +367,6 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     if (nodes.isEmpty()) item { Text(if (query.isBlank()) "此分组暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
                     items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, if (query.isBlank()) ({ sortingKey = group.key }) else null, showTrafficStats = showTrafficStats) }
-=======
-            GroupPager(store.orderedGroups, groupId, onSelectGroup, Modifier.weight(1f)) { group ->
-                val nodes = visibleNodes(group.id)
-                val canReorder = groupSort(group.id) == GroupSort.ORIGINAL
-                LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    if (nodes.isEmpty()) item { Text(if (query.isBlank()) "此分组暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
-                    itemsIndexed(nodes, key = { _, server -> server.id }) { index, server ->
-                        NodeRow(
-                            server, store.localGroups, server.id == store.selectedId,
-                            { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) },
-                            { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) },
-                            canMoveUp = canReorder && index > 0,
-                            canMoveDown = canReorder && index < nodes.lastIndex,
-                            onMoveUp = { onMoveNode(server.id, true) },
-                            onMoveDown = { onMoveNode(server.id, false) },
-                        )
-                    }
->>>>>>> Stashed changes
                 }
             }
         }
@@ -463,45 +384,6 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         Box(Modifier.align(Alignment.BottomCenter).offset(y = (-28).dp)) { ConnectOrb(state, onToggle, 54.dp) }
         if (toast != null) Text(toast, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), CircleShape).padding(horizontal = 18.dp, vertical = 9.dp))
     }
-    
-    // 排序对话框
-    if (sortMenu) AlertDialog(
-        onDismissRequest = { sortMenu = false },
-        title = { Text("排序") },
-        text = {
-            Column {
-                listOf(
-                    GroupSort.ORIGINAL to "按添加时的原始顺序，可在列表中用上下箭头手动调整",
-                    GroupSort.NAME to "按节点名称排序",
-                    GroupSort.LATENCY to "按延迟排序（自动测速）"
-                ).forEach { (mode, desc) ->
-                    val active = currentSort == mode
-                    Surface(
-                        onClick = {
-                            sortMenu = false
-                            if (mode == GroupSort.LATENCY && !testing) onTest()
-                            onSort(mode)
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (active) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                    ) {
-                        Row(
-                            Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(mode.label, style = MaterialTheme.typography.bodyMedium)
-                                Text(desc, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            if (active) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {}
-    )
 }
 
 @Composable internal fun ConnectOrb(state: VpnState, onClick: () -> Unit, size: Dp = 54.dp) {
@@ -598,11 +480,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     if (dialog) AddSubscriptionDialog({ dialog = false }, { dialog = false; onAddSub(it) })
 }
 
-<<<<<<< Updated upstream
 @Composable private fun NodeRow(server: ServerProfile, groups: List<com.iceflow.data.model.LocalGroup>, selected: Boolean, onSelect: () -> Unit, onTest: () -> Unit, onDelete: () -> Unit, onMove: (String?) -> Unit, onShare: () -> Unit, onRename: (String) -> Unit, onEdit: (() -> Unit)? = null, onSort: (() -> Unit)? = null, dragHandle: Modifier? = null, showTrafficStats: Boolean = false) {
-=======
-@Composable private fun NodeRow(server: ServerProfile, groups: List<com.iceflow.data.model.LocalGroup>, selected: Boolean, onSelect: () -> Unit, onTest: () -> Unit, onDelete: () -> Unit, onMove: (String?) -> Unit, onShare: () -> Unit, onRename: (String) -> Unit, onEdit: (() -> Unit)? = null, canMoveUp: Boolean = false, canMoveDown: Boolean = false, onMoveUp: (() -> Unit)? = null, onMoveDown: (() -> Unit)? = null) {
->>>>>>> Stashed changes
     var menu by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf(false) }
     var name by remember(server.name) { mutableStateOf(server.name) }
@@ -620,22 +498,8 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
             if (showTrafficStats) Text("↑ ${formatBytes(server.uploadBytes)}   ↓ ${formatBytes(server.downloadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp)
         }
-<<<<<<< Updated upstream
         if (dragHandle != null) Box(dragHandle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Menu, "拖动排序", tint = MaterialTheme.colorScheme.primary) }
         else Box {
-=======
-        if (onMoveUp != null || onMoveDown != null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                IconButton(onClick = { onMoveUp?.invoke() }, enabled = canMoveUp, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Filled.KeyboardArrowUp, "上移", tint = if (canMoveUp) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                }
-                IconButton(onClick = { onMoveDown?.invoke() }, enabled = canMoveDown, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Filled.KeyboardArrowDown, "下移", tint = if (canMoveDown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
-                }
-            }
-        }
-        Box {
->>>>>>> Stashed changes
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "节点操作", tint = MaterialTheme.colorScheme.primary) }
             IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 IceMenuItem("测速", Icons.Filled.Info) { menu = false; onTest() }
@@ -649,8 +513,6 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     }
     if (edit) AlertDialog(onDismissRequest = { edit = false }, title = { Text("编辑节点") }, text = { OutlinedTextField(name, { name = it }, label = { Text("节点名称") }, singleLine = true) }, confirmButton = { TextButton(onClick = { edit = false; onRename(name.trim()) }, enabled = name.isNotBlank()) { Text("保存") } }, dismissButton = { TextButton(onClick = { edit = false }) { Text("取消") } })
 }
-
-
 
 @Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit) {
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -734,15 +596,15 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             TextButton(onClick = { saveError = config.validationError() ?: onConfirm(config) }) { Text("保存", color = MaterialTheme.colorScheme.primary) }
         }
         LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
-            item { SettingGroup("链式代理") {
-                GroupSettingChoice("前置节点", frontNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Send) { nodePicker = "前置节点" }
-                GroupSettingChoice("落地节点", landingNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Home) { nodePicker = "落地节点" }
-                Text("连接顺序：本机 → 前置节点 → 本分组节点 → 落地节点 → 目标。请选择其他分组的节点，保存后下次连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            } }
             item { SettingGroup("基本设置") {
                 GroupSettingText("分组名称", name, "请输入分组名称") { name = it; saveError = null }
                 GroupSettingChoice("分组类型", if (subscription) "订阅" else "基本", Icons.Filled.List) { chooser = "分组类型" }
                 GroupSettingChoice("排序", config.sort.label, Icons.Filled.Refresh) { chooser = "排序" }
+            } }
+            item { SettingGroup("链式代理") {
+                GroupSettingChoice("前置节点", frontNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Send) { nodePicker = "前置节点" }
+                GroupSettingChoice("落地节点", landingNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Home) { nodePicker = "落地节点" }
+                Text("连接顺序：本机 → 前置节点 → 本分组节点 → 落地节点 → 目标。请选择其他分组的节点，保存后下次连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
             if (subscription) item { SettingGroup("订阅设置") {
                 GroupSettingText("订阅链接", url, "https://example.com/subscription") { url = it; saveError = null }
@@ -750,13 +612,8 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                     val text = readClipboard(context)
                     if (text.isNullOrBlank()) saveError = "剪贴板中没有链接" else { url = text.trim(); saveError = null }
                 }, modifier = Modifier.padding(start = 48.dp)) { Text("从剪贴板粘贴", color = MaterialTheme.colorScheme.primary) }
-<<<<<<< Updated upstream
                 GroupSettingText("更新间隔（小时）", hours, "0–720，0 为不自动更新", numeric = true) { hours = it; saveError = null }
                 Text("保存后自动更新订阅；间隔填 0 则不自动更新。更新失败时保留原有节点，可在分组页重试。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
-=======
-                GroupSettingText("更新间隔（小时）", hours, "0–720（0表示不自动更新）", numeric = true) { hours = it; saveError = null }
-                Text("保存后自动更新订阅；更新失败时保留原有节点，可在分组页重试。设置为0则不自动更新。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
->>>>>>> Stashed changes
                 if (editing && !initial.subscription) Text("转为订阅后，现有节点归入该订阅；首次更新成功时会替换为链接中的节点。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
             if (!subscription && initial.subscription) item { Text("转为基本分组后保留现有节点，并停止订阅自动更新。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
@@ -889,213 +746,33 @@ private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else
     var urlOpen by rememberSaveable { mutableStateOf(false) }
     var dnsOpen by rememberSaveable { mutableStateOf(false) }
     var themeOpen by rememberSaveable { mutableStateOf(false) }
-    var routingModeOpen by rememberSaveable { mutableStateOf(false) }
-    var logRetentionOpen by rememberSaveable { mutableStateOf(false) }
-    var socksCredsOpen by rememberSaveable { mutableStateOf(false) }
-    var socksPortText by rememberSaveable { mutableStateOf("") }
-    var socksUsernameText by rememberSaveable { mutableStateOf("") }
-    var socksPasswordText by rememberSaveable { mutableStateOf("") }
-    var socksCredsError by rememberSaveable { mutableStateOf<String?>(null) }
     var url by rememberSaveable(settings.testUrl) { mutableStateOf(settings.testUrl) }
     var dns by rememberSaveable(settings.dnsServers) { mutableStateOf(settings.dnsServers.joinToString("\n")) }
     var error by remember { mutableStateOf<String?>(null) }
-    
     LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
-        item { SettingGroup("通用") { 
-            SettingAction("主题", Icons.Filled.Settings, { themeOpen = true })
-            SettingRow("语言", "简体中文", Icons.Filled.Info)
-            SettingSwitch("流量统计", settings.trafficStatsEnabled, Icons.Filled.Info) { 
-                update { it.copy(trafficStatsEnabled = !it.trafficStatsEnabled) } 
-            }
-        } }
-        
+        item { SettingGroup("通用") { SettingAction("主题", Icons.Filled.Settings, { themeOpen = true }); SettingRow("语言", "简体中文", Icons.Filled.Info) } }
         item { SettingGroup("代理") {
-            // 路由模式选择
-            Column(Modifier.fillMaxWidth().clickable { routingModeOpen = true }) {
-                SettingRow("路由模式", when(settings.routingMode) {
-                    com.iceflow.data.model.RoutingMode.RULE -> "规则"
-                    com.iceflow.data.model.RoutingMode.GLOBAL -> "全局"
-                    com.iceflow.data.model.RoutingMode.DIRECT -> "直连"
-                }, Icons.Filled.Settings)
-            }
-            
-            // 应用过滤模式 - 改为开关设计
-            val appFilterMode = settings.appFilterMode
-            Column(Modifier.fillMaxWidth()) {
-                SettingSwitch(
-                    "绕过应用", 
-                    appFilterMode == com.iceflow.data.model.AppFilterMode.BYPASS,
-                    Icons.Filled.Settings
-                ) { 
-                    val newMode = if (appFilterMode == com.iceflow.data.model.AppFilterMode.BYPASS) 
-                        com.iceflow.data.model.AppFilterMode.NONE 
-                    else 
-                        com.iceflow.data.model.AppFilterMode.BYPASS
-                    update { it.copy(appFilterMode = newMode, proxyAppsOnly = false) }
-                }
-                if (appFilterMode == com.iceflow.data.model.AppFilterMode.BYPASS) {
-                    Row(
-                        Modifier.fillMaxWidth().clickable(onClick = openApps).padding(start = 51.dp, end = 16.dp, bottom = 12.dp, top = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "已选择 ${settings.bypassApps.size} 个应用",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("查看", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            
-            Column(Modifier.fillMaxWidth()) {
-                SettingSwitch(
-                    "分应用代理", 
-                    appFilterMode == com.iceflow.data.model.AppFilterMode.PROXY_ONLY,
-                    Icons.Filled.Settings
-                ) { 
-                    val newMode = if (appFilterMode == com.iceflow.data.model.AppFilterMode.PROXY_ONLY) 
-                        com.iceflow.data.model.AppFilterMode.NONE 
-                    else 
-                        com.iceflow.data.model.AppFilterMode.PROXY_ONLY
-                    update { it.copy(appFilterMode = newMode, proxyAppsOnly = newMode == com.iceflow.data.model.AppFilterMode.PROXY_ONLY) }
-                }
-                if (appFilterMode == com.iceflow.data.model.AppFilterMode.PROXY_ONLY) {
-                    Row(
-                        Modifier.fillMaxWidth().clickable(onClick = openApps).padding(start = 51.dp, end = 16.dp, bottom = 12.dp, top = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "已选择 ${settings.bypassApps.size} 个应用",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text("查看", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-            
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            
+            SettingAction("绕过应用", Icons.Filled.Settings, openApps)
+            SettingSwitch("分应用代理", settings.proxyAppsOnly, Icons.Filled.Settings) { update { it.copy(proxyAppsOnly = !it.proxyAppsOnly) } }
             SettingSwitch("IPv6 路由", settings.ipv6Enabled, Icons.Filled.Settings) { update { it.copy(ipv6Enabled = !it.ipv6Enabled) } }
             SettingAction("DNS 设置", Icons.Filled.Info, { dns = settings.dnsServers.joinToString("\n"); dnsOpen = true })
-            
-            // SOCKS5 设置区域
             SettingSwitch("启用 SOCKS5 路由", settings.socksEnabled, Icons.Filled.Settings) { update { it.copy(socksEnabled = !it.socksEnabled) } }
-<<<<<<< Updated upstream
             SettingSwitch("SOCKS5 UDP", settings.socksUdp, Icons.Filled.Settings) { update { it.copy(socksUdp = !it.socksUdp) } }
-=======
-            if (settings.socksEnabled) {
-                Column(
-                    Modifier.fillMaxWidth().padding(start = 51.dp, end = 16.dp, bottom = 12.dp, top = 4.dp)
-                        .clickable {
-                            socksPortText = "${settings.socksPort}"
-                            socksUsernameText = settings.socksUsername
-                            socksPasswordText = settings.socksPassword
-                            socksCredsError = null
-                            socksCredsOpen = true
-                        }
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("端口", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(70.dp))
-                        Text("${settings.socksPort}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
-                    }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("用户名", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(70.dp))
-                        Text(
-                            if (settings.socksUsername.isBlank()) "未设置" else settings.socksUsername,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (settings.socksUsername.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("密码", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(70.dp))
-                        Text(
-                            if (settings.socksPassword.isBlank()) "未设置" else "••••••",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (settings.socksPassword.isBlank()) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Text("点击修改端口/用户名/密码", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 2.dp))
-                }
-                SettingSwitch("SOCKS5 UDP", settings.socksUdp, Icons.Filled.Settings) { update { it.copy(socksUdp = !it.socksUdp) } }
-            }
-            
->>>>>>> Stashed changes
             SettingSwitch("DNS 路由", settings.dnsProxyEnabled, Icons.Filled.Settings) { update { it.copy(dnsProxyEnabled = !it.dnsProxyEnabled) } }
             Column(Modifier.fillMaxWidth().clickable { url = settings.testUrl; error = null; urlOpen = true }) {
                 SettingRow("测试 URL", "修改", Icons.Filled.Send)
                 Text(settings.testUrl, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 51.dp, end = 16.dp, bottom = 12.dp))
             }
         } }
-        
-        item { SettingGroup("高级") { 
-            SettingAction("查看运行日志", Icons.Filled.List, viewLogs)
-            Column(Modifier.fillMaxWidth().clickable { logRetentionOpen = true }) {
-                SettingRow("日志保留", "${settings.logRetentionDays} 天", Icons.Filled.Info)
-            }
-        } }
-        
-        item { SettingGroup("关于") { 
-            SettingRow("版本", version, Icons.Filled.Info)
-            SettingRow("开源地址", "GitHub", Icons.Filled.Info) 
-        } }
+        item { SettingGroup("高级") { SettingAction("查看运行日志", Icons.Filled.List, viewLogs) } }
+        item { SettingGroup("关于") { SettingRow("版本", version, Icons.Filled.Info); SettingRow("开源地址", "GitHub", Icons.Filled.Info) } }
     }
-    
-    // 测试 URL 对话框
-    if (urlOpen) AlertDialog(
-        onDismissRequest = { urlOpen = false },
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("测试 URL", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface) },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            EditorInput("HTTP / HTTPS 链接", url, { url = it })
-            Text("用于单节点、批量和启动栏测速，建议选择返回 204 的轻量页面。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-        } },
-        confirmButton = { TextButton({ runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(url) }.onSuccess { valid -> update { it.copy(testUrl = valid) }; urlOpen = false }.onFailure { error = it.message } }) { Text("保存") } },
-        dismissButton = { TextButton({ urlOpen = false }) { Text("取消") } }
-    )
-
-    // DNS 设置对话框
-    if (dnsOpen) AlertDialog(
-        onDismissRequest = { dnsOpen = false },
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("DNS 设置", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface) },
-        text = { EditorInput("每行一个 DNS 地址", dns, { dns = it }, multiline = true) },
-        confirmButton = { TextButton({ val values = dns.lines().map { it.trim() }.filter { it.isNotEmpty() }; if (values.isNotEmpty()) { update { it.copy(dnsServers = values, remoteDns = values.first()) }; dnsOpen = false } }) { Text("保存") } },
-        dismissButton = { TextButton({ dnsOpen = false }) { Text("取消") } }
-    )
-
-    // SOCKS5 端口/用户名/密码编辑对话框
-    if (socksCredsOpen) AlertDialog(
-        onDismissRequest = { socksCredsOpen = false },
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("SOCKS5 账户设置", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                EditorInput("端口", socksPortText, { socksPortText = it })
-                EditorInput("用户名（留空表示不使用）", socksUsernameText, { socksUsernameText = it })
-                EditorInput("密码（留空表示不使用）", socksPasswordText, { socksPasswordText = it })
-                socksCredsError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            }
-        },
-        confirmButton = {
-            TextButton({
-                val port = socksPortText.trim().toIntOrNull()
-                if (port == null || port !in 1..65535) {
-                    socksCredsError = "端口应为 1–65535 之间的数字"
-                } else {
-                    update { it.copy(socksPort = port, socksUsername = socksUsernameText.trim(), socksPassword = socksPasswordText) }
-                    socksCredsOpen = false
-                }
-            }) { Text("保存") }
-        },
-        dismissButton = { TextButton({ socksCredsOpen = false }) { Text("取消") } }
-    )
-    
-    // 主题选择对话框
+    if (urlOpen) AlertDialog(onDismissRequest = { urlOpen = false }, title = { Text("测试 URL") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        EditorInput("HTTP / HTTPS 链接", url, { url = it })
+        Text("用于单节点、批量和启动栏测速，建议选择返回 204 的轻量页面。", style = MaterialTheme.typography.bodySmall)
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+    } }, confirmButton = { TextButton({ runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(url) }.onSuccess { valid -> update { it.copy(testUrl = valid) }; urlOpen = false }.onFailure { error = it.message } }) { Text("保存") } }, dismissButton = { TextButton({ urlOpen = false }) { Text("取消") } })
+    if (dnsOpen) AlertDialog(onDismissRequest = { dnsOpen = false }, title = { Text("DNS 设置") }, text = { EditorInput("每行一个 DNS 地址", dns, { dns = it }, multiline = true) }, confirmButton = { TextButton({ val values = dns.lines().map { it.trim() }.filter { it.isNotEmpty() }; if (values.isNotEmpty()) { update { it.copy(dnsServers = values, remoteDns = values.first()) }; dnsOpen = false } }) { Text("保存") } }, dismissButton = { TextButton({ dnsOpen = false }) { Text("取消") } })
     if (themeOpen) ThemeSelectionDialog(
         currentTheme = settings.theme,
         onDismiss = { themeOpen = false },
@@ -1103,68 +780,6 @@ private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else
             update { it.copy(theme = theme) }
             themeOpen = false
         }
-    )
-    
-    // 路由模式选择对话框
-    if (routingModeOpen) AlertDialog(
-        onDismissRequest = { routingModeOpen = false },
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("路由模式", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(
-                    com.iceflow.data.model.RoutingMode.RULE to "规则",
-                    com.iceflow.data.model.RoutingMode.GLOBAL to "全局",
-                    com.iceflow.data.model.RoutingMode.DIRECT to "直连"
-                ).forEach { (mode, label) ->
-                    val active = mode == settings.routingMode
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent)
-                            .clickable { 
-                                update { it.copy(routingMode = mode) }
-                                routingModeOpen = false 
-                            }.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                        if (active) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        },
-        confirmButton = {}
-    )
-    
-    // 日志保留对话框
-    if (logRetentionOpen) AlertDialog(
-        onDismissRequest = { logRetentionOpen = false },
-        containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text("日志保留", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(0 to "永久保留", 1 to "1 天", 3 to "3 天", 7 to "7 天", 14 to "14 天", 30 to "30 天").forEach { (days, label) ->
-                    val active = days == settings.logRetentionDays
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (active) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else Color.Transparent)
-                            .clickable { 
-                                update { it.copy(logRetentionDays = days) }
-                                logRetentionOpen = false 
-                            }.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                        if (active) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        },
-        confirmButton = {}
     )
 }
 
@@ -1279,111 +894,18 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
 @Composable private fun AppSelectionPage(selected: List<String>, update: (List<String>) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val packageManager = context.packageManager
-    val allApps = remember { packageManager.getInstalledApplications(0).sortedBy { it.loadLabel(packageManager).toString() } }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    val filteredApps = remember(allApps, searchQuery) {
-        if (searchQuery.isBlank()) allApps
-        else allApps.filter {
-            it.loadLabel(packageManager).toString().contains(searchQuery, ignoreCase = true) ||
-            it.packageName.contains(searchQuery, ignoreCase = true)
-        }
-    }
-    
+    val apps = remember { packageManager.getInstalledApplications(0).sortedBy { it.loadLabel(packageManager).toString() } }
     Column(modifier.statusBarsPadding().fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        // 标题栏
-        Row(Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().height(68.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.primary) }
-            Text("选择应用", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
-            Text("已选 ${selected.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(16.dp))
+            Text("选择绕过应用", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
         }
-        
-        // 搜索框
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("搜索应用名称或包名", style = MaterialTheme.typography.bodySmall) },
-            leadingIcon = { Icon(Icons.Filled.Search, "搜索", tint = MaterialTheme.colorScheme.primary) },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Filled.Close, "清除", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-            ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-        
-        // 统计信息
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "共 ${filteredApps.size} 个应用",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.weight(1f))
-            if (selected.isNotEmpty()) {
-                TextButton(onClick = { update(emptyList()) }) {
-                    Text("清空选择", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-        
-        // 应用列表
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(filteredApps, key = { it.packageName }) { app ->
+        LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            items(apps, key = { it.packageName }) { app ->
                 val checked = app.packageName in selected
-                Surface(
-                    onClick = { update(if (checked) selected - app.packageName else selected + app.packageName) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surface,
-                    border = if (checked) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 应用图标
-                        Image(
-                            bitmap = remember(app.packageName) {
-                                val drawable = runCatching { packageManager.getApplicationIcon(app.packageName) }.getOrNull()
-                                    ?: app.loadIcon(packageManager)
-                                drawable.toBitmap(48, 48).asImageBitmap()
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp))
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        
-                        // 应用信息
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                app.loadLabel(packageManager).toString(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                app.packageName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        
-                        // 选择状态
-                        Checkbox(checked, null)
-                    }
+                Row(Modifier.fillMaxWidth().clickable { update(if (checked) selected - app.packageName else selected + app.packageName) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text(app.loadLabel(packageManager).toString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface); Text(app.packageName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Checkbox(checked, null)
                 }
             }
         }
@@ -1406,98 +928,4 @@ private fun shareNode(context: Context, server: ServerProfile) {
 private fun shareText(context: Context, title: String, text: String) {
     if (text.isBlank()) return
     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, title))
-}
-
-@Composable
-private fun ShareNodeDialog(
-    node: ServerProfile,
-    onDismiss: () -> Unit,
-    onCopyToClipboard: () -> Unit,
-    onShowQRCode: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("分享节点") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "选择分享方式",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                // 复制到剪贴板选项
-                Surface(
-                    onClick = onCopyToClipboard,
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.Share,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "复制到剪贴板",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "复制节点链接",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-                
-                // 二维码分享选项
-                Surface(
-                    onClick = onShowQRCode,
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            Icons.Filled.Share,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                "生成二维码",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                "通过系统分享",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }

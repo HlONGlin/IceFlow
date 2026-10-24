@@ -64,13 +64,8 @@ data class ServerProfile(
     val groupId: String? = null,
     /** 延迟（毫秒）；null 表示未测试，-1 表示超时/失败 */
     val latencyMs: Int? = null,
-<<<<<<< Updated upstream
     val uploadBytes: Long = 0,
     val downloadBytes: Long = 0,
-=======
-    /** 节点排序序号：创建时取当前纳秒时间戳，用于"原始顺序"还原及手动调序（数值越小越靠前）。 */
-    val sortOrder: Long = System.nanoTime(),
->>>>>>> Stashed changes
 )
 
 @Serializable
@@ -102,7 +97,7 @@ enum class GroupSort(val label: String) {
     ORIGINAL("原始"), NAME("按名称"), LATENCY("按延迟");
 
     fun apply(servers: List<ServerProfile>): List<ServerProfile> = when (this) {
-        ORIGINAL -> servers.sortedBy { it.sortOrder }
+        ORIGINAL -> servers
         NAME -> servers.sortedBy { it.name.lowercase() }
         LATENCY -> servers.sortedWith(compareBy(
             { when { it.latencyMs == null -> 2; it.latencyMs < 0 -> 1; else -> 0 } },
@@ -128,11 +123,7 @@ data class GroupConfiguration(
             val uri = java.net.URI(url.trim())
             uri.scheme?.lowercase() in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null
         }.getOrDefault(false) -> "请输入有效的 HTTP 或 HTTPS 订阅链接"
-<<<<<<< Updated upstream
         subscription && intervalHours !in 0..720 -> "更新间隔应为 0–720 小时（0 为不自动更新）"
-=======
-        subscription && intervalHours !in 0..720 -> "更新间隔应为 0–720 小时（0 表示不自动更新）"
->>>>>>> Stashed changes
         else -> null
     }
 }
@@ -145,12 +136,8 @@ data class ServerStore(
     val localGroups: List<LocalGroup> = emptyList(),
     val selectedGroupId: String? = null,
     val groupOrder: List<String> = emptyList(),
-<<<<<<< Updated upstream
-    val localSort: GroupSort = GroupSort.ORIGINAL,
-=======
     /** 未分组节点（不属于任何本地分组或订阅）的排序方式，因为它没有对应的分组实体可以挂载 sort 字段。 */
-    val ungroupedSort: GroupSort = GroupSort.ORIGINAL,
->>>>>>> Stashed changes
+    val localSort: GroupSort = GroupSort.ORIGINAL,
 ) {
     val selected: ServerProfile?
         get() = servers.firstOrNull { it.id == selectedId }
@@ -164,7 +151,6 @@ data class ServerStore(
         }
 }
 enum class AppTheme { LIGHT_BLUE, MINT_GREEN, SAKURA_PINK, PEACH_ORANGE, OBSIDIAN_BLACK }
-<<<<<<< Updated upstream
 enum class NightMode(val label: String) {
     FOLLOW_SYSTEM("跟随系统"),
     ENABLED("启用"),
@@ -176,16 +162,10 @@ enum class RoutingMode(val label: String) {
     GLOBAL("全局"),
     DIRECT("直连")
 }
-=======
-enum class RoutingMode { RULE, GLOBAL, DIRECT }
-enum class AppFilterMode { NONE, BYPASS, PROXY_ONLY }
->>>>>>> Stashed changes
 data class NodeGroup(val key: String, val id: String?, val name: String)
 
 data class AppSettings(
     val socksPort: Int = 10808,
-    val socksUsername: String = "",
-    val socksPassword: String = "",
     val remoteDns: String = "1.1.1.1",
     val bypassLan: Boolean = true,
     /** true：tun2proxy 虚拟 DNS（Fake-IP）；false：DNS over TCP 经代理转发 */
@@ -195,7 +175,6 @@ data class AppSettings(
     val routingMode: RoutingMode = RoutingMode.RULE,
     val bypassApps: List<String> = emptyList(),
     val proxyAppsOnly: Boolean = false,
-    val appFilterMode: AppFilterMode = AppFilterMode.NONE,
     val ipv6Enabled: Boolean = true,
     val dnsServers: List<String> = listOf("1.1.1.1"),
     val socksEnabled: Boolean = true,
@@ -204,16 +183,10 @@ data class AppSettings(
     val socksPassword: String = "",
     val dnsProxyEnabled: Boolean = true,
     val theme: AppTheme = AppTheme.LIGHT_BLUE,
-<<<<<<< Updated upstream
     val nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
-    val routingMode: RoutingMode = RoutingMode.RULE,
     val showTrafficStats: Boolean = false,
     val logRetentionDays: Int = 3,
     val appRoutingEnabled: Boolean = false,
     val appProxyMode: Boolean = false,
     val language: String = "zh-CN",
-=======
-    val trafficStatsEnabled: Boolean = false,
-    val logRetentionDays: Int = 3,
->>>>>>> Stashed changes
 )

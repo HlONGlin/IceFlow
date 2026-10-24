@@ -16,17 +16,8 @@ object SubscriptionScheduler {
     }
 
     fun schedule(context: Context, subscription: Subscription) {
-<<<<<<< Updated upstream
         // 间隔为 0 表示不自动更新：清掉已注册的闹钟即可。
         if (subscription.updateIntervalHours <= 0) { cancel(context, subscription.id); return }
-=======
-        // 如果更新间隔为0，则取消自动更新
-        if (subscription.updateIntervalHours == 0) {
-            cancel(context, subscription.id)
-            return
-        }
-        
->>>>>>> Stashed changes
         val alarm = context.getSystemService(AlarmManager::class.java) ?: return
         val intent = Intent(context, SubscriptionUpdateReceiver::class.java)
             .setAction(SubscriptionUpdateReceiver.ACTION)

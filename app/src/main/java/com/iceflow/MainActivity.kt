@@ -2,6 +2,7 @@ package com.iceflow
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +22,10 @@ import com.iceflow.ui.MainViewModel
 import com.iceflow.ui.theme.IceFlowTheme
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        const val EXTRA_CONNECT_FROM_TILE = "com.iceflow.extra.CONNECT_FROM_TILE"
+    }
 
     private val vm: MainViewModel by viewModels()
 
@@ -45,6 +50,22 @@ class MainActivity : ComponentActivity() {
             IceFlowTheme(theme = settings.theme, nightMode = settings.nightMode) {
                 IceFlowRoot(vm = vm, onToggleVpn = ::toggleVpn)
             }
+        }
+        if (savedInstanceState == null) handleTileIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleTileIntent(intent)
+    }
+
+    private fun handleTileIntent(intent: Intent) {
+        if (!intent.getBooleanExtra(EXTRA_CONNECT_FROM_TILE, false)) return
+        intent.removeExtra(EXTRA_CONNECT_FROM_TILE)
+        when (VpnController.state.value) {
+            VpnState.Idle, is VpnState.Error -> toggleVpn()
+            else -> Unit
         }
     }
 
