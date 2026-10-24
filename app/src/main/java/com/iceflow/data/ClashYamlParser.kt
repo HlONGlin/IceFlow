@@ -102,4 +102,74 @@ internal object ClashYamlParser {
             else -> error("Clash 字段类型不支持")
         }
     }
+
+    /**
+     * 解析 Clash 规则列表为 IceFlow RoutingRule。
+     * Clash 规则格式：DOMAIN,example.com,DIRECT 或 IP-CIDR,1.1.1.1/24,PROXY
+     * 返回可导入的规则列表。
+     */
+    fun parseRules(text: String): List<com.iceflow.data.model.RoutingRule> {
+        require(text.length <= 4 * 1024 * 1024) { "配置超过 4 MiB" }
+        val options = LoaderOptions().apply {
+            isAllowDuplicateKeys = false
+            maxAliasesForCollections = 30
+            nestingDepthLimit = 40
+            codePointLimit = 4 * 1024 * 1024
+        }
+        val root = Yaml(SafeConstructor(options)).load<Any?>(text) as? Map<*, *>
+            ?: return emptyList()
+        val rules = root["rules"] as? List<*> ?: return emptyList()
+        require(rules.size <= 2000) { "规则数量超过限制" }
+
+        val actionMap = mapOf(
+            "PROXY" to com.iceflow.data.model.RouteAction.PROXY,
+            "DIRECT" to com.iceflow.data.model.RouteAction.DIRECT,
+            "REJECT" to com.iceflow.data.model.RouteAction.BLOCK,
+        )
+
+        return rules.mapIndexedNotNull { index, rule ->
+            val ruleStr = rule as? String ?: return@mapIndexedNotNull null
+            val parts = ruleStr.split(',')
+            if (parts.size < 3) return@mapIndexedNotNull null
+
+            val type = parts[0].trim().uppercase()
+            val value = parts[1].trim()
+            val policy = parts[2].trim().uppercase()
+            val action = actionMap[policy] ?: return@mapIndexedNotNull null
+
+            when (type) {
+                "DOMAIN" -> com.iceflow.data.model.RoutingRule(
+                    name = "Clash: $value",
+                    action = action,
+                    domains = listOf("full:$value")
+                )
+                "DOMAIN-SUFFIX" -> com.iceflow.data.model.RoutingRule(
+                    name = "Clash: *.$value",
+                    action = action,
+                    domains = listOf("domain:$value")
+                )
+                "DOMAIN-KEYWORD" -> com.iceflow.data.model.RoutingRule(
+                    name = "Clash: *$value*",
+                    action = action,
+                    domains = listOf("keyword:$value")
+                )
+                "GEOSITE" -> com.iceflow.data.model.RoutingRule(
+                    name = "Clash: geosite:$value",
+                    action = action,
+                    domains = listOf("geosite:${value.lowercase()}")
+                )
+                "IP-CIDR", "IP-CIDR6" -> com.iceflow.data.model.RoutingRule(
+                    name = "Clash: $value",
+                    action = action,
+                    ips = listOf(value)
+                )
+                "GEOIP" -> com.iceflow.data.model.RoutingRule(
+                    name = "Clash: geoip:$value",
+                    action = action,
+                    ips = listOf("geoip:${value.lowercase()}")
+                )
+                else -> null
+            }
+        }.filter { runCatching { it.validate() }.isSuccess }
+    }
 }
