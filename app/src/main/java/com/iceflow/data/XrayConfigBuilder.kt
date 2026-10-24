@@ -135,7 +135,28 @@ object XrayConfigBuilder {
                 addJsonObject { put("tag", "block"); put("protocol", "blackhole") }
             }
             putJsonObject("dns") {
-                putJsonArray("servers") { add(settings.remoteDns) }
+                putJsonArray("servers") {
+                    // 国内 DNS：用于直连域名，避免 CDN 污染
+                    val directDomains = settings.routingRules
+                        .filter { it.enabled && it.action == RouteAction.DIRECT && it.domains.isNotEmpty() }
+                        .flatMap { it.domains }
+                    if (directDomains.isNotEmpty() || settings.routingMode == RoutingMode.RULE) {
+                        addJsonObject {
+                            put("address", settings.domesticDns)
+                            putJsonArray("domains") {
+                                directDomains.forEach { domain -> add(domain) }
+                                // 添加常见国内域名 geosite 分类
+                                if (settings.routingMode == RoutingMode.RULE) {
+                                    add("geosite:cn")
+                                }
+                            }
+                        }
+                    }
+                    // 远端 DNS：默认，用于代理域名
+                    add(settings.remoteDns)
+                }
+                // 优先使用 IP，减少 DNS 泄漏
+                put("queryStrategy", if (settings.ipv6Enabled) "UseIP" else "UseIPv4")
             }
             putJsonObject("routing") {
                 put("domainStrategy", "IPIfNonMatch")

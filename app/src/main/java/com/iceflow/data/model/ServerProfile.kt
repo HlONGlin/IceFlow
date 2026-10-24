@@ -171,6 +171,7 @@ data class NodeGroup(val key: String, val id: String?, val name: String)
 data class AppSettings(
     val socksPort: Int = 10808,
     val remoteDns: String = "1.1.1.1",
+    val domesticDns: String = "223.5.5.5",
     val bypassLan: Boolean = true,
     /** true：tun2proxy 虚拟 DNS（Fake-IP）；false：DNS over TCP 经代理转发 */
     val fakeDns: Boolean = true,
@@ -203,7 +204,7 @@ data class AppSettings(
     fun validate() {
         require(socksPort in 1024..65535) { "SOCKS 端口应为 1024–65535" }
         require(dnsServers.isNotEmpty()) { "至少输入一个 DNS 地址" }
-        (dnsServers + remoteDns).forEach { value ->
+        (dnsServers + remoteDns + domesticDns).forEach { value ->
             val v4 = value.split('.').let { parts -> parts.size == 4 && parts.all { part -> part.isNotEmpty() && part.all(Char::isDigit) && part.toIntOrNull() in 0..255 } }
             val v6 = ':' in value && value.matches(Regex("[0-9a-fA-F:.]+")) && runCatching { java.net.InetAddress.getByName(value) }.isSuccess
             require(v4 || v6) { "DNS 必须是 IPv4 或 IPv6 地址：$value" }

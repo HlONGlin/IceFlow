@@ -23,6 +23,7 @@ class SettingsRepository(context: Context) {
         val editor = prefs.edit().apply {
             putInt(KEY_SOCKS_PORT, next.socksPort)
             putString(KEY_REMOTE_DNS, next.remoteDns)
+            putString(KEY_DOMESTIC_DNS, next.domesticDns)
             putBoolean(KEY_BYPASS_LAN, next.bypassLan)
             putBoolean(KEY_FAKE_DNS, next.fakeDns)
             putString("test_url", next.testUrl)
@@ -56,6 +57,7 @@ class SettingsRepository(context: Context) {
         return AppSettings(
             socksPort = prefs.getInt(KEY_SOCKS_PORT, d.socksPort),
             remoteDns = prefs.getString(KEY_REMOTE_DNS, d.remoteDns) ?: d.remoteDns,
+            domesticDns = prefs.getString(KEY_DOMESTIC_DNS, d.domesticDns) ?: d.domesticDns,
             bypassLan = prefs.getBoolean(KEY_BYPASS_LAN, d.bypassLan),
             fakeDns = prefs.getBoolean(KEY_FAKE_DNS, d.fakeDns),
             testUrl = prefs.getString("test_url", d.testUrl) ?: d.testUrl,
@@ -83,6 +85,7 @@ class SettingsRepository(context: Context) {
     private companion object {
         const val KEY_SOCKS_PORT = "socks_port"
         const val KEY_REMOTE_DNS = "remote_dns"
+        const val KEY_DOMESTIC_DNS = "domestic_dns"
         const val KEY_BYPASS_LAN = "bypass_lan"
         const val KEY_FAKE_DNS = "fake_dns"
     }
