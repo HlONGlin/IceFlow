@@ -40,6 +40,23 @@ data class ConnectionTestState(val testing: Boolean = false, val latencyMs: Int?
 data class NodeTestState(val serverId: String? = null, val name: String = "", val testing: Boolean = false, val latencyMs: Int? = null)
 data class BulkTestState(val testing: Boolean = false, val nodes: List<ServerProfile> = emptyList(), val currentId: String? = null, val completed: Int = 0, val results: Map<String, Int> = emptyMap())
 
+/** 单个订阅的加载状态，用于添加订阅时的预览流程。 */
+sealed interface SubscriptionLoadState {
+    data object Idle : SubscriptionLoadState
+    data object Loading : SubscriptionLoadState
+    data class Preview(val name: String, val servers: List<ServerProfile>) : SubscriptionLoadState
+    data class Failure(val message: String) : SubscriptionLoadState
+}
+
+/** 订阅预览的完整内容，确认后写入仓库。 */
+data class SubscriptionPreview(
+    val name: String,
+    val url: String,
+    val servers: List<ServerProfile>,
+    val userInfo: String?,
+    val downloadedBytes: Long,
+)
+
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as IceFlowApp).container
@@ -59,6 +76,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val bulkTest: StateFlow<BulkTestState> = _bulkTest.asStateFlow()
     private val _refreshingSubscriptions = MutableStateFlow(false)
     val refreshingSubscriptions = _refreshingSubscriptions.asStateFlow()
+    /** 正在刷新的订阅分组 ID，用于卡牌上的独立加载指示。 */
+    private val _refreshingGroupIds = MutableStateFlow<Set<String>>(emptySet())
+    val refreshingGroupIds = _refreshingGroupIds.asStateFlow()
+    /** 添加订阅时的加载与预览状态。 */
+    private val _subscriptionLoad = MutableStateFlow<SubscriptionLoadState>(SubscriptionLoadState.Idle)
+    val subscriptionLoad = _subscriptionLoad.asStateFlow()
+    /** 预览阶段的原始数据，确认后写入仓库。 */
+    private var pendingPreview: SubscriptionPreview? = null
 
     private val _publicIp = MutableStateFlow<String?>(null)
     val publicIp: StateFlow<String?> = _publicIp.asStateFlow()
@@ -168,14 +193,70 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveGroup(config: GroupConfiguration): String? {
         val previous = store.value.subscriptions.firstOrNull { it.id == config.id }
+        val isExisting = previous != null
         return runCatching {
             container.servers.saveGroup(config)
             if (config.subscription) {
                 store.value.subscriptions.first { it.id == config.id }.let { SubscriptionScheduler.schedule(getApplication(), it) }
-                if (previous?.url != config.url.trim()) viewModelScope.launch { refreshOne(config.url.trim(), config.name.trim(), config.id) }
+                // 编辑已有订阅且 URL 变化时自动刷新；新建订阅由调用方触发预览流程
+                if (isExisting && previous?.url != config.url.trim()) viewModelScope.launch { refreshOne(config.url.trim(), config.name.trim(), config.id) }
             } else SubscriptionScheduler.cancel(getApplication(), config.id)
             null
         }.getOrElse { it.message ?: "保存分组失败" }
+    }
+
+    /**
+     * 预览订阅内容但不落库。用于添加订阅分组时先展示节点数量与清单，
+     * 用户确认后再调用 [commitSubscriptionPreview] 生成卡牌。
+     */
+    fun previewSubscription(url: String, name: String) = viewModelScope.launch {
+        if (_subscriptionLoad.value is SubscriptionLoadState.Loading) return@launch
+        _subscriptionLoad.value = SubscriptionLoadState.Loading
+        runCatching {
+            val download = SubscriptionFetcher.fetch(url)
+            val servers = ShareLinkParser.parseMany(download.body)
+            check(servers.isNotEmpty()) { "订阅中没有可识别的节点" }
+            SubscriptionPreview(name, url, servers, download.userInfo, download.downloadedBytes)
+        }.onSuccess { preview ->
+            pendingPreview = preview
+            _subscriptionLoad.value = SubscriptionLoadState.Preview(preview.name, preview.servers)
+        }.onFailure { error ->
+            _subscriptionLoad.value = SubscriptionLoadState.Failure(error.message ?: "订阅加载失败")
+        }
+    }
+
+    /** 确认预览结果后写入订阅，卡牌随即生成。 */
+    fun commitSubscriptionPreview(groupId: String) {
+        val state = _subscriptionLoad.value
+        if (state !is SubscriptionLoadState.Preview) return
+        val preview = pendingPreview ?: return
+        runCatching {
+            container.servers.upsertSubscription(preview.url, preview.name, preview.servers, groupId, preview.userInfo, preview.downloadedBytes)
+            container.servers.store.value.subscriptions.firstOrNull { it.id == groupId }?.let { SubscriptionScheduler.schedule(getApplication(), it) }
+        }.onSuccess {
+            _subscriptionLoad.value = SubscriptionLoadState.Idle
+            pendingPreview = null
+            _messages.tryEmit("订阅 ${preview.name}：${preview.servers.size} 个节点")
+        }.onFailure { error ->
+            _subscriptionLoad.value = SubscriptionLoadState.Failure(error.message ?: "保存订阅失败")
+        }
+    }
+
+    fun dismissSubscriptionPreview() {
+        pendingPreview = null
+        _subscriptionLoad.value = SubscriptionLoadState.Idle
+    }
+
+    /** 刷新单个订阅分组，用于卡牌上的刷新按钮。 */
+    fun refreshSubscription(id: String) = viewModelScope.launch {
+        if (id in _refreshingGroupIds.value) return@launch
+        val subscription = store.value.subscriptions.firstOrNull { it.id == id } ?: return@launch
+        _refreshingGroupIds.value = _refreshingGroupIds.value + id
+        try {
+            refreshOne(subscription.url, subscription.name, id)
+        } finally {
+            _refreshingGroupIds.value = _refreshingGroupIds.value - id
+        }
     }
     fun updateSettings(transform: (AppSettings) -> AppSettings) = container.settings.update(transform)
 

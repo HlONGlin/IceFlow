@@ -148,6 +148,8 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val testing by vm.testing.collectAsStateWithLifecycle()
     val refreshing by vm.refreshingSubscriptions.collectAsStateWithLifecycle()
+    val refreshingGroups by vm.refreshingGroupIds.collectAsStateWithLifecycle()
+    val subscriptionLoad by vm.subscriptionLoad.collectAsStateWithLifecycle()
     val connectionTest by vm.connectionTest.collectAsStateWithLifecycle()
     val nodeTest by vm.nodeTest.collectAsStateWithLifecycle()
     val bulkTest by vm.bulkTest.collectAsStateWithLifecycle()
@@ -212,7 +214,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
                         Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers)
-                        Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups)
+                        Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
                             xrayVersion = XrayBridge.version(),
@@ -521,9 +523,10 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     if (edit) AlertDialog(onDismissRequest = { edit = false }, title = { Text("编辑节点") }, text = { OutlinedTextField(name, { name = it }, label = { Text("节点名称") }, singleLine = true) }, confirmButton = { TextButton(onClick = { edit = false; onRename(name.trim()) }, enabled = name.isNotBlank()) { Text("保存") } }, dismissButton = { TextButton(onClick = { edit = false }) { Text("取消") } })
 }
 
-@Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit) {
+@Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, refreshGroup: (String) -> Unit, refreshingGroups: Set<String>, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit, subscriptionLoad: SubscriptionLoadState = SubscriptionLoadState.Idle, onPreviewSubscription: (url: String, name: String) -> Unit = { _, _ -> }, onCommitPreview: (groupId: String) -> Unit = {}, onDismissPreview: () -> Unit = {}) {
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingConfigId by remember { mutableStateOf<String?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     DisposableEffect(settingsOpen) {
         onEditingChange(settingsOpen)
@@ -541,7 +544,16 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             }
         }
         GroupSettingsPage(initial, editingId != null, store.servers, { settingsOpen = false }, { config ->
-            save(config).also { if (it == null) settingsOpen = false }
+            // 新增订阅分组时，先保存分组元信息，再进入预览流程
+            val isNewSubscription = config.subscription && editingId == null
+            val error = save(config)
+            if (error != null) return@GroupSettingsPage error
+            if (isNewSubscription) {
+                pendingConfigId = config.id
+                onPreviewSubscription(config.url, config.name)
+            }
+            settingsOpen = false
+            null
         }, { deletingId = editingId })
     } else {
         Column(Modifier.fillMaxSize()) {
@@ -561,10 +573,58 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                     group.id != null -> "本地分组 · ${store.servers.count { it.groupId == group.id }} 个节点"
                     else -> "无链接 · ${store.servers.count { it.subscriptionId == null && it.groupId == null }} 个节点"
                 }
-                 GroupCard(group.name, subtitle, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle) { onSelect(group.id) }
+                GroupCard(group.name, subtitle, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle, onRefresh = if (sub != null) ({ refreshGroup(group.id!!) }) else null, refreshing = group.id in refreshingGroups) { onSelect(group.id) }
             }
         }
     }
+
+    // 订阅预览对话框
+    val currentLoad = subscriptionLoad
+    if (currentLoad != SubscriptionLoadState.Idle) {
+        AlertDialog(
+            onDismissRequest = { if (currentLoad !is SubscriptionLoadState.Loading) onDismissPreview() },
+            title = { Text(when (currentLoad) {
+                is SubscriptionLoadState.Loading -> "正在加载订阅…"
+                is SubscriptionLoadState.Preview -> "加载完成"
+                is SubscriptionLoadState.Failure -> "加载失败"
+                else -> ""
+            }) },
+            text = {
+                when (currentLoad) {
+                    is SubscriptionLoadState.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Text("正在获取节点，请稍候…", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    is SubscriptionLoadState.Preview -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("共发现 ${currentLoad.servers.size} 个节点：", style = MaterialTheme.typography.bodyMedium)
+                        val preview = currentLoad.servers.take(5)
+                        preview.forEach { server ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape))
+                                Text("${server.name}  (${server.protocol.label})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                            }
+                        }
+                        if (currentLoad.servers.size > 5) {
+                            Text("… 还有 ${currentLoad.servers.size - 5} 个节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    is SubscriptionLoadState.Failure -> Text(currentLoad.message, color = Color(0xFFFF3B30), style = MaterialTheme.typography.bodyMedium)
+                    else -> {}
+                }
+            },
+            confirmButton = {
+                when (currentLoad) {
+                    is SubscriptionLoadState.Preview -> TextButton(onClick = { pendingConfigId?.let { onCommitPreview(it); pendingConfigId = null } }) { Text("确认导入") }
+                    is SubscriptionLoadState.Failure -> TextButton(onClick = onDismissPreview) { Text("关闭") }
+                    else -> {}
+                }
+            },
+            dismissButton = {
+                if (currentLoad is SubscriptionLoadState.Preview) TextButton(onClick = onDismissPreview) { Text("取消") }
+            }
+        )
+    }
+
     deletingId?.let { id ->
         val subscription = store.subscriptions.firstOrNull { it.id == id }
         val name = subscription?.name ?: store.localGroups.firstOrNull { it.id == id }?.name.orEmpty()
@@ -704,13 +764,17 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     }, confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
 }
 
-@Composable private fun GroupCard(title: String, subtitle: String, selected: Boolean, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?, handle: Modifier, onClick: () -> Unit) {
+@Composable private fun GroupCard(title: String, subtitle: String, selected: Boolean, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?, handle: Modifier, onRefresh: (() -> Unit)? = null, refreshing: Boolean = false, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp)).clickable(onClick = onClick)) {
         if (selected) Box(Modifier.fillMaxWidth().height(3.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp)))
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(handle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.List, "长按拖动$title 排序", tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.size(12.dp))
             Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.bodySmall, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, color = MaterialTheme.colorScheme.onSurface); Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp) }
+            if (onRefresh != null) IconButton(onClick = onRefresh, enabled = !refreshing) {
+                if (refreshing) CircularProgressIndicator(Modifier.size(18.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
+                else Icon(Icons.Filled.Refresh, "刷新$title", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
             if (onEdit != null) TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("编辑", color = MaterialTheme.colorScheme.primary) }
             if (onDelete != null) IconButton(onClick = onDelete) { Icon(Icons.Filled.Delete, "删除$title", tint = Color(0xFFFF3B30), modifier = Modifier.size(20.dp)) }
             if (selected) Icon(Icons.Filled.Check, "已选", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
