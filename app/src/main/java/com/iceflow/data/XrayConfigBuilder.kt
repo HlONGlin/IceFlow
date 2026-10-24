@@ -2,6 +2,7 @@ package com.iceflow.data
 
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.Protocol
+import com.iceflow.data.model.RouteAction
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.model.RoutingMode
