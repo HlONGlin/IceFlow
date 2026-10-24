@@ -41,6 +41,7 @@ class SettingsRepository(context: Context) {
             putString("night_mode", next.nightMode.name)
             putString("routing_mode", next.routingMode.name)
             putBoolean("show_traffic_stats", next.showTrafficStats)
+            putBoolean("show_node_latency", next.showNodeLatency)
             putInt("log_retention_days", next.logRetentionDays)
             putBoolean("app_proxy_mode", next.appProxyMode)
             putBoolean("app_routing_enabled", next.appRoutingEnabled)
@@ -75,6 +76,7 @@ class SettingsRepository(context: Context) {
             nightMode = runCatching { NightMode.valueOf(prefs.getString("night_mode", d.nightMode.name)!!) }.getOrDefault(d.nightMode),
             routingMode = runCatching { com.iceflow.data.model.RoutingMode.valueOf(prefs.getString("routing_mode", d.routingMode.name)!!) }.getOrDefault(d.routingMode),
             showTrafficStats = prefs.getBoolean("show_traffic_stats", false),
+            showNodeLatency = prefs.getBoolean("show_node_latency", false),
             logRetentionDays = prefs.getInt("log_retention_days", 3),
             appProxyMode = prefs.getBoolean("app_proxy_mode", legacyProxyAppsOnly),
             appRoutingEnabled = prefs.getBoolean("app_routing_enabled", legacyProxyAppsOnly || bypassApps.isNotEmpty()),

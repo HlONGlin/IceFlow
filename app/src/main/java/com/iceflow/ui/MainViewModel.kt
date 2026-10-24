@@ -143,6 +143,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             android.util.Log.i("MainViewModel", "testRunningConnection: 测速完成, latency=${latency}ms, 耗时=${elapsed}ms")
             if (vpnState.value == session) {
                 _connectionTest.value = ConnectionTestState(latencyMs = latency)
+                // 启动栏的测速结果写回当前节点，覆盖节点卡片上的旧延迟
+                store.value.selected?.let { server ->
+                    container.servers.updateLatency(server.id, latency)
+                }
                 withContext(Dispatchers.IO) {
                     AppLog.write(getApplication(), "INFO", if (latency >= 0) "当前连接测速：$latency ms" else "当前连接测速失败或超时")
                 }

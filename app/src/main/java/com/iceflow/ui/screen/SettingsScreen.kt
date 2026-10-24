@@ -501,6 +501,8 @@ fun SettingsScreen(
             RowDivider()
             ToggleRow(Icons.Outlined.BarChart, "显示流量统计", "在节点卡片显示累计流量", settings.showTrafficStats) { v -> onUpdate { it.copy(showTrafficStats = v) } }
             RowDivider()
+            ToggleRow(Icons.Outlined.Speed, "显示节点延迟", "在节点卡片显示延迟；未测速的节点不显示", settings.showNodeLatency) { v -> onUpdate { it.copy(showNodeLatency = v) } }
+            RowDivider()
             SettingAction(Icons.Outlined.History, "日志保留天数", if (settings.logRetentionDays == 0) "永久" else "${settings.logRetentionDays} 天") { detail = "logRetention" }
             RowDivider()
             SettingRow(icon = Icons.AutoMirrored.Outlined.Article, title = "查看运行日志", onClick = onOpenLogs, trailing = {

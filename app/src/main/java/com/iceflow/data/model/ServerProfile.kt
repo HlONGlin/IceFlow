@@ -190,6 +190,8 @@ data class AppSettings(
     val theme: AppTheme = AppTheme.LIGHT_BLUE,
     val nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
     val showTrafficStats: Boolean = false,
+    /** 是否在节点卡片显示延迟；关闭时不显示延迟与未测速提示 */
+    val showNodeLatency: Boolean = false,
     val logRetentionDays: Int = 3,
     val appRoutingEnabled: Boolean = false,
     val appProxyMode: Boolean = false,
@@ -198,6 +200,7 @@ data class AppSettings(
     fun hasSameConnection(other: AppSettings): Boolean = copy(
         theme = other.theme, nightMode = other.nightMode, language = other.language,
         showTrafficStats = other.showTrafficStats, logRetentionDays = other.logRetentionDays,
+        showNodeLatency = other.showNodeLatency,
         testUrl = other.testUrl,
     ) == other
 

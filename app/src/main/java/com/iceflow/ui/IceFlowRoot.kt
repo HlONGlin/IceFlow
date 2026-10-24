@@ -213,7 +213,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers)
+                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency)
                         Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
@@ -288,7 +288,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit) {
+@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -359,7 +359,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     item { Text("未分组节点", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp)) }
                     items(ungroupedNodes, key = { it.id }) { server ->
-                        NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, showTrafficStats = showTrafficStats)
+                        NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, showTrafficStats = showTrafficStats, showNodeLatency = showNodeLatency)
                     }
                 }
             } else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
@@ -371,11 +371,11 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                         TextButton(onClick = { sortingKey = null }) { Text("完成", color = MaterialTheme.colorScheme.primary) }
                     }
                     ReorderableNodeList(nodes, { onReorderNodes(group.id, it) }, Modifier.weight(1f), PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp)) { server, handle ->
-                        NodeRow(server, store.localGroups, server.id == store.selectedId, {}, {}, {}, {}, {}, {}, dragHandle = handle)
+                        NodeRow(server, store.localGroups, server.id == store.selectedId, {}, {}, {}, {}, {}, {}, dragHandle = handle, showNodeLatency = showNodeLatency)
                     }
                 } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     if (nodes.isEmpty()) item { Text(if (query.isBlank()) "此分组暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
-                    items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, if (query.isBlank()) ({ sortingKey = group.key }) else null, showTrafficStats = showTrafficStats) }
+                    items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, if (query.isBlank()) ({ sortingKey = group.key }) else null, showTrafficStats = showTrafficStats, showNodeLatency = showNodeLatency) }
                 }
             }
         }
@@ -454,41 +454,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable private fun InfoCard(selected: ServerProfile?, state: VpnState, traffic: TrafficSnapshot, publicIp: String?, now: Long, openNodes: () -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().shadow(2.dp, RoundedCornerShape(IceRadius.row)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(IceRadius.row)).clickable(onClick = openNodes).padding(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)); Spacer(Modifier.size(10.dp)); Text(selected?.name ?: "选择一个节点", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis); Text(selected?.latencyMs?.let { "$it ms" } ?: "未测速", color = latencyColor(selected?.latencyMs, MaterialTheme.colorScheme.onSurfaceVariant), style = MaterialTheme.typography.bodyMedium) }
-        Spacer(Modifier.height(18.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Metric("IP", publicIp ?: if (state is VpnState.Connected) "查询中" else "--"); Metric("连接时长", if (state is VpnState.Connected) formatDuration(now - state.since) else "--"); Metric("下载", formatSpeed(traffic.downSpeed)); Metric("上传", formatSpeed(traffic.upSpeed)) }
-    }
-}
 
-@Composable private fun Metric(label: String, value: String) { Column { Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) } }
-
-@Composable private fun NodesPage(store: ServerStore, groupId: String?, testing: Boolean, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImport: () -> Unit, onAddSub: (String) -> Unit, openGroups: () -> Unit) {
-    var dialog by rememberSaveable { mutableStateOf(false) }
-    val groupName = store.subscriptions.firstOrNull { it.id == groupId }?.name ?: store.localGroups.firstOrNull { it.id == groupId }?.name ?: "本地节点"
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(groupName, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = openGroups, contentPadding = PaddingValues(horizontal = 8.dp)) { Text("分组", color = MaterialTheme.colorScheme.primary) }
-            TextButton(onClick = onTest, enabled = !testing, contentPadding = PaddingValues(horizontal = 8.dp)) { Text(if (testing) "测速中…" else "测速", color = MaterialTheme.colorScheme.primary) }
-        }
-        LazyColumn(contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 24.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            val visible = store.servers.filter {
-                when {
-                    groupId == null -> it.subscriptionId == null
-                    store.localGroups.any { group -> group.id == groupId } -> it.groupId == groupId
-                    else -> it.subscriptionId == groupId
-                }
-            }
-            items(visible, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, onSelect = { onSelect(server.id) }, onTest = { onTestOne(server) }, onDelete = { onDelete(server.id) }, onMove = { onMove(server.id, it) }, onShare = { onShare(server) }, onRename = { onUpdate(server.copy(name = it)) }) }
-            item { Spacer(Modifier.height(12.dp)); Button(onClick = onImport, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) { Icon(Icons.Filled.Add, null); Spacer(Modifier.size(8.dp)); Text("从剪贴板导入节点") } }
-            item { TextButton(onClick = { dialog = true }, modifier = Modifier.fillMaxWidth()) { Text("添加订阅链接", color = MaterialTheme.colorScheme.primary) } }
-        }
-    }
-    if (dialog) AddSubscriptionDialog({ dialog = false }, { dialog = false; onAddSub(it) })
-}
-
-@Composable private fun NodeRow(server: ServerProfile, groups: List<com.iceflow.data.model.LocalGroup>, selected: Boolean, onSelect: () -> Unit, onTest: () -> Unit, onDelete: () -> Unit, onMove: (String?) -> Unit, onShare: () -> Unit, onRename: (String) -> Unit, onEdit: (() -> Unit)? = null, onSort: (() -> Unit)? = null, dragHandle: Modifier? = null, showTrafficStats: Boolean = false) {
+@Composable private fun NodeRow(server: ServerProfile, groups: List<com.iceflow.data.model.LocalGroup>, selected: Boolean, onSelect: () -> Unit, onTest: () -> Unit, onDelete: () -> Unit, onMove: (String?) -> Unit, onShare: () -> Unit, onRename: (String) -> Unit, onEdit: (() -> Unit)? = null, onSort: (() -> Unit)? = null, dragHandle: Modifier? = null, showTrafficStats: Boolean = false, showNodeLatency: Boolean = false) {
     var menu by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf(false) }
     var name by remember(server.name) { mutableStateOf(server.name) }
@@ -518,12 +485,15 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                Spacer(Modifier.size(8.dp))
-                Text(
-                    latencyText(server.latencyMs),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = latencyColor(server.latencyMs, MaterialTheme.colorScheme.onSurfaceVariant),
-                )
+                // 只有开启了延迟显示、且确实测过速时才展示延迟
+                if (showNodeLatency && server.latencyMs != null) {
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        latencyText(server.latencyMs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = latencyColor(server.latencyMs, MaterialTheme.colorScheme.onSurfaceVariant),
+                    )
+                }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
@@ -859,18 +829,16 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             if (tags.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
                     tags.forEach { tag ->
-                        Box(
-                            Modifier.background(
-                                MaterialTheme.colorScheme.surfaceVariant,
-                                RoundedCornerShape(6.dp),
-                            ).padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(tag, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                        }
+                        Text(
+                            tag,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
                     }
                 }
             }
