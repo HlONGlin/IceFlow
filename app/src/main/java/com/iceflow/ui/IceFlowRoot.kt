@@ -124,11 +124,7 @@ import com.iceflow.ui.component.latencyColor
 import com.iceflow.ui.component.latencyText
 import com.iceflow.ui.screen.AppSelectorScreen
 import com.iceflow.ui.screen.SettingsScreen
-import com.iceflow.ui.theme.IceBlue
-import com.iceflow.ui.theme.IceCyan
-import com.iceflow.ui.theme.LatencyBad
-import com.iceflow.ui.theme.LatencyGood
-import com.iceflow.ui.theme.LatencyMedium
+import com.iceflow.ui.theme.IceRadius
 import com.iceflow.util.formatSpeed
 import com.iceflow.util.formatDuration
 import com.iceflow.util.formatBytes
@@ -459,14 +455,13 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable private fun InfoCard(selected: ServerProfile?, state: VpnState, traffic: TrafficSnapshot, publicIp: String?, now: Long, openNodes: () -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().shadow(2.dp, RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp)).clickable(onClick = openNodes).padding(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)); Spacer(Modifier.size(10.dp)); Text(selected?.name ?: "选择一个节点", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis); Text(selected?.latencyMs?.let { "$it ms" } ?: "未测速", color = latencyColor(selected?.latencyMs), style = MaterialTheme.typography.bodyMedium) }
+    Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().shadow(2.dp, RoundedCornerShape(IceRadius.row)).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(IceRadius.row)).clickable(onClick = openNodes).padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)); Spacer(Modifier.size(10.dp)); Text(selected?.name ?: "选择一个节点", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis); Text(selected?.latencyMs?.let { "$it ms" } ?: "未测速", color = latencyColor(selected?.latencyMs, MaterialTheme.colorScheme.onSurfaceVariant), style = MaterialTheme.typography.bodyMedium) }
         Spacer(Modifier.height(18.dp)); Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Metric("IP", publicIp ?: if (state is VpnState.Connected) "查询中" else "--"); Metric("连接时长", if (state is VpnState.Connected) formatDuration(now - state.since) else "--"); Metric("下载", formatSpeed(traffic.downSpeed)); Metric("上传", formatSpeed(traffic.upSpeed)) }
     }
 }
 
 @Composable private fun Metric(label: String, value: String) { Column { Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall); Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium) } }
-private fun latencyColor(value: Int?): Color = when { value == null || value < 0 -> LatencyBad; value < 100 -> LatencyGood; value < 300 -> LatencyMedium; else -> LatencyBad }
 
 @Composable private fun NodesPage(store: ServerStore, groupId: String?, testing: Boolean, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImport: () -> Unit, onAddSub: (String) -> Unit, openGroups: () -> Unit) {
     var dialog by rememberSaveable { mutableStateOf(false) }
@@ -500,7 +495,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
     Row(
         Modifier
             .fillMaxWidth()
-            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface, RoundedCornerShape(IceRadius.row))
             .clickable(onClick = onSelect)
             .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -644,7 +639,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
                             Text("… 还有 ${currentLoad.servers.size - 5} 个节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    is SubscriptionLoadState.Failure -> Text(currentLoad.message, color = Color(0xFFFF3B30), style = MaterialTheme.typography.bodyMedium)
+                    is SubscriptionLoadState.Failure -> Text(currentLoad.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
                     else -> {}
                 }
             },
@@ -670,7 +665,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             if (subscription != null) deleteSubscription(id) else deleteLocal(id)
             if (editingId == id) settingsOpen = false
             deletingId = null
-        }) { Text("删除", color = Color(0xFFFF3B30)) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
+        }) { Text("删除", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
     }
 }
 
@@ -721,12 +716,12 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             } }
             if (!subscription && initial.subscription) item { Text("转为基本分组后保留现有节点，并停止订阅自动更新。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
             item { Text("排序设置仅作用于本分组，未测速的节点排在最后。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
-            saveError?.let { error -> item { Text(error, color = Color(0xFFFF3B30), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)) } }
+            saveError?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)) } }
             if (editing) item {
                 TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                    Icon(Icons.Filled.Delete, null, tint = Color(0xFFFF3B30), modifier = Modifier.size(20.dp))
+                    Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("删除分组", color = Color(0xFFFF3B30))
+                    Text("删除分组", color = MaterialTheme.colorScheme.error)
                 }
             }
         }
@@ -752,7 +747,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
             } }
         }, confirmButton = { TextButton(onClick = { chooser = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
     }
-    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("放弃修改？") }, text = { Text("当前修改尚未保存。") }, confirmButton = { TextButton(onClick = onBack) { Text("放弃", color = Color(0xFFFF3B30)) } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("继续编辑", color = MaterialTheme.colorScheme.primary) } })
+    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("放弃修改？") }, text = { Text("当前修改尚未保存。") }, confirmButton = { TextButton(onClick = onBack) { Text("放弃", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("继续编辑", color = MaterialTheme.colorScheme.primary) } })
 }
 
 @Composable private fun GroupNodePicker(title: String, servers: List<ServerProfile>, selected: String?, onDismiss: () -> Unit, onSelect: (String?) -> Unit) {
@@ -814,13 +809,13 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
 ) {
     var menu by remember { mutableStateOf(false) }
     Box(
-        Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(IceRadius.card))
             .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
     ) {
         if (selected) Box(
             Modifier.fillMaxWidth().height(3.dp)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(topStart = IceRadius.card, topEnd = IceRadius.card))
         )
         Column(Modifier.padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -898,7 +893,7 @@ private fun latencyColor(value: Int?): Color = when { value == null || value < 0
 }
 
 @Composable internal fun IceMenuItem(title: String, icon: ImageVector, enabled: Boolean = true, destructive: Boolean = false, onClick: () -> Unit) {
-    val tint = if (destructive) Color(0xFFFF3B30) else MaterialTheme.colorScheme.primary
+    val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     DropdownMenuItem(
         text = { Text(title, style = MaterialTheme.typography.bodyMedium, color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant else if (destructive) tint else MaterialTheme.colorScheme.onSurface) },
         leadingIcon = {
@@ -995,18 +990,12 @@ private fun ThemePreviewCard(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val (primaryColor, secondaryColor) = when (theme) {
-        com.iceflow.data.model.AppTheme.LIGHT_BLUE -> Color(0xFF007AFF) to Color(0xFFE5F3FF)
-        com.iceflow.data.model.AppTheme.MINT_GREEN -> Color(0xFF00C896) to Color(0xFFE5F9F1)
-        com.iceflow.data.model.AppTheme.SAKURA_PINK -> Color(0xFFFF6B9D) to Color(0xFFFFE5EE)
-        com.iceflow.data.model.AppTheme.PEACH_ORANGE -> Color(0xFFFF9F5A) to Color(0xFFFFEDD9)
-        com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> Color(0xFFA6A6A6) to Color(0xFF2A2A2A)
-    }
+    val (primaryColor, secondaryColor) = com.iceflow.ui.theme.themePreviewColors(theme)
     
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(IceRadius.card))
             .background(
                 if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                 else MaterialTheme.colorScheme.surfaceVariant

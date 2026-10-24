@@ -39,7 +39,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.zIndex
 import com.iceflow.data.model.NodeGroup
 import com.iceflow.data.model.ServerProfile
-import com.iceflow.ui.theme.IceBlue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop

@@ -60,6 +60,7 @@ import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingMode
 import com.iceflow.data.model.AppTheme
 import com.iceflow.data.model.NightMode
+import com.iceflow.ui.theme.IceRadius
 
 private val IPV4 = Regex("""^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$""")
 internal fun isIpLiteral(s: String): Boolean = IPV4.matches(s) || (s.contains(':') && s.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == ':' || it == '.' })
@@ -163,14 +164,6 @@ private fun ComboGroup(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-private fun themePreviewColors(theme: AppTheme): Pair<Color, Color> = when (theme) {
-    AppTheme.LIGHT_BLUE -> Color(0xFF007AFF) to Color(0xFFE5F3FF)
-    AppTheme.MINT_GREEN -> Color(0xFF00C896) to Color(0xFFE5F9F1)
-    AppTheme.SAKURA_PINK -> Color(0xFFFF6B9D) to Color(0xFFFFE5EE)
-    AppTheme.PEACH_ORANGE -> Color(0xFFFF9F5A) to Color(0xFFFFEDD9)
-    AppTheme.OBSIDIAN_BLACK -> Color(0xFFA6A6A6) to Color(0xFF2A2A2A)
-}
-
 @Composable
 private fun SettingsDetailPage(
     title: String,
@@ -179,19 +172,8 @@ private fun SettingsDetailPage(
     onAction: () -> Unit = onBack,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // 复用全局主题配色，避免详情页自成一派
     val appColors = MaterialTheme.colorScheme
-    val darkMode = appColors.background.luminance() < 0.5f
-    val dialogBackground = if (darkMode) Color.Black else Color.White
-    val detailColors = appColors.copy(
-        background = dialogBackground,
-        surface = if (darkMode) Color(0xFF111111) else Color.White,
-        surfaceVariant = if (darkMode) Color(0xFF1F1F1F) else Color(0xFFF3F4F6),
-        onBackground = if (darkMode) Color.White else Color(0xFF202124),
-        onSurface = if (darkMode) Color.White else Color(0xFF202124),
-        onSurfaceVariant = if (darkMode) Color(0xFFB3B3B3) else Color(0xFF5F6368),
-        outline = if (darkMode) Color(0xFF707070) else Color(0xFF8A8D91),
-        outlineVariant = if (darkMode) Color(0xFF404040) else Color(0xFFDADCE0),
-    )
     Dialog(
         onDismissRequest = onBack,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -200,12 +182,12 @@ private fun SettingsDetailPage(
         SideEffect {
             (view.parent as? DialogWindowProvider)?.window?.setDimAmount(0.12f)
         }
-        MaterialTheme(colorScheme = detailColors, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
+        MaterialTheme(colorScheme = appColors, typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
             Surface(
                 modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp).padding(horizontal = 24.dp)
                     .heightIn(max = 680.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = dialogBackground,
+                shape = RoundedCornerShape(IceRadius.panel),
+                color = appColors.surface,
                 shadowElevation = 12.dp,
             ) {
                 Column {
@@ -234,7 +216,7 @@ private fun SettingsDetailSection(title: String, content: @Composable ColumnScop
     Column(Modifier.fillMaxWidth().padding(top = 14.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp, bottom = 8.dp))
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(IceRadius.row)).background(MaterialTheme.colorScheme.surface),
             content = content,
         )
     }
@@ -286,7 +268,7 @@ private fun ThemeSettingsPage(current: AppTheme, onBack: () -> Unit, onSelect: (
     SettingsDetailPage("主题", onBack) {
         SettingsDetailSection("选择主题") {
             AppTheme.entries.forEachIndexed { index, theme ->
-                val (primary, soft) = themePreviewColors(theme)
+                val (primary, soft) = com.iceflow.ui.theme.themePreviewColors(theme)
                 SettingsOptionRow(themeLabel(theme), theme == current, { onSelect(theme) }, trailing = {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(28.dp).clip(CircleShape).background(soft))

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.iceflow.ui.theme.IceRadius
 import com.iceflow.data.model.*
 import com.iceflow.data.repository.RoutingResources
 import kotlinx.coroutines.Dispatchers
@@ -78,10 +79,10 @@ import kotlinx.coroutines.withContext
             }
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-             item { Text("规则从上到下优先匹配，未匹配流量使用当前节点。修改后重新连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(12.dp)).padding(14.dp)) }
+             item { Text("规则从上到下优先匹配，未匹配流量使用当前节点。修改后重新连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IceRadius.row)).padding(14.dp)) }
             if (settings.routingRules.isEmpty()) item { Text("暂无规则，点击右上角添加。", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
             itemsIndexed(settings.routingRules, key = { _, rule -> rule.id }) { index, rule ->
-                 Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                 Surface(shape = RoundedCornerShape(IceRadius.row), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(rule.name, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -92,7 +93,7 @@ import kotlinx.coroutines.withContext
                              Text(rule.action.label, color = if (rule.action == RouteAction.BLOCK) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                             TextButton(enabled = index > 0, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index - 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text("上移", style = MaterialTheme.typography.labelSmall) }
                             TextButton(enabled = index < settings.routingRules.lastIndex, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index + 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text("下移", style = MaterialTheme.typography.labelSmall) }
-                            IconButton({ deleting = rule }, Modifier.size(32.dp)) { Icon(Icons.Default.Delete, "删除${rule.name}", tint = Color(0xFF8E8E93), modifier = Modifier.size(17.dp)) }
+                            IconButton({ deleting = rule }, Modifier.size(32.dp)) { Icon(Icons.Default.Delete, "删除${rule.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) }
                             Switch(rule.enabled, { enabled -> commit(settings.routingRules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it }) })
                         }
                     }
@@ -149,7 +150,7 @@ import kotlinx.coroutines.withContext
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EditorInput("规则名称", name, { name = it })
             EditorChoice("路由目标", RouteAction.valueOf(action).label, RouteAction.entries.map { it.label }) { action = RouteAction.entries[it].name }
-            Text("不同条件之间是「且」，同一条件内多项是「或」。域名 / IP 每行一项。", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8E8E93))
+            Text("不同条件之间是「且」，同一条件内多项是「或」。域名 / IP 每行一项。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             EditorInput("域名", domains, { domains = it }, "domain:example.com / full:www.example.com / geosite:cn / regexp:…", true)
             EditorInput("IP / CIDR", ips, { ips = it }, "192.168.0.0/16 / geoip:cn", true)
             EditorInput("目标端口", port, { port = it }, "80,443,1000-2000")
@@ -171,7 +172,7 @@ import kotlinx.coroutines.withContext
     Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
         EditorHeader("路由资源", { if (busy == null) back() })
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("已内置中国域名与 IP 资源，可离线使用。更新成功后重新连接生效；校验失败保留原资源。", style = MaterialTheme.typography.bodySmall, color = Color(0xFF8E8E93))
+            Text("已内置中国域名与 IP 资源，可离线使用。更新成功后重新连接生效；校验失败保留原资源。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             resources.names.forEach { name ->
                 var url by rememberSaveable(name) { mutableStateOf(resources.url(name)) }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

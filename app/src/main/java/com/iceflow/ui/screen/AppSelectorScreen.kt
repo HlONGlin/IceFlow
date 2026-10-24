@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.iceflow.ui.theme.IceRadius
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -100,7 +101,7 @@ fun AppSelectorScreen(
         ) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(IceRadius.row))
             ) {
             OutlinedTextField(
                     value = searchQuery,

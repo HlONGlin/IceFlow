@@ -47,7 +47,7 @@ val LocalIceFlowColors = staticCompositionLocalOf {
 /**
  * 浅蓝主题配色方案（默认）
  */
-private fun themedColorScheme(accent: Color, dark: Boolean): ColorScheme = if (dark) darkColorScheme(
+private fun themedColorScheme(accent: Color, secondary: Color, dark: Boolean): ColorScheme = if (dark) darkColorScheme(
     background = Color.Black,
     surface = Color(0xFF111111),
     surfaceVariant = Color(0xFF1F1F1F),
@@ -59,8 +59,10 @@ private fun themedColorScheme(accent: Color, dark: Boolean): ColorScheme = if (d
         PeachOrangeColors.primary -> Color(0xFF4A2D1A)
         else -> ObsidianBlackColors.primarySoft
     },
+    secondary = secondary,
     onPrimary = Color.White,
     onPrimaryContainer = Color.White,
+    onSecondary = Color.White,
     onBackground = Color.White,
     onSurface = Color.White,
     onSurfaceVariant = Color(0xFFB3B3B3),
@@ -70,7 +72,7 @@ private fun themedColorScheme(accent: Color, dark: Boolean): ColorScheme = if (d
 ) else lightColorScheme(
     background = Color.White,
     surface = Color.White,
-    surfaceVariant = Color.White,
+    surfaceVariant = Color(0xFFF5F5F7),
     primary = accent,
     primaryContainer = when (accent) {
         LightBlueColors.primary -> LightBlueColors.primarySoft
@@ -79,8 +81,10 @@ private fun themedColorScheme(accent: Color, dark: Boolean): ColorScheme = if (d
         PeachOrangeColors.primary -> PeachOrangeColors.primarySoft
         else -> Color(0xFFE5F3FF)
     },
+    secondary = secondary,
     onPrimary = Color.White,
     onPrimaryContainer = accent,
+    onSecondary = Color.White,
     onBackground = Color(0xFF1C1C1E),
     onSurface = Color(0xFF1C1C1E),
     onSurfaceVariant = Color(0xFF6B6B6F),
@@ -169,6 +173,13 @@ fun IceFlowTheme(
         AppTheme.PEACH_ORANGE -> PeachOrangeColors.primary
         AppTheme.OBSIDIAN_BLACK -> ObsidianBlackColors.primary
     }
+    val accentSecondary = when (theme) {
+        AppTheme.LIGHT_BLUE -> LightBlueColors.secondary
+        AppTheme.MINT_GREEN -> MintGreenColors.secondary
+        AppTheme.SAKURA_PINK -> SakuraPinkColors.secondary
+        AppTheme.PEACH_ORANGE -> PeachOrangeColors.secondary
+        AppTheme.OBSIDIAN_BLACK -> ObsidianBlackColors.secondary
+    }
     val extColors = when (theme) {
         AppTheme.LIGHT_BLUE -> lightBlueExtColors()
         AppTheme.MINT_GREEN -> mintGreenExtColors()
@@ -183,7 +194,7 @@ fun IceFlowTheme(
             val ctx = LocalContext.current
             if (isDark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
         }
-        else -> themedColorScheme(accent, isDark)
+        else -> themedColorScheme(accent, accentSecondary, isDark)
     }
 
     androidx.compose.runtime.CompositionLocalProvider(
