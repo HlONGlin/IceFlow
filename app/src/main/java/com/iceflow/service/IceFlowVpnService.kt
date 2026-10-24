@@ -303,7 +303,7 @@ class IceFlowVpnService : VpnService() {
             persistedUp = 0
             persistedDown = 0
             persistedAt = SystemClock.elapsedRealtime()
-            VpnController.setState(VpnState.Connected(profile.name, System.currentTimeMillis(), tunnelPort))
+            VpnController.setState(VpnState.Connected(profile.name, System.currentTimeMillis(), tunnelPort, tunnelUser, tunnelPass))
             getSystemService(NotificationManager::class.java).notify(
                 NOTIFICATION_ID,
                 buildNotification(getString(R.string.notification_connected, profile.name)),

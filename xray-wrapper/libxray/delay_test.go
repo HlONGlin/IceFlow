@@ -46,7 +46,7 @@ func TestNodeAndRunningProbesShareRequestSemantics(t *testing.T) {
 		{"node", func() (int64, error) {
 			return MeasureDelay(`{"outbounds":[{"tag":"proxy","protocol":"freedom"}]}`, testURL, 5000)
 		}},
-		{"running", func() (int64, error) { return MeasureSocksDelay(port, testURL, 5000) }},
+		{"running", func() (int64, error) { return MeasureSocksDelay(port, "", "", testURL, 5000) }},
 	} {
 		t.Run(probe.name, func(t *testing.T) {
 			for i := 0; i < 2; i++ {
@@ -63,7 +63,7 @@ func TestNodeAndRunningProbesShareRequestSemantics(t *testing.T) {
 		t.Fatal("measurement replaced or stopped the running core")
 	}
 	before := hits.Load()
-	if _, err := MeasureSocksDelay(unusedProbePort(t), testURL, 500); err == nil {
+	if _, err := MeasureSocksDelay(unusedProbePort(t), "", "", testURL, 500); err == nil {
 		t.Fatal("unavailable SOCKS listener must fail")
 	}
 	if hits.Load() != before {
@@ -96,7 +96,7 @@ func TestRunningProbeRejectsTlsErrorsBadResponsesAndTimeouts(t *testing.T) {
 			target := httptest.NewServer(failure.handler)
 			defer target.Close()
 			start := time.Now()
-			if _, err := MeasureSocksDelay(port, target.URL, 200); err == nil {
+			if _, err := MeasureSocksDelay(port, "", "", target.URL, 200); err == nil {
 				t.Fatal("expected measurement failure")
 			}
 			if time.Since(start) > 2*time.Second {
@@ -106,7 +106,7 @@ func TestRunningProbeRejectsTlsErrorsBadResponsesAndTimeouts(t *testing.T) {
 	}
 	target := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) }))
 	defer target.Close()
-	if _, err := MeasureSocksDelay(port, target.URL, 1000); err == nil {
+	if _, err := MeasureSocksDelay(port, "", "", target.URL, 1000); err == nil {
 		t.Fatal("probe accepted an untrusted TLS certificate")
 	}
 	for _, args := range []struct {
@@ -117,7 +117,7 @@ func TestRunningProbeRejectsTlsErrorsBadResponsesAndTimeouts(t *testing.T) {
 		{0, "http://localhost/", 100}, {65536, "http://localhost/", 100},
 		{port, "http://localhost/", 0}, {port, "file:///tmp/probe", 100},
 	} {
-		if _, err := MeasureSocksDelay(args.port, args.url, args.timeout); err == nil {
+		if _, err := MeasureSocksDelay(args.port, "", "", args.url, args.timeout); err == nil {
 			t.Fatal("probe accepted invalid arguments")
 		}
 	}

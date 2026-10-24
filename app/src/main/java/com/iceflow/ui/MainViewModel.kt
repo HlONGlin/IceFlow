@@ -107,7 +107,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val startTime = System.currentTimeMillis()
             val latency = withContext(Dispatchers.IO) {
                 runCatching {
-                    ConnectionProbe.measure(session.socksPort, settings.value.testUrl, 5000)
+                    ConnectionProbe.measure(session.socksPort, session.tunnelUser, session.tunnelPass, settings.value.testUrl, 5000)
                 }.onSuccess { result ->
                     android.util.Log.i("MainViewModel", "测速成功: ${result}ms")
                 }.onFailure { error ->
@@ -293,7 +293,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshPublicIp() {
         val session = vpnState.value as? VpnState.Connected ?: return
         viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { ConnectionProbe.publicIp(session.socksPort) }.getOrNull()
+            val result = runCatching { ConnectionProbe.publicIp(session.socksPort, session.tunnelUser, session.tunnelPass) }.getOrNull()
             if (vpnState.value == session) _publicIp.value = result
         }
     }

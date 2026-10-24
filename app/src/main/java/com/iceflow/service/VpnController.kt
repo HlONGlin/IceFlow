@@ -11,7 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 sealed interface VpnState {
     data object Idle : VpnState
     data object Connecting : VpnState
-    data class Connected(val serverName: String, val since: Long, val socksPort: Int = 10808) : VpnState
+    data class Connected(
+        val serverName: String,
+        val since: Long,
+        val socksPort: Int = 10808,
+        /** 内部 TUN 入站的随机凭据，measureSocksDelay 需要用到 */
+        val tunnelUser: String = "",
+        val tunnelPass: String = "",
+    ) : VpnState
     data object Stopping : VpnState
     data class Error(val message: String) : VpnState
 }

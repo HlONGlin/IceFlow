@@ -117,13 +117,21 @@ func MeasureDelay(configJSON string, testURL string, timeoutMs int64) (int64, er
 
 // MeasureSocksDelay measures the running VPN through its internal SOCKS listener.
 // It uses the same HTTP/TLS implementation as MeasureDelay without starting a core.
-func MeasureSocksDelay(socksPort int64, testURL string, timeoutMs int64) (int64, error) {
+// Pass empty username/password for unauthenticated SOCKS.
+func MeasureSocksDelay(socksPort int64, username string, password string, testURL string, timeoutMs int64) (int64, error) {
 	if socksPort < 1 || socksPort > 65535 || timeoutMs <= 0 {
 		return -1, errors.New("invalid SOCKS port or timeout")
 	}
+	socksURL := &url.URL{
+		Scheme: "socks5",
+		Host:   gonet.JoinHostPort("127.0.0.1", strconv.FormatInt(socksPort, 10)),
+	}
+	if username != "" {
+		socksURL.User = url.UserPassword(username, password)
+	}
 	transport := &http.Transport{
 		DisableKeepAlives: true,
-		Proxy:             http.ProxyURL(&url.URL{Scheme: "socks5", Host: gonet.JoinHostPort("127.0.0.1", strconv.FormatInt(socksPort, 10))}),
+		Proxy:             http.ProxyURL(socksURL),
 		DialContext:       (&gonet.Dialer{}).DialContext,
 	}
 	return measureHTTPDelay(transport, testURL, timeoutMs)

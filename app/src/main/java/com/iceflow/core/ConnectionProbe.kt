@@ -9,8 +9,17 @@ import java.io.IOException
 /** Tests the running outbound, never the system's direct connection or a new core. */
 object ConnectionProbe {
 
-    fun publicIp(socksPort: Int): String {
+    fun publicIp(socksPort: Int, username: String = "", password: String = ""): String {
         val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", socksPort))
+        if (username.isNotEmpty()) {
+            java.net.Authenticator.setDefault(object : java.net.Authenticator() {
+                override fun getPasswordAuthentication(): java.net.PasswordAuthentication? {
+                    return if (requestingHost == "127.0.0.1" && requestingPort == socksPort)
+                        java.net.PasswordAuthentication(username, password.toCharArray())
+                    else null
+                }
+            })
+        }
         val connection = URL("https://api.ipify.org").openConnection(proxy) as HttpURLConnection
         connection.connectTimeout = 5000
         connection.readTimeout = 5000
@@ -33,9 +42,9 @@ object ConnectionProbe {
         } finally { connection.disconnect() }
     }
 
-    fun measure(socksPort: Int, url: String = "https://www.google.com/generate_204", timeoutMs: Int = 5000): Int {
+    fun measure(socksPort: Int, username: String = "", password: String = "", url: String = "https://www.google.com/generate_204", timeoutMs: Int = 5000): Int {
         return try {
-            XrayBridge.measureSocksDelay(socksPort, url, timeoutMs).coerceAtLeast(1).toInt()
+            XrayBridge.measureSocksDelay(socksPort, username, password, url, timeoutMs).coerceAtLeast(1).toInt()
         } catch (error: Exception) {
             throw IOException(error.message ?: "测速失败", error)
         }

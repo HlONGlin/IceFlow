@@ -58,11 +58,11 @@ object XrayBridge {
             configJson, url, timeoutMs,
         ) as Long
 
-    fun measureSocksDelay(socksPort: Int, url: String, timeoutMs: Int): Long =
+    fun measureSocksDelay(socksPort: Int, username: String, password: String, url: String, timeoutMs: Int): Long =
         call(
             "measureSocksDelay",
-            arrayOf(Long::class.javaPrimitiveType!!, String::class.java, Long::class.javaPrimitiveType!!),
-            socksPort.toLong(), url, timeoutMs.toLong(),
+            arrayOf(Long::class.javaPrimitiveType!!, String::class.java, String::class.java, String::class.java, Long::class.javaPrimitiveType!!),
+            socksPort.toLong(), username, password, url, timeoutMs.toLong(),
         ) as Long
 
     /** 查询 xray-core 统计信息，返回格式：每行 "name,value"。失败抛出异常。 */
