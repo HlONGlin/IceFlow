@@ -63,8 +63,8 @@ class NativeBridgeTest {
             val config = """{"inbounds":[{"listen":"127.0.0.1","port":$port,"protocol":"socks","settings":{"auth":"noauth"}}],"outbounds":[{"tag":"proxy","protocol":"blackhole"},{"tag":"direct","protocol":"http","settings":{"servers":[{"address":"127.0.0.1","port":${proxy.localPort}}]}}],"routing":{"domainStrategy":"IPIfNonMatch","rules":[{"type":"field","domain":["geosite:cn"],"outboundTag":"direct"},{"type":"field","ip":["geoip:cn"],"outboundTag":"direct"}]}}"""
             try {
                 XrayBridge.start(config)
-                assertTrue(ConnectionProbe.measure(port, "http://baidu.com/route-check", 3000) > 0)
-                assertTrue(ConnectionProbe.measure(port, "http://223.5.5.5/route-check", 3000) > 0)
+                assertTrue(ConnectionProbe.measure(port, url = "http://baidu.com/route-check", timeoutMs = 3000) > 0)
+                assertTrue(ConnectionProbe.measure(port, url = "http://223.5.5.5/route-check", timeoutMs = 3000) > 0)
                 worker.join(6000); failure.get()?.let { throw AssertionError(it) }
                 assertEquals(listOf("baidu.com:80", "223.5.5.5:80"), seen.toList())
                 assertFalse(worker.isAlive)
@@ -93,13 +93,13 @@ class NativeBridgeTest {
             try {
                 val block = rule.copy(id = "block", action = com.iceflow.data.model.RouteAction.BLOCK)
                 start(listOf(block, rule))
-                assertTrue(runCatching { ConnectionProbe.measure(socksPort, url, 1500) }.isFailure)
+                assertTrue(runCatching { ConnectionProbe.measure(socksPort, url = url, timeoutMs = 1500) }.isFailure)
                 start(listOf(block.copy(enabled = false), rule))
-                assertTrue(ConnectionProbe.measure(socksPort, url, 3000) > 0)
+                assertTrue(ConnectionProbe.measure(socksPort, url = url, timeoutMs = 3000) > 0)
                 worker.join(5000); failure.get()?.let { throw AssertionError(it) }; assertFalse(worker.isAlive)
                 // Removing the direct rule must expose the unavailable proxy, never direct fallback.
                 start(emptyList())
-                assertTrue(runCatching { ConnectionProbe.measure(socksPort, url, 1500) }.isFailure)
+                assertTrue(runCatching { ConnectionProbe.measure(socksPort, url = url, timeoutMs = 1500) }.isFailure)
             } finally { XrayBridge.stop(); target.close(); worker.join(2000) }
         }
     }
@@ -234,11 +234,11 @@ class NativeBridgeTest {
             val port = freePort()
             try {
                 XrayBridge.start("""{"inbounds":[{"listen":"127.0.0.1","port":$port,"protocol":"socks","settings":{"auth":"noauth","udp":true}}],"outbounds":[{"protocol":"freedom"}]}""")
-                assertTrue(ConnectionProbe.measure(port, "http://127.0.0.1:${target.localPort}/generate_204") > 0)
+                assertTrue(ConnectionProbe.measure(port, url = "http://127.0.0.1:${target.localPort}/generate_204") > 0)
                 worker.join(6000)
                 failure.get()?.let { throw AssertionError("Probe target failed", it) }
                 try {
-                    ConnectionProbe.measure(freePort(), "http://127.0.0.1:${target.localPort}/generate_204", 500)
+                    ConnectionProbe.measure(freePort(), url = "http://127.0.0.1:${target.localPort}/generate_204", timeoutMs = 500)
                     fail("Probe must not fall back to direct traffic when SOCKS is unavailable")
                 } catch (_: java.io.IOException) { }
             } finally { XrayBridge.stop() }
@@ -262,12 +262,12 @@ class NativeBridgeTest {
             val url = "http://127.0.0.1:${target.localPort}/generate_204"
             try {
                 XrayBridge.start(XrayConfigBuilder.build(profile, AppSettings(socksPort = port, routingMode = com.iceflow.data.model.RoutingMode.DIRECT)))
-                assertTrue(ConnectionProbe.measure(port, url) > 0)
+                assertTrue(ConnectionProbe.measure(port, url = url) > 0)
                 worker.join(6000)
                 XrayBridge.stop()
                 XrayBridge.start(XrayConfigBuilder.build(profile, AppSettings(socksPort = port, routingMode = com.iceflow.data.model.RoutingMode.GLOBAL)))
                 try {
-                    ConnectionProbe.measure(port, url, 500)
+                    ConnectionProbe.measure(port, url = url, timeoutMs = 500)
                     fail("Global mode must not bypass an unavailable proxy")
                 } catch (_: Exception) { }
             } finally { XrayBridge.stop() }
@@ -297,7 +297,7 @@ class NativeBridgeTest {
     fun xrayAcceptsAllGeneratedConfigs() {
         assertTrue("xray-core 未加载", XrayBridge.isAvailable)
         assertFalse(XrayBridge.version().isNullOrEmpty())
-        XrayBridge.setAssetDir(InstrumentationRegistry.getInstrumentation().targetContext.filesDir.absolutePath)
+        com.iceflow.data.repository.RoutingResources(InstrumentationRegistry.getInstrumentation().targetContext).prepare()
 
         val profiles = listOf(
             ServerProfile(
@@ -354,16 +354,23 @@ class NativeBridgeTest {
                 username = "user", password = "secret", protocolOptions = mapOf("transport" to "TCP", "multiplexing" to "MULTIPLEXING_HIGH")),
             ServerProfile(name = "mieru-udp-mtu", protocol = Protocol.MIERU, address = "127.0.0.1", port = 12345,
                 username = "user", password = "secret", protocolOptions = mapOf("transport" to "UDP", "mtu" to "1400", "port-range" to "12345-12347", "handshake-mode" to "HANDSHAKE_NO_WAIT")),
+            ServerProfile(name = "anytls", protocol = Protocol.ANYTLS, address = "127.0.0.1", port = 443,
+                password = "secret", tls = "tls", sni = "example.com", alpn = "h2", fingerprint = "chrome",
+                protocolOptions = mapOf("idle-session-check-interval" to "30", "idle-session-timeout" to "60", "min-idle-session" to "1", "disable-reuse" to "false")),
+            ServerProfile(name = "sudoku", protocol = Protocol.SUDOKU, address = "127.0.0.1", port = 443,
+                password = uuid, protocolOptions = mapOf("aead-method" to "chacha20-poly1305", "padding-min" to "4", "padding-max" to "12", "table-type" to "prefer_ascii", "http-mask" to "false", "multiplex" to "on")),
         )
 
         for (p in profiles) {
             try {
                 XrayBridge.start(XrayConfigBuilder.build(p, AppSettings(socksPort = freePort())))
+                assertTrue("${p.name} did not start", XrayBridge.isRunning())
             } catch (e: Exception) {
                 fail("${p.name} 配置被 xray-core 拒绝: ${e.message}")
             } finally {
                 XrayBridge.stop()
             }
+            assertFalse("${p.name} did not stop", XrayBridge.isRunning())
         }
     }
 
@@ -374,6 +381,7 @@ class NativeBridgeTest {
 
     @Test
     fun clashYamlNodesStartWithNestedOptionsOnAndroid() {
+        com.iceflow.data.repository.RoutingResources(InstrumentationRegistry.getInstrumentation().targetContext).prepare()
         val yaml = """
             proxies:
               - {name: vmess, type: vmess, server: 127.0.0.1, port: 443, uuid: $uuid, alterId: 0, cipher: auto, tls: true, network: ws, ws-opts: {path: /ws, headers: {Host: cdn.example.com}}}
@@ -388,13 +396,19 @@ class NativeBridgeTest {
               - {name: http, type: http, server: 127.0.0.1, port: 8080, username: user, password: secret}
               - {name: socks, type: socks5, server: 127.0.0.1, port: 1080, udp: true}
               - {name: mieru, type: mieru, server: 127.0.0.1, port-range: 12345-12347, username: user, password: secret, transport: TCP, mtu: 1400, handshake-mode: HANDSHAKE_NO_WAIT}
+              - {name: anytls, type: anytls, server: 127.0.0.1, port: 443, password: secret, sni: example.com, alpn: [h2], client-fingerprint: chrome, idle-session-timeout: 60, disable-reuse: true, ech-opts: {enable: false}}
+              - {name: sudoku, type: sudoku, server: 127.0.0.1, port: 443, key: $uuid, aead-method: chacha20-poly1305, padding-min: 4, padding-max: 12, table-type: prefer_ascii, httpmask: {mode: stream, tls: true, host: cdn.example.com, path-root: tunnel, multiplex: 'on'}}
         """.trimIndent()
         val profiles = ShareLinkParser.parseMany(yaml)
-        assertEquals(12, profiles.size)
+        assertEquals(14, profiles.size)
         for (profile in profiles) {
-            try { XrayBridge.start(XrayConfigBuilder.build(profile, AppSettings(socksPort = freePort()))) }
+            try {
+                XrayBridge.start(XrayConfigBuilder.build(profile, AppSettings(socksPort = freePort())))
+                assertTrue("Clash ${profile.name} did not start", XrayBridge.isRunning())
+            }
             catch (e: Exception) { throw AssertionError("Clash ${profile.name} rejected", e) }
             finally { XrayBridge.stop() }
+            assertFalse("Clash ${profile.name} did not stop", XrayBridge.isRunning())
         }
     }
 

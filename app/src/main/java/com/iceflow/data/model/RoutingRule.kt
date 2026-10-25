@@ -51,12 +51,17 @@ data class RoutingRule(
     }
     fun toXray(): JsonObject = buildJsonObject {
         put("type", "field"); put("outboundTag", action.tag)
+        // ruleTag 是域匹配器缓存（MPH cache）的键，必须存在且唯一
+        if (domains.isNotEmpty()) put("ruleTag", xrayRuleTag)
         fun strings(key: String, values: List<String>) { if (values.isNotEmpty()) put(key, JsonArray(values.map(::JsonPrimitive))) }
         strings("domain", domains); strings("ip", ips); strings("source", source); strings("protocol", protocols)
         if (port.isNotBlank()) put("port", port)
         if (sourcePort.isNotBlank()) put("sourcePort", sourcePort)
         if (network.isNotBlank()) put("network", network)
     }
+
+    /** 用于 xray ruleTag 的稳定标识：规则 id 可能是 UUID，这里取其可读且稳定的部分。 */
+    val xrayRuleTag: String get() = "rule-" + id.replace(Regex("[^A-Za-z0-9_-]"), "-").take(64)
     val summary: String get() = (domains + ips + listOfNotNull(port.takeIf { it.isNotBlank() }?.let { "端口 $it" }, network.takeIf { it.isNotBlank() }) + source.map { "来源 $it" } + protocols).joinToString(" · ")
 }
 

@@ -6,14 +6,14 @@ import java.util.UUID
 
 object NodeEditing {
     val json = Json { encodeDefaults = true; prettyPrint = true }
-    fun blank(protocol: Protocol = Protocol.VLESS) = ServerProfile(name = "", protocol = protocol, address = "", port = 443, tls = when (protocol) { Protocol.TROJAN, Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC -> "tls"; else -> "none" }, security = when (protocol) { Protocol.SHADOWSOCKS -> "aes-128-gcm"; Protocol.SHADOWSOCKSR -> "aes-128-cfb"; else -> "auto" })
+    fun blank(protocol: Protocol = Protocol.VLESS) = ServerProfile(name = "", protocol = protocol, address = "", port = 443, tls = when (protocol) { Protocol.TROJAN, Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS -> "tls"; else -> "none" }, security = when (protocol) { Protocol.SHADOWSOCKS -> "aes-128-gcm"; Protocol.SHADOWSOCKSR -> "aes-128-cfb"; else -> "auto" })
     fun validate(p: ServerProfile): ServerProfile {
         require(p.name.isNotBlank()) { "请输入节点名称" }
         require(p.address.isNotBlank() && p.address.none { it.isWhitespace() || it == '/' || it == '@' }) { "请输入有效的服务器地址（不含协议和端口）" }
         require(p.port in 1..65535) { "端口必须在 1–65535 之间" }
         if (p.clashConfig == null) {
             if (p.protocol in listOf(Protocol.VMESS, Protocol.VLESS)) require(runCatching { UUID.fromString(p.uuid) }.isSuccess) { "请输入有效 UUID" }
-            if (p.protocol in listOf(Protocol.TROJAN, Protocol.SHADOWSOCKS, Protocol.SHADOWSOCKSR, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.MIERU)) require(p.password.isNotBlank()) { "请输入密码 / Token" }
+            if (p.protocol in listOf(Protocol.TROJAN, Protocol.SHADOWSOCKS, Protocol.SHADOWSOCKSR, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.MIERU, Protocol.ANYTLS, Protocol.SUDOKU)) require(p.password.isNotBlank()) { "请输入密码 / Token / Key" }
             require(p.alterId >= 0) { "Alter ID 不能为负数" }
             if (p.tls == "reality") require(p.publicKey.isNotBlank() && p.sni.isNotBlank()) { "Reality 需要 SNI 和公钥" }
             if (p.protocol in ExtendedShareLinks.protocols) ExtendedConfigBuilder.build(p)
@@ -37,7 +37,8 @@ object NodeEditing {
         fun text(key: String, a: String, b: String) { if (a != b) { if (b.isEmpty()) map.remove(key) else map[key] = JsonPrimitive(b) } }
         map["name"] = JsonPrimitive(changed.name); map["server"] = JsonPrimitive(changed.address)
         if (original.port != changed.port || "port-range" !in map) { map.remove("port-range"); map["port"] = JsonPrimitive(changed.port) }
-        text("uuid", original.uuid, changed.uuid); text("password", original.password, changed.password); text("username", original.username, changed.username)
+        val passwordKey = if (changed.protocol == Protocol.SUDOKU) "key" else "password"
+        text("uuid", original.uuid, changed.uuid); text(passwordKey, original.password, changed.password); text("username", original.username, changed.username)
         text("cipher", original.security, changed.security); text("flow", original.flow, changed.flow)
         val sniKey = if ("servername" in map) "servername" else "sni"
         text(sniKey, original.sni, changed.sni); text("client-fingerprint", original.fingerprint, changed.fingerprint)

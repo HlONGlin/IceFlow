@@ -73,8 +73,15 @@ class MainActivity : ComponentActivity() {
         when (VpnController.state.value) {
             is VpnState.Connected, VpnState.Connecting -> VpnController.stop(this)
             VpnState.Stopping -> Unit
+            VpnState.WaitingNetwork -> {
+                // 等待网络恢复时允许用户手动重试，而不是无响应。
+                if (!vm.canConnect()) return
+                VpnController.retry(this)
+            }
             else -> {
                 if (!vm.canConnect()) return
+                // 记录点击时刻，用于端到端感知耗时统计
+                VpnController.markClick()
                 val intent = VpnService.prepare(this)
                 if (intent != null) vpnPermission.launch(intent) else VpnController.start(this)
             }

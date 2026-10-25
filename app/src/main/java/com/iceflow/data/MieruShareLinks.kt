@@ -53,7 +53,9 @@ internal object MieruShareLinks {
             require(begin in 1..65535 && end in begin..65535) { "mieru 端口范围无效" }
             val transport = transports[index].uppercase()
             require(transport in setOf("TCP", "UDP")) { "mieru 传输方式必须是 TCP 或 UDP" }
-            val options = common + ("transport" to transport) +
+            val options = common +
+                query["profile"]?.firstOrNull()?.takeUnless { it == "default" }?.let { mapOf("profile" to it) }.orEmpty() +
+                ("transport" to transport) +
                 if (range.size == 2) mapOf("port-range" to "$begin-$end") else emptyMap()
             ServerProfile(name = if (ports.size > 1) "$name · $transport $binding" else name,
                 protocol = Protocol.MIERU, address = address, port = begin,
@@ -67,7 +69,7 @@ internal object MieruShareLinks {
     fun encode(p: ServerProfile): String {
         val host = if (':' in p.address) "[${p.address}]" else p.address
         val query = p.protocolOptions.filterKeys { it !in setOf("transport", "port-range", "profile", "port", "protocol") }.toMutableMap()
-        query["profile"] = p.name
+        query["profile"] = p.protocolOptions["profile"] ?: "default"
         query["port"] = p.protocolOptions["port-range"] ?: p.port.toString()
         query["protocol"] = p.protocolOptions["transport"] ?: "TCP"
         return "mierus://${escape(p.username)}:${escape(p.password)}@$host?" +

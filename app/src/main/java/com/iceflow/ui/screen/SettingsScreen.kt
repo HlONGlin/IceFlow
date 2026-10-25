@@ -358,7 +358,10 @@ fun SettingsScreen(
                 TextSize.entries.map { it.label },
                 settings.textSize.label,
                 { detail = null },
-                { label -> onUpdate { it.copy(textSize = TextSize.entries.first { size -> size.label == label }) } },
+                { label ->
+                    onUpdate { it.copy(textSize = TextSize.entries.first { size -> size.label == label }) }
+                    detail = null
+                },
             )
             "routing" -> ChoiceSettingsPage(
                 "路由模式", RoutingMode.entries.map { it.label }, settings.routingMode.label,

@@ -125,4 +125,46 @@ class XrayConfigBuilderTest {
         assertEquals("cdn.com", stream.obj("tlsSettings").str("serverName"))
         assertEquals(2, stream.obj("tlsSettings").getValue("alpn").jsonArray.size)
     }
+
+    // 域匹配器缓存（MPH cache）要求：带域的规则必须有唯一的 ruleTag，
+    // DNS 服务器必须有唯一的 tag，否则 xray-core 会因找不到匹配器而启动失败。
+    @Test
+    fun `domain rules carry a unique ruleTag`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings()))
+        val rules = cfg.obj("routing").getValue("rules").jsonArray.map { it.jsonObject }
+        val tagged = rules.filter { it.containsKey("domain") }
+        assertTrue(tagged.isNotEmpty())
+
+        val tags = tagged.map { it.str("ruleTag") }
+        assertTrue("带域的规则必须包含 ruleTag，实际为 $tags", tags.none { it.isBlank() })
+        assertEquals("ruleTag 必须唯一，实际为 $tags", tags.size, tags.distinct().size)
+    }
+
+    @Test
+    fun `dns servers carry a unique tag`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings()))
+        val servers = cfg.obj("dns").getValue("servers").jsonArray.map { it.jsonObject }
+        val tags = servers.map { it.str("tag") }
+        assertTrue("DNS 服务器必须包含 tag，实际为 $tags", tags.none { it.isBlank() })
+        assertEquals("DNS tag 必须唯一，实际为 $tags", tags.size, tags.distinct().size)
+    }
+
+    @Test
+    fun `ruleTag does not collide with dns tags`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings()))
+        val ruleTags = cfg.obj("routing").getValue("rules").jsonArray.map { it.jsonObject }
+            .filter { it.containsKey("domain") }.map { it.str("ruleTag") }
+        val dnsTags = cfg.obj("dns").getValue("servers").jsonArray.map { it.jsonObject.str("tag") }
+        assertTrue(
+            "ruleTag 与 DNS tag 冲突：${ruleTags.intersect(dnsTags.toSet())}",
+            ruleTags.none { it in dnsTags },
+        )
+    }
+
+    @Test
+    fun `rules without domains do not need a ruleTag`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings()))
+        val rules = cfg.obj("routing").getValue("rules").jsonArray.map { it.jsonObject }
+        assertTrue(rules.filter { !it.containsKey("domain") }.none { it.containsKey("ruleTag") })
+    }
 }

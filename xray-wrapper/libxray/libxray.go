@@ -3,10 +3,11 @@
 // The generated Java class is libxray.Libxray, called via reflection from
 // com.iceflow.core.XrayBridge. Exported functions use only gomobile-supported
 // types (string / int64 / bool / error).
+//
+// NOTE: exported symbols and package doc comments are copied by gomobile into
+// the generated Java source, and javac on a Chinese Windows system reads them
+// as GBK. Keep such comments ASCII only.
 package libxray
-
-// 注意：导出符号与包的文档注释会被 gomobile 复制进生成的 Java 源码，
-// 而 Windows 中文系统上 javac 默认按 GBK 读取，因此这些注释必须使用 ASCII。
 
 import (
 	"context"
@@ -168,6 +169,14 @@ func measureHTTPDelay(transport *http.Transport, testURL string, timeoutMs int64
 }
 
 func newInstance(configJSON string) (*core.Instance, error) {
+	// The domain matcher cache is selected through a process wide environment
+	// variable, so it must not change while another instance is being built.
+	instanceMu.Lock()
+	defer instanceMu.Unlock()
+
+	disableCache := prepareMphCache(configJSON)
+	defer disableCache()
+
 	config, err := serial.LoadJSONConfig(strings.NewReader(configJSON))
 	if err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)

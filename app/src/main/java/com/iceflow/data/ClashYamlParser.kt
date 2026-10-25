@@ -15,6 +15,7 @@ internal object ClashYamlParser {
         "hysteria" to Protocol.HYSTERIA, "hysteria2" to Protocol.HYSTERIA2,
         "tuic" to Protocol.TUIC, "wireguard" to Protocol.WIREGUARD,
         "http" to Protocol.HTTP, "socks5" to Protocol.SOCKS, "mieru" to Protocol.MIERU,
+        "anytls" to Protocol.ANYTLS, "sudoku" to Protocol.SUDOKU,
     )
 
     fun looksLike(text: String): Boolean = text.startsWith('{') || text.startsWith('[') ||
@@ -56,13 +57,14 @@ internal object ClashYamlParser {
             ServerProfile(
                 name = name, protocol = protocol, address = server, port = port,
                 uuid = node.text("uuid"), username = node.text("username"),
-                password = node.text("password").ifEmpty { node.text("auth-str").ifEmpty { node.text("token") } },
+                password = if (protocol == Protocol.SUDOKU) node.text("key").ifEmpty { node.text("password") }
+                else node.text("password").ifEmpty { node.text("auth-str").ifEmpty { node.text("token") } },
                 alterId = node.text("alterId").toIntOrNull() ?: 0,
                 security = node.text("cipher").ifEmpty { "auto" }, flow = node.text("flow"),
                 network = network, path = ws?.text("path").orEmpty(),
                 host = (ws?.get("headers") as? JsonObject)?.text("Host").orEmpty(),
                 serviceName = grpc?.text("grpc-service-name").orEmpty(),
-                tls = when { reality != null -> "reality"; node.text("tls") == "true" || type in setOf("trojan", "hysteria", "hysteria2", "tuic") -> "tls"; else -> "none" },
+                tls = when { reality != null -> "reality"; node.text("tls") == "true" || type in setOf("trojan", "hysteria", "hysteria2", "tuic", "anytls") -> "tls"; else -> "none" },
                 sni = node.text("servername").ifEmpty { node.text("sni") },
                 alpn = (node["alpn"] as? JsonArray)?.joinToString(",") { it.jsonPrimitive.content }.orEmpty(),
                 fingerprint = node.text("client-fingerprint"),
@@ -81,7 +83,10 @@ internal object ClashYamlParser {
     }
 
     fun encode(profile: ServerProfile): String = buildJsonObject {
-        put("proxies", JsonArray(listOf(config(profile))))
+        val node = profile.clashConfig?.let { config(profile) } ?: JsonObject(
+            ExtendedConfigBuilder.build(profile) + ("name" to JsonPrimitive(profile.name))
+        )
+        put("proxies", JsonArray(listOf(node)))
     }.toString() // JSON is also valid YAML; no nested option is lost.
 
     private fun JsonObject.text(key: String): String = (this[key] as? JsonPrimitive)?.contentOrNull.orEmpty()

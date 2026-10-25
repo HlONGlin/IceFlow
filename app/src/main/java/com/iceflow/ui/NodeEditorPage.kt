@@ -35,7 +35,8 @@ import kotlinx.serialization.json.*
         return NodeEditing.validate(NodeEditing.syncClash(NodeEditing.json.decodeFromString(ServerProfile.serializer(), baseline), next))
     }
     val standard = profile.protocol in listOf(Protocol.VMESS, Protocol.VLESS, Protocol.TROJAN)
-    val extended = profile.protocol in listOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.WIREGUARD, Protocol.SHADOWSOCKSR, Protocol.MIERU)
+    val extended = profile.protocol in listOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.WIREGUARD, Protocol.SHADOWSOCKSR, Protocol.MIERU, Protocol.ANYTLS, Protocol.SUDOKU)
+    val tlsCapable = standard || profile.protocol in listOf(Protocol.HTTP, Protocol.SOCKS)
     Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
         EditorHeader(if (isNew) "添加节点" else "编辑节点", ::back) {
             runCatching { current() }.onSuccess { node -> error = save(node); if (error == null) close() }.onFailure { error = it.message ?: "配置无效" }
@@ -63,7 +64,7 @@ import kotlinx.serialization.json.*
                 EditorInput("服务器地址", profile.address, { value -> edit { it.copy(address = value) } }, "域名 / IPv4 / IPv6")
                 EditorInput("服务器端口", port, { port = it })
                 if (profile.protocol in listOf(Protocol.VMESS, Protocol.VLESS, Protocol.TUIC)) EditorInput("UUID", profile.uuid, { value -> edit { it.copy(uuid = value) } })
-                if (profile.protocol !in listOf(Protocol.VMESS, Protocol.VLESS, Protocol.WIREGUARD)) EditorInput("密码 / Token", profile.password, { value -> edit { it.copy(password = value) } })
+                if (profile.protocol !in listOf(Protocol.VMESS, Protocol.VLESS, Protocol.WIREGUARD)) EditorInput(if (profile.protocol == Protocol.SUDOKU) "Key / UUID" else "密码 / Token", profile.password, { value -> edit { it.copy(password = value) } })
                 if (profile.protocol in listOf(Protocol.HTTP, Protocol.SOCKS, Protocol.MIERU)) EditorInput("用户名", profile.username, { value -> edit { it.copy(username = value) } })
                 if (profile.protocol == Protocol.VMESS) EditorInput("Alter ID", alterId, { alterId = it })
                 if (profile.protocol in listOf(Protocol.VMESS, Protocol.SHADOWSOCKS, Protocol.SHADOWSOCKSR)) EditorInput("加密方式", profile.security, { value -> edit { it.copy(security = value) } }, "auto / aes-128-gcm / chacha20-ietf-poly1305")
@@ -78,8 +79,8 @@ import kotlinx.serialization.json.*
                     }
                     if (profile.network in listOf("tcp", "raw")) EditorChoice("伪装类型", profile.headerType, listOf("none", "http")) { index -> edit { it.copy(headerType = listOf("none", "http")[index]) } }
                 }
-                if (standard || profile.protocol in listOf(Protocol.HTTP, Protocol.SOCKS)) EditorChoice("传输层安全", profile.tls, if (profile.protocol == Protocol.VLESS) listOf("none", "tls", "reality") else listOf("none", "tls")) { index -> edit { it.copy(tls = listOf("none", "tls", "reality")[index]) } }
-                if (profile.tls != "none") {
+                if (tlsCapable) EditorChoice("传输层安全", profile.tls, if (profile.protocol == Protocol.VLESS) listOf("none", "tls", "reality") else listOf("none", "tls")) { index -> edit { it.copy(tls = listOf("none", "tls", "reality")[index]) } }
+                if (profile.tls != "none" || profile.protocol == Protocol.ANYTLS) {
                     EditorInput("SNI", profile.sni, { value -> edit { it.copy(sni = value) } })
                     EditorInput("ALPN", profile.alpn, { value -> edit { it.copy(alpn = value) } }, "h2,http/1.1")
                     EditorInput("浏览器指纹", profile.fingerprint, { value -> edit { it.copy(fingerprint = value) } }, "chrome")
@@ -99,6 +100,8 @@ import kotlinx.serialization.json.*
                         Protocol.WIREGUARD -> listOf("private-key" to "私钥（必填）", "public-key" to "对端公钥（必填）", "ip" to "本地地址（必填，逗号分隔）", "preshared-key" to "预共享密钥", "mtu" to "MTU", "reserved" to "Reserved（三个字节）")
                         Protocol.SHADOWSOCKSR -> listOf("protocol" to "SSR 协议", "protocol-param" to "协议参数", "obfs" to "混淆", "obfs-param" to "混淆参数")
                         Protocol.MIERU -> listOf("transport" to "传输（TCP / UDP）", "port-range" to "端口范围", "mtu" to "MTU", "multiplexing" to "多路复用", "handshake-mode" to "握手模式", "traffic-pattern" to "流量模式")
+                        Protocol.ANYTLS -> listOf("client-metadata" to "客户端元数据", "idle-session-check-interval" to "空闲会话检查间隔（秒）", "idle-session-timeout" to "空闲会话超时（秒）", "min-idle-session" to "最小空闲会话数", "disable-reuse" to "禁用会话复用")
+                        Protocol.SUDOKU -> listOf("aead-method" to "AEAD 方法", "padding-min" to "最小填充", "padding-max" to "最大填充", "table-type" to "表类型", "enable-pure-downlink" to "纯下行模式", "http-mask" to "HTTP Mask", "http-mask-mode" to "HTTP Mask 模式", "http-mask-tls" to "HTTP Mask TLS", "http-mask-host" to "HTTP Mask Host", "path-root" to "路径前缀", "multiplex" to "多路复用", "custom-table" to "自定义表")
                         else -> emptyList()
                     }
                     val map = runCatching { NodeEditing.options(options) }.getOrDefault(emptyMap())

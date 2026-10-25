@@ -47,11 +47,12 @@ fun ConnectButton(
     val haptic = LocalHapticFeedback.current
     val colors = MaterialTheme.colorScheme
     val connected = state is VpnState.Connected
-    val busy = state == VpnState.Connecting || state == VpnState.Stopping
+    val busy = state == VpnState.Connecting || state == VpnState.Stopping || state == VpnState.WaitingNetwork
 
     val label = when (state) {
         is VpnState.Connected -> "断开"
         VpnState.Connecting -> "连接中"
+        VpnState.WaitingNetwork -> "等待网络"
         VpnState.Stopping -> "断开中"
         else -> "连接"
     }

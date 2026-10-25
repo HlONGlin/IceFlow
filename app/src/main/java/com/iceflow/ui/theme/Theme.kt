@@ -202,7 +202,10 @@ fun IceFlowTheme(
     val density = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(
         LocalIceFlowColors provides extColors,
-        androidx.compose.ui.platform.LocalDensity provides density.copy(fontScale = density.fontScale * textSize.scale),
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
+            density = density.density,
+            fontScale = density.fontScale * textSize.scale,
+        ),
     ) {
         MaterialTheme(
             colorScheme = colorScheme,

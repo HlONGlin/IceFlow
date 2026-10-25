@@ -22,11 +22,16 @@ Android VPN → Rust TUN/SOCKS → Xray 本地入站与路由 → 原生协议�
 | HTTP / HTTPS 代理 | `http://`、`https://` | 可选 `username:password@`；默认端口 80 / 443，HTTPS 使用 TLS CONNECT |
 | SOCKS5 | `socks://`、`socks5://`、`socks5h://` | 可选用户名密码或 Base64 userinfo；默认端口 1080；`tls=true` 可启用 TLS |
 | mieru | `mieru://`、`mierus://` | 官方 Protobuf 完整配置或简化链接；用户名、密码、`profile`、成对 `port` / `protocol=TCP或UDP`；支持端口范围、`multiplexing`、`handshake-mode`、`traffic-pattern`、`mtu` |
+| AnyTLS | `anytls://` | `password@host:port`；可选 `sni`、`alpn`、`insecure`、`fp`（兼容 `client-fingerprint`）和 AnyTLS 会话参数；始终使用 TLS |
+| Sudoku | Clash `type: sudoku` | 必需字段 `server`、`port`、`key`；支持 AEAD、填充、HTTPMask、多路复用和自定义表；分享导出为 Clash JSON/YAML |
 
 IPv6 服务器地址使用方括号；用户信息和备注中的保留字符须百分号编码。
 链接可从手动输入、剪贴板、文件、二维码以及普通/整体 Base64 链接列表订阅导入，
 可以持久化、分享导出、进行节点测速和 VPN 连接。WireGuard 入口使用上述 URI。
 HTTP 出站使用 CONNECT TCP 隧道；SOCKS5 及其他支持 UDP 的适配器同时连接 UDP 转发路径。
+
+AnyTLS 分享链接使用 `fp` 表示浏览器指纹，证书固定指纹使用独立的 `fingerprint` 参数。
+导入的 AnyTLS 节点分享时保留会话及嵌套安全选项；无法完整转换为 URI 的配置使用 Clash JSON。
 
 ### mieru 示例
 
@@ -48,7 +53,7 @@ provider 返回的 `proxies` 节点列表、裸节点数组，以及整体 Base6
 支持 YAML 锚点/合并、行内对象、中文名称和 IPv6；格式错误会显示导入失败，订阅更新失败时保留旧节点。
 
 节点类型：`vmess`、`vless`、`trojan`、`ss`、`ssr`、`hysteria`、`hysteria2`、
-`tuic`、`wireguard`、`http`、`socks5`、`mieru`。未支持的类型跳过；`dialer-proxy` 链式代理明确报错。
+`tuic`、`wireguard`、`http`、`socks5`、`mieru`、`anytls`、`sudoku`。未支持的类型跳过；`dialer-proxy` 链式代理明确报错。
 嵌套配置（例如 `ws-opts`、`grpc-opts`、`reality-opts`、`plugin-opts`、`smux`）保留原始类型
 与内容，持久化后直接交给固定版本 Mihomo 适配器。协议参数有效性由对应原生适配器检查。
 

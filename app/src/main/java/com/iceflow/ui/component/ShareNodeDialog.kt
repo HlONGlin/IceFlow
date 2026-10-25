@@ -25,7 +25,7 @@ fun ShareNodeDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val shareLink = remember { ShareLinkParser.encode(node) }
+    val shareLink = remember { ShareLinkParser.encodeV2rayN(node) }
     var showQrCode by remember { mutableStateOf(true) }
     val qrBitmap = remember(shareLink) {
         generateQRCode(shareLink, 512)

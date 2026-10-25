@@ -61,7 +61,7 @@ func installAdapter(inst *core.Instance, tag, upstream string, options map[strin
 	options = adapterNumbers(options).(map[string]any)
 	kind, _ := options["type"].(string)
 	switch kind {
-	case "vmess", "vless", "trojan", "ss", "hysteria", "hysteria2", "tuic", "wireguard", "ssr", "http", "socks5", "mieru":
+	case "vmess", "vless", "trojan", "ss", "hysteria", "hysteria2", "tuic", "wireguard", "ssr", "http", "socks5", "mieru", "anytls", "sudoku":
 	default:
 		return fmt.Errorf("unsupported IceFlow adapter: %s", kind)
 	}

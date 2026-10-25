@@ -80,7 +80,7 @@ class VpnLifecycleTest {
 
     @Test fun disabledPublicSocksStillForwardsRealTunTrafficAndCurrentConnectionProbe() {
         val session = connect()
-        assertTrue(ConnectionProbe.measure(session.socksPort, "http://probe.invalid/generate_204") > 0)
+        assertTrue(ConnectionProbe.measure(session.socksPort, username = session.tunnelUser, password = session.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
         val output = probeTun("198.51.100.1")
         assertTrue("Traffic sent by another UID did not traverse the TUN: $output", output.contains("iceflow-tun-ok"))
         assertTrue(upstream.destinations.any { it == "198.51.100.1:80" })
@@ -112,7 +112,7 @@ class VpnLifecycleTest {
             if (mobile) shell("svc data enable")
             await(30_000) { val state = VpnController.state.value; state is VpnState.Connected && state != first }
             val restored = VpnController.state.value as VpnState.Connected
-            assertTrue(ConnectionProbe.measure(restored.socksPort, "http://probe.invalid/generate_204") > 0)
+            assertTrue(ConnectionProbe.measure(restored.socksPort, username = restored.tunnelUser, password = restored.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
         } finally {
             if (wifi) shell("svc wifi enable")
             if (mobile) shell("svc data enable")
@@ -125,7 +125,7 @@ class VpnLifecycleTest {
         container.settings.update { it.copy(socksEnabled = true, socksPort = publicPort, socksUsername = "user", socksPassword = "secret", socksUdp = false) }
         val second = awaitConnectionAfter(first)
         assertNotEquals(publicPort, second.socksPort)
-        assertTrue(ConnectionProbe.measure(second.socksPort, "http://probe.invalid/generate_204") > 0)
+        assertTrue(ConnectionProbe.measure(second.socksPort, username = second.tunnelUser, password = second.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
         Socket("127.0.0.1", publicPort).use { socket ->
             socket.soTimeout = 3000
             socket.getOutputStream().write(byteArrayOf(5, 1, 0))
@@ -135,7 +135,7 @@ class VpnLifecycleTest {
         }
         container.settings.update { it.copy(dnsProxyEnabled = false, ipv6Enabled = false) }
         val third = awaitConnectionAfter(second)
-        assertTrue(ConnectionProbe.measure(third.socksPort, "http://probe.invalid/generate_204") > 0)
+        assertTrue(ConnectionProbe.measure(third.socksPort, username = third.tunnelUser, password = third.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
         val stable = VpnController.state.value
         container.settings.update { it.copy(theme = AppTheme.MINT_GREEN) }
         SystemClock.sleep(800)
@@ -147,7 +147,7 @@ class VpnLifecycleTest {
         RustBridge.stopTun()
         val recovered = awaitConnectionAfter(first)
         assertTrue(RustBridge.isRunning())
-        assertTrue(ConnectionProbe.measure(recovered.socksPort, "http://probe.invalid/generate_204") > 0)
+        assertTrue(ConnectionProbe.measure(recovered.socksPort, username = recovered.tunnelUser, password = recovered.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
         XrayBridge.stop()
         await { VpnController.state.value == VpnState.Connecting }
         stopAndWait()

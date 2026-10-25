@@ -20,7 +20,7 @@ Jetpack Compose UI ──► VpnService (TUN)
 | `rust-core/` | Rust 流量层，基于 tun2proxy，JNI 接口在 `src/ffi.rs` |
 | `xray-wrapper/` | xray-core 的 gomobile 封装（`libxray`），产物为 `app/libs/xray.aar` |
 
-支持 VMess、VLESS（含 Reality）、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP 和 SOCKS 节点；支持 Clash YAML、二维码导入/分享、HTTPS 订阅、规则分流与分应用代理。扩展协议的可用参数取决于分享链接或 Clash 配置所提供的信息。
+支持 VMess、VLESS（含 Reality）、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP、SOCKS、AnyTLS 和 Sudoku 节点；支持 Clash YAML、二维码导入/分享、HTTPS 订阅、规则分流与分应用代理。AnyTLS 支持 `anytls://` 分享链接；Sudoku 节点可通过 Clash YAML/JSON 导入、编辑和分享。
 
 ## 构建
 

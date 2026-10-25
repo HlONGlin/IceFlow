@@ -51,9 +51,20 @@ object ShareLinkParser {
             .toList()
     }
 
-    fun encode(profile: ServerProfile): String {
-        if (profile.clashConfig != null) return ClashYamlParser.encode(profile)
+    /** Prefers a protocol URI; retains Clash JSON when AnyTLS options cannot survive conversion. */
+    fun encodeV2rayN(profile: ServerProfile): String {
+        val export = if (profile.protocol == Protocol.ANYTLS && profile.clashConfig != null) {
+            ExtendedShareLinks.anyTlsUriProfile(profile) ?: return ClashYamlParser.encode(profile)
+        } else profile
+        return encode(export, includeClashConfig = false)
+    }
+
+    fun encode(profile: ServerProfile): String = encode(profile, includeClashConfig = true)
+
+    private fun encode(profile: ServerProfile, includeClashConfig: Boolean): String {
+        if (includeClashConfig && profile.clashConfig != null) return ClashYamlParser.encode(profile)
         if (profile.protocol == Protocol.MIERU) return MieruShareLinks.encode(profile)
+        if (profile.protocol == Protocol.SUDOKU) return ClashYamlParser.encode(profile)
         if (profile.protocol in ExtendedShareLinks.protocols) return ExtendedShareLinks.encode(profile)
         val fragment = java.net.URLEncoder.encode(profile.name, "UTF-8").replace("+", "%20")
         val query = linkedMapOf<String, String>()

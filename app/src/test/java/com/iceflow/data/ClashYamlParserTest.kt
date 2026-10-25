@@ -43,8 +43,8 @@ class ClashYamlParserTest {
         assertEquals("blackhole", config.getValue("outbounds").jsonArray[0].jsonObject.getValue("protocol").jsonPrimitive.content)
     }
 
-    @Test fun mapsAllTwelveSupportedProtocolTypesWithoutLosingOptions() {
-        val types = listOf("vmess", "vless", "trojan", "ss", "ssr", "hysteria", "hysteria2", "tuic", "wireguard", "http", "socks5", "mieru")
+    @Test fun mapsAllFourteenSupportedProtocolTypesWithoutLosingOptions() {
+        val types = listOf("vmess", "vless", "trojan", "ss", "ssr", "hysteria", "hysteria2", "tuic", "wireguard", "http", "socks5", "mieru", "anytls", "sudoku")
         val yaml = "proxies:\n" + types.joinToString("\n") {
             "  - {name: $it, type: $it, server: '::1', port: 443, password: secret, username: user, custom-option: {enabled: true}}"
         }

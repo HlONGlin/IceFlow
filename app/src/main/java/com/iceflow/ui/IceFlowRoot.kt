@@ -67,6 +67,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -116,7 +117,9 @@ import com.iceflow.data.model.GroupSort
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.ShareLinkParser
+import com.iceflow.service.AppLog
 import com.iceflow.service.TrafficSnapshot
+import com.iceflow.service.VpnController
 import com.iceflow.service.VpnState
 import com.iceflow.core.XrayBridge
 import com.iceflow.ui.component.ShareNodeDialog
@@ -174,6 +177,17 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
         if (state is VpnState.Connected && previousState !is VpnState.Connected) toast = "已连接"
         if (state is VpnState.Idle && previousState is VpnState.Connected) toast = "已断开连接"
         previousState = state
+    }
+    // UI 侧感知耗时：Compose 真正观察到「已连接」的时刻（含主线程排队与重组延迟）
+    LaunchedEffect(state) {
+        if (state is VpnState.Connected) {
+            val clickedAt = VpnController.clickAt
+            if (clickedAt > 0) {
+                val total = android.os.SystemClock.elapsedRealtime() - clickedAt
+                android.util.Log.i("IceFlowUi", "[TIMING] UI 观察到已连接：$total ms")
+                AppLog.write(context, "INFO", "[计时] UI 观察到已连接：$total ms")
+            }
+        }
     }
     LaunchedEffect(toast) { if (toast != null) { kotlinx.coroutines.delay(2000); toast = null } }
 
@@ -306,7 +320,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
     LaunchedEffect(state) { while (state is VpnState.Connected) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
     val selected = store.selected
-    val running = state is VpnState.Connected || state is VpnState.Connecting || state is VpnState.Stopping
+    val running = state is VpnState.Connected || state is VpnState.Connecting || state is VpnState.Stopping || state is VpnState.WaitingNetwork
     LaunchedEffect(running) { panelVisibility.targetState = running }
     LaunchedEffect(state) { if (running) lastRunningState = state }
     fun visibleNodes(id: String?, filter: String = query) = store.servers.filter { server ->
@@ -383,8 +397,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             visibleState = panelVisibility,
             // Keep the floating connect control visually separate from the expanded bar.
              modifier = Modifier.align(Alignment.BottomCenter),
-            enter = expandVertically(expandFrom = Alignment.Bottom, animationSpec = tween(420)) + fadeIn(tween(380)),
-            exit = shrinkVertically(shrinkTowards = Alignment.Bottom, animationSpec = tween(360)),
+            enter = expandVertically(expandFrom = Alignment.Bottom, animationSpec = tween(260)) + fadeIn(tween(220)),
+            exit = shrinkVertically(shrinkTowards = Alignment.Bottom, animationSpec = tween(220)),
         ) {
             val panelState = if (!running) lastRunningState else state
             ConnectionPanel(panelState, traffic, now, connectionTest, onTestConnection)
@@ -397,7 +411,9 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
 
 @Composable internal fun ConnectOrb(state: VpnState, onClick: () -> Unit, size: Dp = 54.dp) {
     val connected = state is VpnState.Connected
-    val busy = state == VpnState.Connecting || state == VpnState.Stopping
+    val waitingNetwork = state == VpnState.WaitingNetwork
+    // 等待网络恢复时不是"正在连接"，用不同的图标，避免无限转圈造成的误解
+    val busy = state == VpnState.Connecting || state == VpnState.Stopping || waitingNetwork
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .91f else 1f, spring(dampingRatio = .6f, stiffness = 480f), label = "connectPress")
@@ -412,10 +428,23 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         Box(Modifier.fillMaxSize()
             .background(Brush.verticalGradient(if (connected) listOf(MaterialTheme.colorScheme.primary.copy(alpha = .84f), orbColor) else listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant)), CircleShape)
             .clip(CircleShape)
-            .clickable(enabled = !busy, interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick), contentAlignment = Alignment.Center) {
-            AnimatedContent(targetState = busy, transitionSpec = { fadeIn(tween(320)) togetherWith fadeOut(tween(240)) }, label = "connectStatus") { loading ->
-                if (loading) CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
-                else Icon(Icons.Filled.Send, if (connected) "断开连接" else "连接", tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
+            .clickable(enabled = !busy || waitingNetwork, interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick), contentAlignment = Alignment.Center) {
+            AnimatedContent(
+                targetState = when {
+                    waitingNetwork -> 2   // 等待网络
+                    busy -> 1            // 连接中/断开中
+                    else -> 0            // 空闲
+                },
+                // 连接成功后立即隐藏转圈指示器：退出动画压到 120ms，
+                // 否则后端已就绪但转圈仍会残留数百毫秒，用户观感上像"连接很慢"。
+                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
+                label = "connectStatus",
+            ) { loading ->
+                when (loading) {
+                    2 -> Icon(Icons.Filled.WifiOff, "等待网络恢复", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(size * .40f))
+                    1 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
+                    else -> Icon(Icons.Filled.Send, if (connected) "断开连接" else "连接", tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
+                }
             }
         }
     }
@@ -423,7 +452,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
 
 @Composable internal fun ConnectionPanel(state: VpnState, traffic: TrafficSnapshot, now: Long, test: ConnectionTestState, onTest: () -> Unit, modifier: Modifier = Modifier) {
     val connected = state is VpnState.Connected
-    val busy = state == VpnState.Connecting || state == VpnState.Stopping
+    val busy = state == VpnState.Connecting || state == VpnState.Stopping || state == VpnState.WaitingNetwork
     val panelColor by animateColorAsState(if (connected) MaterialTheme.colorScheme.primary else if (busy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface, tween(420), label = "panelColor")
     val textColor = if (connected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val secondaryColor = if (connected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .78f) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -442,7 +471,11 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (test.testing) CircularProgressIndicator(Modifier.size(12.dp), color = textColor, strokeWidth = 1.5.dp)
                 Text(when {
-                    !connected -> if (state == VpnState.Stopping) "正在断开…" else "正在连接…"
+                    !connected -> when (state) {
+                        VpnState.Stopping -> "正在断开…"
+                        VpnState.WaitingNetwork -> "等待网络恢复…"
+                        else -> "正在连接…"
+                    }
                     test.testing -> "测速中…"
                     test.latencyMs == null -> "点击测速"
                     test.latencyMs < 0 -> "超时 · 重试"
@@ -1051,7 +1084,7 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
 private fun readClipboard(context: Context): String? { val cm = context.getSystemService(ClipboardManager::class.java) ?: return null; return cm.primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0).coerceToText(context).toString() else null } }
 
 private fun shareNode(context: Context, server: ServerProfile) {
-    shareText(context, "分享节点", ShareLinkParser.encode(server))
+    shareText(context, "分享节点", ShareLinkParser.encodeV2rayN(server))
 }
 
 private fun shareText(context: Context, title: String, text: String) {

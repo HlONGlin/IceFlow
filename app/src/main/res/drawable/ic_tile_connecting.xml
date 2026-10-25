@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 磁贴：连接中。虚线盾牌 + 青色六芒星 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FF93A9BF"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M12.00,1.70 L3.90,4.55 M3.98,12.66 L4.07,13.31 L4.19,13.94 L4.35,14.55 M5.30,16.79 L5.61,17.30 L5.94,17.79 L6.30,18.26 M7.50,19.55 L7.94,19.94 L8.40,20.30 L8.88,20.65 L9.37,20.98 M10.92,21.83 L11.45,22.08 L12.00,22.30 L12.55,22.08 L13.08,21.83 M14.63,20.98 L15.12,20.65 L15.60,20.30 L16.06,19.94 M17.70,18.26 L18.06,17.79 L18.39,17.30 L18.70,16.79 M19.65,14.55 L19.81,13.94 L19.93,13.31 L20.02,12.66" />
+        <path
+            android:strokeColor="#FF00D4FF"
+            android:strokeWidth="1.35"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M12.00,12.30 L12.00,18.00 M12.00,12.30 L7.06,15.15 M12.00,12.30 L7.06,9.45 M12.00,12.30 L12.00,6.60 M12.00,12.30 L16.94,9.45 M12.00,12.30 L16.94,15.15" />
+</vector>

@@ -98,6 +98,38 @@ internal object ExtendedConfigBuilder {
                 put("protocol", option("protocol").ifEmpty { "origin" }); put("obfs", option("obfs").ifEmpty { "plain" })
                 textOption("protocol-param", "protocol-param", "protoparam"); textOption("obfs-param", "obfs-param", "obfsparam")
             }
+            Protocol.ANYTLS -> {
+                require(p.password.isNotEmpty()) { "AnyTLS requires a password" }
+                put("type", "anytls"); put("password", p.password)
+                text("client-fingerprint", p.fingerprint.ifEmpty { option("fp", "client-fingerprint", "clientFingerprint") })
+                textOption("client-metadata", "clientMetadata")
+                number("idle-session-check-interval", "idleSessionCheckInterval")
+                number("idle-session-timeout", "idleSessionTimeout")
+                number("min-idle-session", "minIdleSession")
+                boolean("disable-reuse", "disableReuse")
+                for (key in listOf("ech-opts", "shadow-tls-opts", "restls-opts", "jls-opts")) {
+                    option(key).takeIf(String::isNotEmpty)?.let { put(key, Json.parseToJsonElement(it)) }
+                }
+            }
+            Protocol.SUDOKU -> {
+                require(p.password.isNotEmpty()) { "Sudoku requires a key" }
+                put("type", "sudoku"); put("key", p.password)
+                textOption("aead-method", "aeadMethod")
+                textOption("table-type", "tableType")
+                textOption("multiplex")
+                textOption("http-mask-mode", "httpMaskMode")
+                textOption("http-mask-host", "httpMaskHost")
+                textOption("path-root", "pathRoot")
+                textOption("custom-table", "customTable")
+                number("padding-min", "paddingMin")
+                number("padding-max", "paddingMax")
+                boolean("enable-pure-downlink", "enablePureDownlink")
+                boolean("http-mask", "httpMask")
+                boolean("http-mask-tls", "httpMaskTls")
+                textOption("http-mask-multiplex", "httpMaskMultiplex")
+                list("custom-tables", option("custom-tables", "customTables"))
+                option("httpmask").takeIf(String::isNotEmpty)?.let { put("httpmask", Json.parseToJsonElement(it)) }
+            }
             Protocol.HTTP, Protocol.SOCKS -> {
                 put("type", if (p.protocol == Protocol.HTTP) "http" else "socks5")
                 put("tls", p.tls == "tls"); text("username", p.username); text("password", p.password)

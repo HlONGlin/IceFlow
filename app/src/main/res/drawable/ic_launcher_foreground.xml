@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 启动图标前景：实心雪花，品牌主视觉 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="30"
-        android:translateY="30">
+        android:scaleX="2.6"
+        android:scaleY="2.6"
+        android:translateX="22.8"
+        android:translateY="22.8">
         <path
-            android:fillColor="#FF00D4FF"
-            android:pathData="M22,4h4v8.4l4.2,-4.2 2.8,2.8L26,18v4h4l7,-7 2.8,2.8L35.6,22H44v4h-8.4l4.2,4.2 -2.8,2.8L30,26h-4v4l7,7 -2.8,2.8L26,35.6V44h-4v-8.4l-4.2,4.2 -2.8,-2.8L22,30v-4h-4l-7,7 -2.8,-2.8L12.4,26H4v-4h8.4L8.2,17.8 11,15l7,7h4v-4L15,11l2.8,-2.8L22,12.4z" />
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M11,2h2v4.2l2.1,-2.1 1.4,1.4L13,9v2h2l3.5,-3.5 1.4,1.4L17.8,11H22v2h-4.2l2.1,2.1 -1.4,1.4L15,13h-2v2l3.5,3.5 -1.4,1.4L13,17.8V22h-2v-4.2l-2.1,2.1 -1.4,-1.4L11,15v-2H9l-3.5,3.5 -1.4,-1.4L6.2,13H2v-2h4.2L4.1,8.9l1.4,-1.4L9,11h2V9L7.5,5.5l1.4,-1.4L11,6.2z" />
     </group>
 </vector>

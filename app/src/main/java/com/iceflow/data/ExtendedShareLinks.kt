@@ -2,14 +2,16 @@ package com.iceflow.data
 
 import com.iceflow.data.model.Protocol
 import com.iceflow.data.model.ServerProfile
+import kotlinx.serialization.json.*
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.Base64
 
 /** URI codecs for the extended native adapters. Unknown options survive editing/sharing. */
 internal object ExtendedShareLinks {
-    val protocols = setOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.WIREGUARD, Protocol.SHADOWSOCKSR, Protocol.HTTP, Protocol.SOCKS, Protocol.MIERU)
-    val schemes = setOf("hysteria", "hy", "hysteria2", "hy2", "tuic", "wireguard", "wg", "ssr", "http", "https", "socks", "socks5", "socks5h")
+    val protocols = setOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.WIREGUARD, Protocol.SHADOWSOCKSR, Protocol.HTTP, Protocol.SOCKS, Protocol.MIERU, Protocol.ANYTLS, Protocol.SUDOKU)
+    val schemes = setOf("hysteria", "hy", "hysteria2", "hy2", "tuic", "wireguard", "wg", "ssr", "http", "https", "socks", "socks5", "socks5h", "anytls")
+    private val anyTlsFingerprintKeys = listOf("fp", "client-fingerprint", "clientFingerprint")
     private fun decode(s: String) = URLDecoder.decode(s.replace("+", "%2B"), "UTF-8")
     private fun escape(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
     private fun b64(s: String) = Base64.getUrlEncoder().withoutPadding().encodeToString(s.toByteArray(Charsets.UTF_8))
@@ -45,6 +47,7 @@ internal object ExtendedShareLinks {
             "tuic" -> Protocol.TUIC
             "wg", "wireguard" -> Protocol.WIREGUARD
             "http", "https" -> Protocol.HTTP
+            "anytls" -> Protocol.ANYTLS
             else -> Protocol.SOCKS
         }
         val options = query(body.substringBefore('#').substringAfter('?', "")).toMutableMap()
@@ -71,16 +74,35 @@ internal object ExtendedShareLinks {
         }
         if (protocol == Protocol.TUIC && uuid.isEmpty()) options["token"] = auth
         if (protocol == Protocol.WIREGUARD) options["private-key"] = auth.ifEmpty { options["private-key"].orEmpty() }
-        require(protocol !in setOf(Protocol.HYSTERIA2, Protocol.TUIC) || password.isNotEmpty())
+        val fingerprint = if (protocol == Protocol.ANYTLS) {
+            anyTlsFingerprintKeys.firstNotNullOfOrNull { options[it]?.takeIf(String::isNotEmpty) }.orEmpty()
+                .also { anyTlsFingerprintKeys.forEach { key -> options.remove(key) } }
+        } else ""
+        require(protocol !in setOf(Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS) || password.isNotEmpty())
         return ServerProfile(
             name = decode(body.substringAfter('#', "")).ifEmpty { "$address:$port" }, protocol = protocol, address = address, port = port,
             username = username, password = password, uuid = uuid,
-            tls = if (scheme == "https" || protocol in setOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC) || options["tls"] == "true") "tls" else "none",
+            tls = if (scheme == "https" || protocol in setOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS) || options["tls"] == "true") "tls" else "none",
             sni = options["sni"].orEmpty().ifEmpty { options["peer"].orEmpty() }, alpn = options["alpn"].orEmpty(),
+            fingerprint = fingerprint,
             publicKey = options["publickey"].orEmpty().ifEmpty { options["public-key"].orEmpty() },
             allowInsecure = listOf("insecure", "allowInsecure", "skip-cert-verify").any { options[it] in listOf("1", "true") },
             protocolOptions = options,
         )
+    }
+
+    /** Only convert imported AnyTLS when the URI rebuild retains every original option. */
+    fun anyTlsUriProfile(profile: ServerProfile): ServerProfile? {
+        val node = profile.clashConfig ?: return profile
+        // Mihomo defaults imported AnyTLS to UDP off; URI profiles enable it by default.
+        if (node["udp"] != JsonPrimitive(true)) return null
+        val common = setOf("name", "type", "server", "port", "password", "sni", "alpn", "client-fingerprint", "skip-cert-verify", "udp")
+        val options = node.filterKeys { it !in common }.mapValues { (_, value) ->
+            if (value is JsonPrimitive) value.content else value.toString()
+        }
+        val candidate = profile.copy(clashConfig = null, protocolOptions = options)
+        val rebuilt = runCatching { ExtendedConfigBuilder.build(candidate) }.getOrNull() ?: return null
+        return candidate.takeIf { node.all { (key, value) -> key == "name" || rebuilt[key] == value } }
     }
 
     private fun parseSsr(body: String): ServerProfile {
@@ -100,6 +122,7 @@ internal object ExtendedShareLinks {
     }
 
     fun encode(p: ServerProfile): String {
+        require(p.protocol != Protocol.SUDOKU) { "Sudoku nodes are shared as Clash YAML/JSON" }
         if (p.protocol == Protocol.SHADOWSOCKSR) {
             val q = linkedMapOf("remarks" to b64(p.name), "protoparam" to b64(p.protocolOptions["protocol-param"].orEmpty()), "obfsparam" to b64(p.protocolOptions["obfs-param"].orEmpty()))
             val raw = "${host(p.address)}:${p.port}:${p.protocolOptions["protocol"] ?: "origin"}:${p.security}:${p.protocolOptions["obfs"] ?: "plain"}:${b64(p.password)}/?" + q.entries.joinToString("&") { "${it.key}=${it.value}" }
@@ -108,6 +131,13 @@ internal object ExtendedShareLinks {
         val q = p.protocolOptions.toMutableMap()
         fun add(k: String, v: String) { if (v.isNotEmpty()) q[k] = v else q.remove(k) }
         add("sni", p.sni); add("alpn", p.alpn)
+        if (p.protocol == Protocol.ANYTLS) {
+            val fingerprint = p.fingerprint.ifEmpty {
+                anyTlsFingerprintKeys.firstNotNullOfOrNull { q[it]?.takeIf(String::isNotEmpty) }.orEmpty()
+            }
+            anyTlsFingerprintKeys.forEach { q.remove(it) }
+            add("fp", fingerprint)
+        }
         q.remove("peer"); q.remove("allowInsecure"); q.remove("skip-cert-verify")
         if (p.allowInsecure) q["insecure"] = "1" else q.remove("insecure")
         val scheme = when(p.protocol) {
@@ -116,6 +146,7 @@ internal object ExtendedShareLinks {
             Protocol.TUIC -> "tuic"
             Protocol.WIREGUARD -> "wireguard"
             Protocol.HTTP -> if (p.tls == "tls") "https" else "http"
+            Protocol.ANYTLS -> "anytls"
             else -> "socks5"
         }
         val auth = when(p.protocol) {

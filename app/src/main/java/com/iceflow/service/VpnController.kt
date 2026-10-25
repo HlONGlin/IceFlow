@@ -11,6 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 sealed interface VpnState {
     data object Idle : VpnState
     data object Connecting : VpnState
+
+    /**
+     * 底层网络不可用，正在等待网络恢复。
+     * 与 [Connecting] 区分：此时并不是"正在连接"，用户等待多久都无济于事，
+     * 界面应提示"等待网络恢复"而不是一直转圈，避免看起来像卡死。
+     */
+    data object WaitingNetwork : VpnState
+
     data class Connected(
         val serverName: String,
         val since: Long,
@@ -44,6 +52,20 @@ object VpnController {
     private val _traffic = MutableStateFlow(TrafficSnapshot())
     val traffic: StateFlow<TrafficSnapshot> = _traffic.asStateFlow()
 
+    /**
+     * 用户点击「连接」的时刻（elapsedRealtime）。用于统计端到端感知耗时：
+     * 从点击到界面真正显示「已连接」，包含调度、xray 启动与 Compose 渲染。
+     */
+    @Volatile
+    var clickAt: Long = 0L
+
+    /** 记录一次连接点击，并返回距今毫秒数。 */
+    fun markClick(): Long {
+        val now = android.os.SystemClock.elapsedRealtime()
+        clickAt = now
+        return now
+    }
+
     internal fun setState(state: VpnState) {
         _state.value = state
     }
@@ -62,6 +84,13 @@ object VpnController {
         val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_STOP)
         runCatching { context.startService(intent) }
             .onFailure { Log.w("VpnController", "stop failed: $it") }
+    }
+
+    /** 在"等待网络恢复"状态下由用户手动触发的重试。 */
+    fun retry(context: Context) {
+        val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_RETRY)
+        runCatching { context.startService(intent) }
+            .onFailure { Log.w("VpnController", "retry failed: $it") }
     }
 
     fun switch(context: Context) {

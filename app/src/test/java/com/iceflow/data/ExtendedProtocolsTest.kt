@@ -30,6 +30,7 @@ class ExtendedProtocolsTest {
             ssr,
             "https://us%3Aer:pa%3Ass%2Bword@server.example:8443?sni=cdn.example#HTTP%20TLS",
             "socks5://user:pa%3Ass@server.example:1080?tls=true#SOCKS",
+            "anytls://pa%3Ass@server.example:443?sni=cdn.example&alpn=h2&insecure=1#AnyTLS",
         )
         links.forEach { link ->
             val original = requireNotNull(ShareLinkParser.parse(link)) { link }
@@ -59,6 +60,12 @@ class ExtendedProtocolsTest {
         assertEquals("fd00::2", wg["ipv6"]?.jsonPrimitive?.content)
         assertEquals(listOf(1, 2, 3), wg["reserved"]?.jsonArray?.map { it.jsonPrimitive.int })
         assertEquals(25, wg["persistent-keepalive"]?.jsonPrimitive?.int)
+        val anytls = config("anytls://pa%3Ass@host:443?sni=cdn.example&alpn=h2&insecure=1")
+        assertEquals("anytls", anytls["type"]?.jsonPrimitive?.content)
+        assertEquals("pa:ss", anytls["password"]?.jsonPrimitive?.content)
+        assertEquals("cdn.example", anytls["sni"]?.jsonPrimitive?.content)
+        assertEquals(listOf("h2"), anytls["alpn"]?.jsonArray?.map { it.jsonPrimitive.content })
+        assertEquals(true, anytls["skip-cert-verify"]?.jsonPrimitive?.boolean)
     }
 
     @Test fun acceptsHttpAndSocksDefaultPortsAndBase64Auth() {
@@ -71,6 +78,60 @@ class ExtendedProtocolsTest {
         assertEquals("pa+ss", p.password)
     }
 
+    @Test fun anyTlsFingerprintAliasesAndCertificatePinsRemainDistinct() {
+        listOf("fp", "client-fingerprint", "clientFingerprint").forEach { alias ->
+            val parsed = requireNotNull(ShareLinkParser.parse("anytls://pass@host?$alias=chrome&fingerprint=certificate-pin"))
+            val restored = requireNotNull(ShareLinkParser.parse(ShareLinkParser.encodeV2rayN(parsed)))
+            assertEquals("chrome", parsed.fingerprint)
+            assertEquals("chrome", restored.fingerprint)
+            val options = ExtendedConfigBuilder.build(restored)
+            assertEquals("chrome", options.getValue("client-fingerprint").jsonPrimitive.content)
+            assertEquals("certificate-pin", options.getValue("fingerprint").jsonPrimitive.content)
+
+            val cleared = parsed.copy(fingerprint = "")
+            assertFalse(ExtendedConfigBuilder.build(cleared).containsKey("client-fingerprint"))
+            assertEquals("", requireNotNull(ShareLinkParser.parse(ShareLinkParser.encodeV2rayN(cleared))).fingerprint)
+        }
+    }
+
+    @Test fun anyTlsManualAndEditedFingerprintsSurviveSharing() {
+        val manual = NodeEditing.blank(Protocol.ANYTLS).copy(name = "AnyTLS", address = "host", password = "pass", fingerprint = "firefox")
+        val edited = requireNotNull(ShareLinkParser.parse("anytls://pass@host?fp=chrome")).copy(
+            fingerprint = "firefox", protocolOptions = mapOf("client-fingerprint" to "chrome")
+        )
+        listOf(manual, edited).forEach { node ->
+            val shared = ShareLinkParser.encodeV2rayN(node)
+            val restored = requireNotNull(ShareLinkParser.parse(shared))
+            assertTrue(shared.contains("fp=firefox"))
+            assertEquals("firefox", restored.fingerprint)
+            assertEquals("firefox", ExtendedConfigBuilder.build(node).getValue("client-fingerprint").jsonPrimitive.content)
+            assertEquals(ExtendedConfigBuilder.build(node), ExtendedConfigBuilder.build(restored))
+        }
+    }
+
+    @Test fun importedAnyTlsSharesSessionAndSecurityOptions() {
+        val original = ShareLinkParser.parseMany("""proxies: [{name: AnyTLS, type: anytls, server: proxy.example, port: 443, password: secret, sni: cdn.example, alpn: [h2], udp: true, skip-cert-verify: false, client-fingerprint: chrome, fingerprint: certificate-pin, client-metadata: iceflow, idle-session-check-interval: 15, idle-session-timeout: 30, min-idle-session: 2, disable-reuse: true, ech-opts: {enable: true, config: test-config}}]""").single()
+        val shared = ShareLinkParser.encodeV2rayN(original)
+        assertTrue(shared.startsWith("anytls://"))
+        val restored = requireNotNull(ShareLinkParser.parse(shared))
+        assertEquals(original.name, restored.name)
+        assertEquals("chrome", restored.fingerprint)
+        assertEquals(
+            JsonObject(original.clashConfig!! + ("name" to JsonPrimitive("iceflow-proxy"))),
+            ExtendedConfigBuilder.build(restored),
+        )
+    }
+
+    @Test fun importedAnyTlsFallsBackToClashWhenUriWouldLoseOptions() {
+        listOf("certificate: custom-certificate", "udp: false", "custom-option: {nested: value}").forEach { option ->
+            val original = ShareLinkParser.parseMany("""proxies: [{name: AnyTLS, type: anytls, server: proxy.example, port: 443, password: secret, fingerprint: certificate-pin, $option}]""").single()
+            val shared = ShareLinkParser.encodeV2rayN(original)
+            val restored = ShareLinkParser.parseMany(shared).single()
+            assertEquals(original.clashConfig, restored.clashConfig)
+            assertEquals("", restored.fingerprint)
+        }
+    }
+
     @Test fun invalidExtendedLinksAreRejected() {
         listOf("hy2://host", "tuic://host", "http://host:0", "socks5://host:65536", "wg://key@[::1]oops", "ssr://invalid").forEach {
             assertNull(it, ShareLinkParser.parse(it))
@@ -81,6 +142,51 @@ class ExtendedProtocolsTest {
         listOf("hy://pass@host", "wg://key@host").forEach { link ->
             assertTrue(runCatching { config(link) }.exceptionOrNull() is IllegalArgumentException)
         }
+        assertTrue(runCatching { NodeEditing.validate(NodeEditing.blank(Protocol.ANYTLS).copy(name = "AnyTLS", address = "host")) }.isFailure)
+        assertTrue(runCatching { NodeEditing.validate(NodeEditing.blank(Protocol.SUDOKU).copy(name = "Sudoku", address = "host")) }.isFailure)
+    }
+
+    @Test fun sudokuUsesClashJsonAndBuildsNativeOptions() {
+        val node = NodeEditing.blank(Protocol.SUDOKU).copy(
+            name = "Sudoku",
+            address = "proxy.example",
+            port = 443,
+            password = key,
+            protocolOptions = mapOf(
+                "aead-method" to "chacha20-poly1305",
+                "padding-min" to "4",
+                "padding-max" to "12",
+                "table-type" to "prefer_ascii",
+                "http-mask" to "true",
+                "custom-tables" to "xpxvvpvv,vpxpvvpx",
+            ),
+        )
+        val options = ExtendedConfigBuilder.build(NodeEditing.validate(node))
+        assertEquals("sudoku", options["type"]?.jsonPrimitive?.content)
+        assertEquals(key, options["key"]?.jsonPrimitive?.content)
+        assertEquals(4, options["padding-min"]?.jsonPrimitive?.int)
+        assertEquals(12, options["padding-max"]?.jsonPrimitive?.int)
+        assertEquals(true, options["http-mask"]?.jsonPrimitive?.boolean)
+        assertEquals(listOf("xpxvvpvv", "vpxpvvpx"), options["custom-tables"]?.jsonArray?.map { it.jsonPrimitive.content })
+
+        val restored = ShareLinkParser.parseMany(ShareLinkParser.encode(node)).single()
+        assertEquals(Protocol.SUDOKU, restored.protocol)
+        assertEquals(node.password, restored.password)
+        assertEquals(node.name, restored.name)
+        assertEquals(JsonObject(options + ("name" to JsonPrimitive(node.name))), ClashYamlParser.config(restored))
+    }
+
+    @Test fun importedSudokuKeyEditsReachSharingAndRuntime() {
+        val original = ShareLinkParser.parseMany("""proxies: [{name: Sudoku, type: sudoku, server: proxy.example, port: 443, key: old-key, httpmask: {mode: stream, host: cdn.example}}]""").single()
+        val edited = NodeEditing.validate(NodeEditing.syncClash(original, original.copy(password = uuid)))
+        val restored = ShareLinkParser.parseMany(ShareLinkParser.encode(edited)).single()
+        val runtime = Json.parseToJsonElement(XrayConfigBuilder.build(edited, AppSettings())).jsonObject
+            .getValue("iceflowAdapter").jsonObject
+
+        assertEquals(uuid, edited.password)
+        assertEquals(uuid, restored.password)
+        assertEquals(uuid, runtime.getValue("key").jsonPrimitive.content)
+        assertEquals(original.clashConfig!!.getValue("httpmask"), runtime.getValue("httpmask"))
     }
 
     @Test fun subscriptionListsIncludeAllNewSchemes() {

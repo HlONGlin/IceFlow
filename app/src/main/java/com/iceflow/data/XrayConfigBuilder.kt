@@ -26,6 +26,10 @@ object XrayConfigBuilder {
 
     const val PROXY_TAG = "proxy"
 
+    /** DNS 服务器 tag：域匹配器缓存（MPH cache）以此为键，必须存在且唯一 */
+    const val DOMESTIC_DNS_TAG = "dns-domestic"
+    const val REMOTE_DNS_TAG = "dns-remote"
+
     /** 局域网/保留地址；使用 CIDR 而非 geoip:private，避免依赖 geoip.dat */
     private val PRIVATE_CIDRS = listOf(
         "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16",
@@ -153,6 +157,8 @@ object XrayConfigBuilder {
                     if (directDomains.isNotEmpty() || settings.routingMode == RoutingMode.RULE) {
                         addJsonObject {
                             put("address", settings.domesticDns)
+                            // tag 用于域匹配器缓存（MPH cache）的键，必须存在且唯一
+                            put("tag", DOMESTIC_DNS_TAG)
                             putJsonArray("domains") {
                                 directDomains.forEach { domain -> add(domain) }
                                 // 添加常见国内域名 geosite 分类
@@ -163,7 +169,10 @@ object XrayConfigBuilder {
                         }
                     }
                     // 远端 DNS：默认，用于代理域名
-                    add(settings.remoteDns)
+                    addJsonObject {
+                        put("address", settings.remoteDns)
+                        put("tag", REMOTE_DNS_TAG)
+                    }
                 }
                 // 优先使用 IP，减少 DNS 泄漏
                 put("queryStrategy", if (settings.ipv6Enabled) "UseIP" else "UseIPv4")

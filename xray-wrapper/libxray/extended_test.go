@@ -84,6 +84,8 @@ func TestExtendedAdapterLifecycle(t *testing.T) {
 		{"type": "ssr", "cipher": "aes-128-cfb", "password": "secret", "protocol": "auth_aes128_md5", "obfs": "tls1.2_ticket_auth"},
 		{"type": "http", "username": "user", "password": "secret"},
 		{"type": "socks5", "username": "user", "password": "secret"},
+		{"type": "anytls", "password": "secret", "sni": "example.com"},
+		{"type": "sudoku", "key": "00000000-0000-4000-8000-000000000001"},
 	}
 	for _, options := range cases {
 		t.Run(options["type"].(string), func(t *testing.T) {

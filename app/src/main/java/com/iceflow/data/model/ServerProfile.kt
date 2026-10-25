@@ -17,6 +17,8 @@ enum class Protocol(val label: String) {
     HTTP("HTTP"),
     SOCKS("SOCKS5"),
     MIERU("mieru"),
+    ANYTLS("AnyTLS"),
+    SUDOKU("Sudoku"),
 }
 
 /**

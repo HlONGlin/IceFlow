@@ -29,6 +29,14 @@ object XrayBridge {
     fun setAssetDir(dir: String) {
         call("setAssetDir", arrayOf(String::class.java), dir)
     }
+
+    /**
+     * 设置域匹配器缓存（MPH cache）目录。目录需可写，且包含 geoip.dat / geosite.dat。
+     * 传入空字符串表示禁用缓存。缓存可避免每次启动/切换节点时重新解析 geosite 数据。
+     */
+    fun setMphCacheDir(dir: String) {
+        call("setMphCacheDir", arrayOf(String::class.java), dir)
+    }
     fun validateRoutingAsset(path: String, kind: String) {
         call("validateRoutingAsset", arrayOf(String::class.java, String::class.java), path, kind)
     }
