@@ -106,8 +106,22 @@ object ShareLinkParser {
         val uuid = str("id")
         if (address.isEmpty() || uuid.isEmpty()) return null
         val network = str("net").ifEmpty { "tcp" }
+
+        // 生成友好的默认名称：优先使用 SNI、host，最后才用 IP:端口
+        val defaultName = when {
+            str("sni").isNotEmpty() -> str("sni")
+            str("host").isNotEmpty() -> str("host")
+            else -> {
+                if (address.matches(Regex("^[0-9.]+$")) || address.matches(Regex("^\\[[0-9a-fA-F:]+]$"))) {
+                    "vmess-$address:$port"
+                } else {
+                    address
+                }
+            }
+        }
+
         return ServerProfile(
-            name = str("ps").ifEmpty { "$address:$port" },
+            name = str("ps").ifEmpty { defaultName },
             protocol = Protocol.VMESS,
             address = address,
             port = port,
@@ -140,8 +154,24 @@ object ShareLinkParser {
 
         fun q(key: String) = query[key].orEmpty()
         val defaultSecurity = if (protocol == Protocol.TROJAN) "tls" else "none"
+
+        // 生成友好的默认名称：优先使用 SNI、host 参数，最后才用 IP:端口
+        val defaultName = when {
+            q("sni").isNotEmpty() -> q("sni")
+            q("peer").isNotEmpty() -> q("peer")
+            q("host").isNotEmpty() -> q("host")
+            else -> {
+                // 如果是IP地址，添加协议前缀；如果是域名，直接使用
+                if (host.matches(Regex("^[0-9.]+$")) || host.matches(Regex("^\\[[0-9a-fA-F:]+]$"))) {
+                    "${protocol.name.lowercase()}-$host:$port"
+                } else {
+                    host
+                }
+            }
+        }
+
         return ServerProfile(
-            name = urlDecode(fragment).ifEmpty { "$host:$port" },
+            name = urlDecode(fragment).ifEmpty { defaultName },
             protocol = protocol,
             address = host,
             port = port,
@@ -182,8 +212,16 @@ object ShareLinkParser {
         val password = user.substringAfter(':', "")
         if (method.isEmpty() || password.isEmpty()) return null
         val (host, port) = splitHostPort(main.substring(at + 1)) ?: return null
+
+        // 生成友好的默认名称
+        val defaultName = if (host.matches(Regex("^[0-9.]+$")) || host.matches(Regex("^\\[[0-9a-fA-F:]+]$"))) {
+            "ss-$host:$port"
+        } else {
+            host
+        }
+
         return ServerProfile(
-            name = name.ifEmpty { "$host:$port" },
+            name = name.ifEmpty { defaultName },
             protocol = Protocol.SHADOWSOCKS,
             address = host,
             port = port,

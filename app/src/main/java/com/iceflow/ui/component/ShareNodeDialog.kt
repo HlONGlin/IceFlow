@@ -18,6 +18,8 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import com.iceflow.data.ShareLinkParser
 import com.iceflow.data.model.ServerProfile
+import com.iceflow.i18n.T
+import com.iceflow.i18n.Tf
 
 @Composable
 fun ShareNodeDialog(
@@ -30,10 +32,17 @@ fun ShareNodeDialog(
     val qrBitmap = remember(shareLink) {
         generateQRCode(shareLink, 512)
     }
+    val title = Tf("share.title", node.name)
+    val qrDescription = T("share.qrDescription")
+    val scanHint = T("share.scanHint")
+    val qrCode = T("share.qrCode")
+    val copyLink = T("share.copyLink")
+    val linkLabel = T("share.linkLabel")
+    val close = T("common.close")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("分享节点 - ${node.name}") },
+        title = { Text(title) },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -47,12 +56,12 @@ fun ShareNodeDialog(
                     ) {
                         Image(
                             bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = "节点二维码",
+                            contentDescription = qrDescription,
                             modifier = Modifier.size(240.dp)
                         )
                     }
                     Text(
-                        "扫描二维码导入节点",
+                        scanHint,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -72,19 +81,19 @@ fun ShareNodeDialog(
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showQrCode = true }) { Text("二维码") }
+                TextButton(onClick = { showQrCode = true }) { Text(qrCode) }
                 TextButton(onClick = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("节点分享链接", shareLink))
+                    clipboard.setPrimaryClip(ClipData.newPlainText(linkLabel, shareLink))
                     showQrCode = false
                 }) {
-                    Text("复制链接")
+                    Text(copyLink)
                 }
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("关闭")
+                Text(close)
             }
         }
     )

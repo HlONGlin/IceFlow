@@ -16,8 +16,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import com.iceflow.data.model.AppTheme
+import com.iceflow.data.model.AppLanguage
 import com.iceflow.data.model.NightMode
 import com.iceflow.data.model.TextSize
+import com.iceflow.i18n.LocalLanguage
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 
@@ -150,6 +152,7 @@ fun IceFlowTheme(
     theme: AppTheme = AppTheme.LIGHT_BLUE,
     nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
     textSize: TextSize = TextSize.MEDIUM,
+    language: AppLanguage = AppLanguage.SIMPLIFIED_CHINESE,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
@@ -202,6 +205,7 @@ fun IceFlowTheme(
     val density = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(
         LocalIceFlowColors provides extColors,
+        LocalLanguage provides language,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(
             density = density.density,
             fontScale = density.fontScale * textSize.scale,

@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.iceflow.service.VpnState
+import com.iceflow.i18n.T
 import com.iceflow.ui.theme.IceFlowMotion
 
 /**
@@ -48,13 +49,15 @@ fun ConnectButton(
     val colors = MaterialTheme.colorScheme
     val connected = state is VpnState.Connected
     val busy = state == VpnState.Connecting || state == VpnState.Stopping || state == VpnState.WaitingNetwork
+    val connectedStateLabel = T("state.connected")
+    val idleStateLabel = T("state.idle")
 
     val label = when (state) {
-        is VpnState.Connected -> "断开"
-        VpnState.Connecting -> "连接中"
-        VpnState.WaitingNetwork -> "等待网络"
-        VpnState.Stopping -> "断开中"
-        else -> "连接"
+        is VpnState.Connected -> T("connect.disconnect")
+        VpnState.Connecting -> T("state.connecting")
+        VpnState.WaitingNetwork -> T("state.waitingNetwork")
+        VpnState.Stopping -> T("state.stopping")
+        else -> T("connect.title")
     }
 
     // 按下缩放动画
@@ -113,7 +116,7 @@ fun ConnectButton(
                 .size(size)
                 .scale(scale * if (busy) breathe else 1f)
                 .testTag("ConnectButton")
-                .semantics { stateDescription = if (connected) "已连接" else "未连接" },
+                .semantics { stateDescription = if (connected) connectedStateLabel else idleStateLabel },
         ) {
             Box(
                 modifier = Modifier

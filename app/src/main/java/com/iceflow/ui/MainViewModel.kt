@@ -11,6 +11,8 @@ import com.iceflow.data.BackupCodec
 import com.iceflow.service.VpnState
 import com.iceflow.data.ShareLinkParser
 import com.iceflow.data.UpdateChecker
+import com.iceflow.data.model.AppLanguage
+import com.iceflow.i18n.stringsOf
 import com.iceflow.data.UpdateInfo
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.GroupConfiguration
@@ -71,6 +73,10 @@ data class SubscriptionPreview(
 class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as IceFlowApp).container
+
+    /** 按当前界面语言格式化的文案，用于非 Composable 环境下的提示。 */
+    private fun s(key: String, vararg args: Any?): String =
+        stringsOf(AppLanguage.fromTag(settings.value.language)).format(key, *args)
 
     val vpnState = VpnController.state
     val traffic = VpnController.traffic
@@ -201,7 +207,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun canConnect(): Boolean {
         if (container.servers.selected == null) {
-            _messages.tryEmit("请先添加并选择节点")
+            _messages.tryEmit(s("misc.addNodeFirst"))
             return false
         }
         return true
@@ -285,7 +291,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }.onSuccess {
             _subscriptionLoad.value = SubscriptionLoadState.Idle
             pendingPreview = null
-            _messages.tryEmit("订阅 ${preview.name}：${preview.servers.size} 个节点")
+            _messages.tryEmit(s("sub.previewCount", preview.name, preview.servers.size))
         }.onFailure { error ->
             _subscriptionLoad.value = SubscriptionLoadState.Failure(error.message ?: "保存订阅失败")
         }
@@ -343,22 +349,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dedupeServers() {
         val removed = container.servers.dedupe()
-        _messages.tryEmit(if (removed > 0) "已移除 $removed 个重复节点" else "没有发现重复节点")
+        _messages.tryEmit(if (removed > 0) s("sub.duplicatesRemoved", removed) else s("sub.noDuplicates"))
     }
 
     fun importText(text: String?, groupId: String? = null) {
         val servers = runCatching { ShareLinkParser.parseMany(text.orEmpty()) }.getOrElse {
-            _messages.tryEmit("导入失败：${it.message}")
+            _messages.tryEmit(s("home.import.failed", it.message ?: ""))
             return
         }
         if (servers.isEmpty()) {
-            _messages.tryEmit("内容中没有可识别的分享链接或 Clash 节点")
+            _messages.tryEmit(s("home.import.empty"))
         } else {
             // 优先使用调用方传入的当前分组；没有传入时回退到仓库记住的当前分组。
             // 没有可用本地分组时自动新建一个并切换过去。
             val targetGroupId = groupId ?: store.value.selectedGroupId
             val group = container.servers.importServers(servers, targetGroupId)
-            _messages.tryEmit("已导入 ${servers.size} 个节点到「${group.name}」")
+            _messages.tryEmit(s("home.import.done", servers.size, group.name))
         }
     }
 
@@ -369,7 +375,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _refreshingSubscriptions.value = true
         try {
             val subscriptions = store.value.subscriptions
-            if (subscriptions.isEmpty()) _messages.emit("没有需要刷新的订阅分组")
+            if (subscriptions.isEmpty()) _messages.emit(s("sub.noneToRefresh"))
             subscriptions.forEach { refreshOne(it.url, it.name, it.id) }
         } finally { _refreshingSubscriptions.value = false }
     }
@@ -382,14 +388,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             container.servers.upsertSubscription(url, name, servers, expectedId, download.userInfo, download.downloadedBytes)
             container.servers.store.value.subscriptions.firstOrNull { it.url == url }?.let { SubscriptionScheduler.schedule(getApplication(), it) }
             servers.size
-        }.onSuccess { _messages.emit("订阅 $name：$it 个节点") }
-            .onFailure { _messages.emit("订阅 $name 更新失败：${it.message}") }
+        }.onSuccess { _messages.emit(s("sub.refreshDone", name, it)) }
+            .onFailure { _messages.emit(s("sub.refreshFailed", name, it.message ?: "")) }
     }
 
     fun testAll() {
         if (_testing.value || _nodeTest.value.testing) return
         val nodes = store.value.servers.toList()
-        if (nodes.isEmpty()) { _messages.tryEmit("没有可测速的节点"); return }
+        if (nodes.isEmpty()) { _messages.tryEmit(s("node.test.empty")); return }
         _testing.value = true
         _bulkTest.value = BulkTestState(testing = true, nodes = nodes)
         viewModelScope.launch {

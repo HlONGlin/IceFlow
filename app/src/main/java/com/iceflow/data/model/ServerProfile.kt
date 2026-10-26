@@ -95,8 +95,10 @@ data class LocalGroup(
 )
 
 @Serializable
-enum class GroupSort(val label: String) {
-    ORIGINAL("原始"), NAME("按名称"), LATENCY("按延迟");
+enum class GroupSort(val label: String, val stringKey: String) {
+    ORIGINAL("原始", "groups.sort.original"),
+    NAME("按名称", "groups.sort.name"),
+    LATENCY("按延迟", "groups.sort.latency");
 
     fun apply(servers: List<ServerProfile>): List<ServerProfile> = when (this) {
         ORIGINAL -> servers
@@ -155,23 +157,37 @@ data class ServerStore(
 @Serializable
 enum class AppTheme { LIGHT_BLUE, MINT_GREEN, SAKURA_PINK, PEACH_ORANGE, OBSIDIAN_BLACK }
 @Serializable
-enum class NightMode(val label: String) {
-    FOLLOW_SYSTEM("跟随系统"),
-    ENABLED("启用"),
-    DISABLED("禁用"),
-    AUTO("自动")
+enum class NightMode(val label: String, val stringKey: String) {
+    FOLLOW_SYSTEM("跟随系统", "settings.night.followSystem"),
+    ENABLED("启用", "settings.night.enabled"),
+    DISABLED("禁用", "settings.night.disabled"),
+    AUTO("自动", "settings.night.auto")
 }
 @Serializable
-enum class TextSize(val label: String, val scale: Float) {
-    SMALL("小", 1.0f),
-    MEDIUM("中", 1.15f),
-    LARGE("大", 1.3f),
+enum class TextSize(val label: String, val scale: Float, val stringKey: String) {
+    SMALL("小", 1.0f, "settings.text.small"),
+    MEDIUM("中", 1.15f, "settings.text.medium"),
+    LARGE("大", 1.3f, "settings.text.large"),
 }
 @Serializable
-enum class RoutingMode(val label: String) {
-    RULE("规则"),
-    GLOBAL("全局"),
-    DIRECT("直连")
+enum class RoutingMode(val label: String, val stringKey: String) {
+    RULE("规则", "routes.rule"),
+    GLOBAL("全局", "routes.global"),
+    DIRECT("直连", "routes.direct")
+}
+
+/** 界面语言；持久化为 [tag]，旧版本仅有的 zh-CN 仍然兼容。 */
+@Serializable
+enum class AppLanguage(val tag: String) {
+    SIMPLIFIED_CHINESE("zh-CN"),
+    TRADITIONAL_CHINESE("zh-TW"),
+    ENGLISH("en"),
+    ;
+
+    companion object {
+        fun fromTag(tag: String?): AppLanguage =
+            entries.firstOrNull { it.tag.equals(tag, ignoreCase = true) } ?: SIMPLIFIED_CHINESE
+    }
 }
 data class NodeGroup(val key: String, val id: String?, val name: String)
 

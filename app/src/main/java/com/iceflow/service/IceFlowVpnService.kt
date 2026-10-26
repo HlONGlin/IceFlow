@@ -86,6 +86,10 @@ class IceFlowVpnService : VpnService() {
     private var retryAttempt = 0
     private var desiredRunning = false
     private var activeServerId: String? = null
+    // 缓存当前连接的 tunnel 配置，用于复用 xray 时保持一致
+    private var activeTunnelPort: Int = 0
+    private var activeTunnelUser: String = ""
+    private var activeTunnelPass: String = ""
     private var persistedUp = 0L
     private var persistedDown = 0L
     private var persistedAt = 0L
@@ -117,7 +121,8 @@ class IceFlowVpnService : VpnService() {
             }
                 .distinctUntilChanged { old, new -> old.first.hasSameConnection(new.first) && old.second == new.second }
                 .drop(1)
-                .debounce(400)
+                // 配置变更时快速重连：debounce 从 400ms 降至 150ms，减少等待时间
+                .debounce(150)
                 .collect { commands.send(Command.Switch) }
         }
         val request = NetworkRequest.Builder()
@@ -159,7 +164,7 @@ class IceFlowVpnService : VpnService() {
         scope.cancel()
         synchronized(operationLock) {
             desiredRunning = false
-            cleanup()
+            cleanup(closeTun = true, stopXray = true)
             if (VpnController.state.value !is VpnState.Error) VpnController.setState(VpnState.Idle)
         }
         super.onDestroy()
@@ -178,34 +183,51 @@ class IceFlowVpnService : VpnService() {
             }
             Command.Switch -> if (desiredRunning) {
                 resetRetry()
-                cleanup(closeTun = false)
+                val container = (application as IceFlowApp).container
+                val newProfile = container.servers.selected
+                val sameNode = newProfile?.id == activeServerId
+                // 同节点快速重连：保留 xray-core 进程，只重启 tun2proxy
+                cleanup(closeTun = false, stopXray = !sameNode)
                 startVpn()
             }
             Command.RetryNow -> if (desiredRunning) {
                 // 用户手动重试：立即尝试，不再等待退避计时器
                 retryJob?.cancel()
                 resetRetry()
-                cleanup(closeTun = false)
+                val container = (application as IceFlowApp).container
+                val sameNode = container.servers.selected?.id == activeServerId
+                cleanup(closeTun = false, stopXray = !sameNode)
                 startVpn()
             }
             is Command.Retry -> if (desiredRunning && command.generation == generation) {
-                cleanup(closeTun = false)
+                // 自动重试时尝试复用 xray-core（节点未变的情况）
+                val container = (application as IceFlowApp).container
+                val sameNode = container.servers.selected?.id == activeServerId
+                cleanup(closeTun = false, stopXray = !sameNode)
                 startVpn()
             }
             Command.CoreFailed -> if (desiredRunning && VpnController.state.value is VpnState.Connected) {
                 AppLog.write(this, "ERROR", "流量核心已退出，正在恢复连接")
-                cleanup(closeTun = false)
+                // 核心崩溃时必须完全清理，不能复用
+                cleanup(closeTun = false, stopXray = true)
                 scheduleRetry()
             }
             is Command.Available -> if (networks.add(command.network) && desiredRunning) {
                 resetRetry()
-                cleanup(closeTun = false)
-                scheduleRetry(500)
+                // 网络恢复时快速重连，尽量复用 xray-core
+                val container = (application as IceFlowApp).container
+                val sameNode = container.servers.selected?.id == activeServerId
+                cleanup(closeTun = false, stopXray = !sameNode)
+                // 网络恢复时立即重连，不再延迟
+                scheduleRetry(100)
             }
             is Command.Lost -> if (networks.remove(command.network) && desiredRunning) {
                 resetRetry()
-                cleanup(closeTun = false)
-                if (networks.isNotEmpty()) scheduleRetry(500) else {
+                val container = (application as IceFlowApp).container
+                val sameNode = container.servers.selected?.id == activeServerId
+                cleanup(closeTun = false, stopXray = !sameNode)
+                // 有其他网络可用时快速切换，延迟从 500ms 降至 100ms
+                if (networks.isNotEmpty()) scheduleRetry(100) else {
                     // 底层网络完全不可用：等待网络恢复，而不是盲目重试。
                     // 界面显示"等待网络恢复"，避免用户对着转圈干等几十秒。
                     VpnController.setState(VpnState.WaitingNetwork)
@@ -229,9 +251,15 @@ class IceFlowVpnService : VpnService() {
             updateNotification("连接恢复失败，VPN 仍接管流量")
             return
         }
-        // 退避上限 4s：原先 1/2/4/8/16s 累计要等 31 秒才放弃，
-        // 期间界面一直转圈，体验上像是彻底卡死。
-        val waitMs = delayMs ?: (1000L shl min(retryAttempt++, 2))
+        // 优化重试策略：200ms / 500ms / 1s / 2s / 3s，总计不超过 7 秒
+        // 早期失败往往是瞬时问题（网络切换、DNS 波动），快速重试可以大幅降低感知耗时
+        val waitMs = delayMs ?: when (retryAttempt++) {
+            0 -> 200L   // 第一次重试立即进行
+            1 -> 500L   // 第二次稍作等待
+            2 -> 1000L  // 第三次 1 秒
+            3 -> 2000L  // 第四次 2 秒
+            else -> 3000L // 最后一次 3 秒
+        }
         val expectedGeneration = ++generation
         retryJob?.cancel()
         // 底层网络还没回来时，明确告诉界面"在等网络"，而不是显示"正在连接"。
@@ -279,13 +307,29 @@ class IceFlowVpnService : VpnService() {
             // 域匹配器缓存：避免每次连接节点时重新解析 geosite 数据
             XrayBridge.setMphCacheDir(filesDir.absolutePath)
             mark("validate+readSettings")
-            val tunnelPort = generateSequence {
-                ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-            }.first { !settings.socksEnabled || it != settings.socksPort }
 
-            // 生成随机凭据保护 TUN 入站，防止本机其他应用探测或滥用内部 SOCKS
-            val tunnelUser = java.util.UUID.randomUUID().toString().take(16)
-            val tunnelPass = java.util.UUID.randomUUID().toString()
+            // 快速重连优化：如果 xray 已在运行且节点未变，复用之前的配置
+            val xrayAlreadyRunning = XrayBridge.isRunning() && profile.id == activeServerId
+            val tunnelPort: Int
+            val tunnelUser: String
+            val tunnelPass: String
+
+            if (xrayAlreadyRunning && activeTunnelPort > 0) {
+                // 复用已有配置
+                tunnelPort = activeTunnelPort
+                tunnelUser = activeTunnelUser
+                tunnelPass = activeTunnelPass
+                mark("config.reuse")
+            } else {
+                // 生成新配置
+                tunnelPort = generateSequence {
+                    ServerSocket(0, 1, InetAddress.getByName("127.0.0.1")).use { it.localPort }
+                }.first { !settings.socksEnabled || it != settings.socksPort }
+                tunnelUser = java.util.UUID.randomUUID().toString().take(16)
+                tunnelPass = java.util.UUID.randomUUID().toString()
+                mark("config.generate")
+            }
+
             val tunnelAuth = tunnelUser to tunnelPass
 
             val cfg = XrayConfigBuilder.build(
@@ -295,8 +339,18 @@ class IceFlowVpnService : VpnService() {
                 tunnelAuth = tunnelAuth
             )
             mark("buildConfig")
-            XrayBridge.start(cfg)
-            mark("xray.start")
+
+            if (!xrayAlreadyRunning) {
+                XrayBridge.start(cfg)
+                mark("xray.start")
+                // 保存配置供后续复用
+                activeTunnelPort = tunnelPort
+                activeTunnelUser = tunnelUser
+                activeTunnelPass = tunnelPass
+            } else {
+                mark("xray.reuse (already running)")
+                AppLog.write(this, "INFO", "复用已运行的 xray-core 进程")
+            }
 
             val builder = Builder()
                 .setSession(profile.name)
@@ -343,7 +397,7 @@ class IceFlowVpnService : VpnService() {
             check(code == 0) { RustBridge.describe(code) }
             mark("rust.startTun")
 
-            if (destroyed) { cleanup(); return }
+            if (destroyed) { cleanup(closeTun = true, stopXray = true); return }
             activeServerId = profile.id
             persistedUp = 0
             persistedDown = 0
@@ -366,7 +420,7 @@ class IceFlowVpnService : VpnService() {
         } catch (t: Throwable) {
             Log.e(TAG, "start failed", t)
             AppLog.write(this, "ERROR", "VPN 连接失败：${t.message}")
-            cleanup(closeTun = false)
+            cleanup(closeTun = false, stopXray = true)
             if (tun == null || t is IllegalArgumentException) fail(t.message ?: t.toString()) else scheduleRetry()
         }
     }
@@ -375,8 +429,9 @@ class IceFlowVpnService : VpnService() {
         desiredRunning = false
         resetRetry()
         VpnController.setState(VpnState.Stopping)
-        cleanup()
+        // 立即通知UI已空闲，提升响应速度；cleanup在后台完成
         VpnController.setState(VpnState.Idle)
+        cleanup(closeTun = true, stopXray = true)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (startId == null) stopSelf() else stopSelf(startId)
     }
@@ -384,22 +439,34 @@ class IceFlowVpnService : VpnService() {
     private fun fail(message: String) {
         desiredRunning = false
         resetRetry()
-        cleanup()
+        cleanup(closeTun = true, stopXray = true)
         VpnController.setState(VpnState.Error(message))
         AppLog.write(this, "ERROR", "VPN 失败: $message")
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    /** 释放顺序：统计 → tun2proxy（不持有 fd）→ xray-core → 关闭 TUN fd。 */
+    /** 释放顺序：统计 → tun2proxy（不持有 fd）→ xray-core → 关闭 TUN fd。
+     *  @param closeTun 是否关闭 TUN，重连场景保持 TUN 可减少延迟
+     *  @param stopXray 是否停止 xray-core，重连时如果节点未变可以复用
+     */
     @Synchronized
-    private fun cleanup(closeTun: Boolean = true) {
+    private fun cleanup(closeTun: Boolean = true, stopXray: Boolean = true) {
         statsJob?.cancel()
         statsJob = null
         persistTraffic(force = true)
-        activeServerId = null
-        runCatching { RustBridge.stopTun() }.onFailure { Log.w(TAG, "stopTun: $it") }
-        runCatching { XrayBridge.stop() }.onFailure { Log.w(TAG, "xray stop: $it") }
+        if (!stopXray) {
+            // 快速重连：仅停止 tun2proxy，保留 xray-core 进程和配置缓存
+            runCatching { RustBridge.stopTun() }.onFailure { Log.w(TAG, "stopTun: $it") }
+        } else {
+            // 完全清理：清空所有状态
+            activeServerId = null
+            activeTunnelPort = 0
+            activeTunnelUser = ""
+            activeTunnelPass = ""
+            runCatching { RustBridge.stopTun() }.onFailure { Log.w(TAG, "stopTun: $it") }
+            runCatching { XrayBridge.stop() }.onFailure { Log.w(TAG, "xray stop: $it") }
+        }
         if (closeTun) {
             runCatching { tun?.close() }
             tun = null

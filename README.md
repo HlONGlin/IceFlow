@@ -1,115 +1,257 @@
-# IceFlow
+<div align=”center”>
 
-基于 xray-core 的 Android 代理客户端（Android 8.0+）。设计文档见 `docs/IceFlow-Architecture.md`。
+# ❄️ IceFlow
 
-## 架构
+<p align=”center”>
+  <b>基于 xray-core 的 Android 代理客户端</b>
+</p>
+
+<p align=”center”>
+  <img src=”https://img.shields.io/badge/platform-Android%208.0%2B-blue?style=flat-square” alt=”Platform”>
+  <img src=”https://img.shields.io/badge/language-Kotlin-orange?style=flat-square” alt=”Language”>
+  <img src=”https://img.shields.io/badge/UI-Jetpack%20Compose-green?style=flat-square” alt=”UI”>
+  <img src=”https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square” alt=”License”>
+</p>
+
+简体中文 | [English](README.en.md)
+
+</div>
+
+---
+
+## 📖 简介
+
+IceFlow 是一款现代化的 Android 代理客户端，采用 Jetpack Compose 构建流畅的用户界面，基于 xray-core 提供强大的代理能力。支持 Android 8.0 及以上版本。
+
+### ✨ 主要特性
+
+- 🚀 **多协议支持** - VMess、VLESS (含 Reality)、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP、SOCKS、AnyTLS 和 Sudoku
+- 📱 **现代化 UI** - 基于 Jetpack Compose 的流畅用户界面
+- 🔄 **灵活导入** - 支持 Clash YAML、二维码扫描、订阅链接
+- 🎯 **智能分流** - 规则分流与分应用代理
+- 🔐 **隐私安全** - 本地数据加密，内部 TUN 入口随机凭据保护
+- 📊 **流量统计** - 按出站类型（代理/直连/阻止）的详细流量分析
+- 🌐 **DNS 优化** - 智能 DNS 分流，避免 CDN 污染
+
+## 🏗️ 架构设计
 
 ```
-Jetpack Compose UI ──► VpnService (TUN)
-                          │ fd
-                          ▼
-              rust-core (tun2proxy, JNI)
-                          │ SOCKS5 127.0.0.1:10808
-                          ▼
-              xray-core (Go, gomobile AAR) ──► 远端服务器
+┌─────────────────────────────────────────────────┐
+│         Jetpack Compose UI (Kotlin)             │
+│          用户界面 & 节点管理 & 设置              │
+└────────────────┬────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────┐
+│         Android VpnService (TUN)                │
+│            TUN 虚拟网络接口                      │
+└────────────────┬────────────────────────────────┘
+                 │ File Descriptor
+                 ▼
+┌─────────────────────────────────────────────────┐
+│       rust-core (tun2proxy, JNI)                │
+│      TUN 流量捕获与 SOCKS5 转发                  │
+└────────────────┬────────────────────────────────┘
+                 │ SOCKS5 127.0.0.1:10808
+                 ▼
+┌─────────────────────────────────────────────────┐
+│     xray-core (Go, gomobile AAR)                │
+│          代理协议处理 & 流量转发                 │
+└────────────────┬────────────────────────────────┘
+                 │
+                 ▼
+           🌐 远端代理服务器
 ```
 
-| 目录 | 内容 |
+## 📁 项目结构
+
+| 目录 | 说明 |
 |------|------|
-| `app/` | Kotlin + Compose 应用：首页 / 节点 / 统计 / 设置，VpnService，快捷开关 |
-| `rust-core/` | Rust 流量层，基于 tun2proxy，JNI 接口在 `src/ffi.rs` |
-| `xray-wrapper/` | xray-core 的 gomobile 封装（`libxray`），产物为 `app/libs/xray.aar` |
+| `app/` | Kotlin + Compose 应用层：UI、VpnService、快捷开关 |
+| `rust-core/` | Rust 流量处理层，基于 tun2proxy，JNI 接口 |
+| `xray-wrapper/` | xray-core 的 gomobile 封装，产物为 `app/libs/xray.aar` |
+| `docs/` | 架构文档与设计说明 |
 
-支持 VMess、VLESS（含 Reality）、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP、SOCKS、AnyTLS 和 Sudoku 节点；支持 Clash YAML、二维码导入/分享、HTTPS 订阅、规则分流与分应用代理。AnyTLS 支持 `anytls://` 分享链接；Sudoku 节点可通过 Clash YAML/JSON 导入、编辑和分享。
+## 🛠️ 构建指南
 
-## 构建
+### 前置要求
 
-需要：JDK 17、Android SDK 36 + NDK、Rust（含 `cargo-ndk`）、Go 1.26+。
+- ☕ JDK 17
+- 📱 Android SDK 36 + NDK
+- 🦀 Rust (含 `cargo-ndk`)
+- 🐹 Go 1.26+
+
+### 构建步骤
+
+#### Windows
 
 ```powershell
-# 1. Rust 核心 → app/src/main/jniLibs/
+# 1. 构建 Rust 核心 → app/src/main/jniLibs/
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
 .\rust-core\build-android.ps1
 
-# 2. xray-core → app/libs/xray.aar
+# 2. 构建 xray-core → app/libs/xray.aar
 .\xray-wrapper\build-aar.ps1
 
-# 3. APK
+# 3. 构建 APK
 .\gradlew.bat testDebugUnitTest assembleDebug assembleRelease
 ```
 
-Linux/macOS 使用对应的 `.sh` 脚本。缺失原生产物时仍可构建 debug 进行界面开发，连接时会提示缺少核心；release 构建会拒绝缺失原生库的产物。
+#### Linux/macOS
 
-## Windows 注意事项
+```bash
+# 1. 构建 Rust 核心
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+./rust-core/build-android.sh
 
-项目路径含中文时，Gradle 单元测试会出现 `ClassNotFoundException`。可以把项目放到纯英文路径，或者临时映射一个盘符：
+# 2. 构建 xray-core
+./xray-wrapper/build-aar.sh
+
+# 3. 构建 APK
+./gradlew testDebugUnitTest assembleDebug assembleRelease
+```
+
+### ⚠️ Windows 注意事项
+
+**中文路径问题**：项目路径含中文时，Gradle 单元测试会出现 `ClassNotFoundException`。
+
+**解决方案**：
 
 ```powershell
-subst X: "E:\脚本编写存放\git"
-cd X:\IceFlow; .\gradlew.bat testDebugUnitTest
+# 方法 1：映射盘符
+subst X: “E:\脚本编写存放\git”
+cd X:\IceFlow
+.\gradlew.bat testDebugUnitTest
 subst X: /D
+
+# 方法 2：使用纯英文路径
 ```
 
-rustup / gomobile 安装在用户目录，未自动加入 PATH，使用前执行：
+**环境变量配置**：
 
 ```powershell
-$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH"
+$env:PATH = “$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH”
 ```
 
-`xray-wrapper/libxray` 中导出符号和包的文档注释会被 gomobile 复制进 Java 源码，中文 Windows 上 javac 按 GBK 读取会报错，因此这些注释只能用 ASCII。
+## 🧪 测试
 
-## 测试
+### 测试结构
 
-## 自动更新与私有仓库
+- **app/src/test** - JVM 单元测试：分享链接解析、xray 配置生成、格式化
+- **app/src/androidTest** - Android 仪器测试：Compose UI 测试、原生库加载验证
+- **rust-core** - Rust 单元测试：`cargo test`
+- **xray-wrapper** - Go 单元测试：`go test ./...`
 
-应用启动后会静默检查 GitHub Releases；发现更高版本时弹窗提醒。自动提醒可以在弹窗中勾选“不再自动提醒”，手动检查入口位于“设置 → 关于 → IceFlow”软件名称。
-
-如果仓库是私有仓库，GitHub API 必须带有能读取该仓库 Releases 的 Fine-grained token（Repository access 选择 `IceFlow`，权限至少包含 Contents: Read）。首次手动检查失败时，在弹窗中填入 token 即可；token 只保存在本机应用偏好中，不写入备份文件。
-
-推送 `v*` 标签会触发 GitHub Actions，构建 debug 与 release 的 ABI 包和 universal 包，并自动创建 GitHub Release。未配置签名密钥时，release 包会标记为 `unsigned`；debug 包带有调试签名，可直接安装测试。
-
-- `app/src/test`：分享链接解析、xray 配置生成、格式化（JVM 单元测试）
-- `app/src/androidTest`：连接按钮 Compose UI 测试；`NativeBridgeTest` 验证 Rust/xray 原生库加载、各协议配置被 xray-core 接受、SOCKS 入站局域网直连（需设备/模拟器，不连外网）
-- `rust-core`：`cargo test`
-- `xray-wrapper`：`go test ./...`
-
-`connectedDebugAndroidTest` 结束时会卸载应用（清空已导入节点）。想保留数据可以手动安装后运行：
+### 运行 Android 测试
 
 ```powershell
+# 自动安装并测试（会卸载应用）
+.\gradlew.bat connectedDebugAndroidTest
+
+# 保留数据的手动测试
 .\gradlew.bat assembleDebug assembleDebugAndroidTest
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 adb install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
 adb shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
-```
 
-## 已知限制
-
-- 订阅仅接受 HTTPS 地址；下载内容上限为 4 MiB，路由数据库上限为 64 MiB。
-- Lottie 动画尚未集成。
-- 设置中的”备份与恢复”导出节点、订阅、分组、规则及设置。备份是包含凭据的 JSON 文件，恢复前会预览数量并要求确认；路由数据库不包含在备份中。
-- 连接参数、所选节点或代理链改变后自动重连；外观设置不重连。
-- 内部 TUN 入口使用随机生成的凭据保护，防止本机其他应用探测或滥用。
-- 当前连接测速通过运行中的内部 SOCKS 入口，与节点测速共用 Go HTTP/TLS 实现，避免 Android 系统版本造成握手耗时差异。
-- 网络中断和核心异常时保留已建立的 TUN，网络恢复后重试；核心重启最多连续重试 5 次。进程被系统终止时的强制阻断需启用 Android 系统的”始终开启 VPN”和”阻止无 VPN 连接”。
-- DNS 分流：直连域名使用国内 DNS（默认 223.5.5.5），代理域名使用远端 DNS，避免 CDN 污染。
-- 统计页面显示按出站（代理/直连/阻止）的流量分布，帮助排查分流规则。
-
-## 发布与回归
-
-构建使用 `JAVA_HOME` 或 IDE 的 Gradle JDK 设置，仓库不指定本机 JDK 路径。
-`assembleRelease` 会检查三个 ABI 的 Rust/Xray 原生产物。未提供签名配置时输出 unsigned APK；正式签名通过四个环境变量配置：
-`ICEFLOW_KEYSTORE_PATH`、`ICEFLOW_KEYSTORE_PASSWORD`、`ICEFLOW_KEY_ALIAS`、`ICEFLOW_KEY_PASSWORD`。密钥和密码不写入仓库。
-版本通过 `-Piceflow.versionCode=2 -Piceflow.versionName=0.1.1` 指定；每次正式更新需递增 versionCode。
-
-CI 运行单元测试、lint、debug/release 构建和 Android 35 模拟器测试。
-本地多设备测试请手动安装并明确指定设备，避免 `connectedDebugAndroidTest` 对所有设备安装和卸载应用：
-
-```powershell
+# 指定设备测试
 adb -s emulator-5556 install -r app\build\outputs\apk\debug\app-debug.apk
 adb -s emulator-5556 install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
 adb -s emulator-5556 shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-`VpnLifecycleTest` 暂时替换并恢复原节点及设置，使用独立 UID 验证真实 IPv4/IPv6 TUN 转发。
-物理网络开关测试需要 `-e networkToggle true`；仅在 ADB 不依赖被切换网络时启用。
+## 🔄 自动更新
+
+应用启动后会静默检查 GitHub Releases，发现新版本时弹窗提醒。
+
+### 配置选项
+
+- ✅ 自动检查更新（启动时）
+- 🔧 手动检查：设置 → 关于 → IceFlow
+- 🔕 禁用提醒：弹窗中勾选”不再自动提醒”
+
+### 私有仓库配置
+
+私有仓库需要 GitHub Fine-grained token：
+
+1. 创建 token：Repository access 选择 `IceFlow`
+2. 权限设置：Contents: Read
+3. 首次检查失败时在弹窗中填入 token
+4. Token 仅保存在本地，不写入备份文件
+
+### CI/CD
+
+推送 `v*` 标签自动触发 GitHub Actions：
+- ✅ 构建 debug 和 release APK
+- ✅ 生成 ABI 特定包和 universal 包
+- ✅ 自动创建 GitHub Release
+
+## ⚙️ 发布配置
+
+### 版本设置
+
+```powershell
+.\gradlew.bat assembleRelease -Piceflow.versionCode=2 -Piceflow.versionName=0.1.1
+```
+
+### 签名配置
+
+通过环境变量配置签名（不写入仓库）：
+
+```powershell
+$env:ICEFLOW_KEYSTORE_PATH=”path/to/keystore.jks”
+$env:ICEFLOW_KEYSTORE_PASSWORD=”keystore_password”
+$env:ICEFLOW_KEY_ALIAS=”key_alias”
+$env:ICEFLOW_KEY_PASSWORD=”key_password”
+```
+
+## 📋 已知限制
+
+- 📦 **订阅限制** - 仅支持 HTTPS 地址，内容上限 4 MiB，路由数据库上限 64 MiB
+- 🎨 **动画** - Lottie 动画尚未集成
+- 💾 **备份** - 导出节点、订阅、分组、规则及设置（不含路由数据库）
+- 🔄 **自动重连** - 连接参数、节点或代理链改变时自动重连（外观设置不重连）
+- 🔒 **安全性** - 内部 TUN 使用随机凭据保护，防止其他应用滥用
+- ⚡ **测速** - 通过内部 SOCKS 入口，与节点测速共用实现
+- 🌐 **网络恢复** - 中断时保留 TUN，自动重试最多 5 次
+- 🛡️ **强制阻断** - 需启用系统”始终开启 VPN”和”阻止无 VPN 连接”
+- 🎯 **DNS 分流** - 直连域名用国内 DNS，代理域名用远端 DNS
+
+## 📊 功能特性
+
+### 节点管理
+- ✅ 多协议支持
+- ✅ 分组管理
+- ✅ 订阅更新
+- ✅ 二维码扫描
+- ✅ 延迟测试
+- ✅ 批量导入
+
+### 代理功能
+- ✅ 规则分流
+- ✅ 分应用代理
+- ✅ DNS 分流
+- ✅ IPv6 支持
+- ✅ 链式代理
+- ✅ 流量统计
+
+### 用户界面
+- ✅ Material Design 3
+- ✅ 深色模式
+- ✅ 主题切换
+- ✅ 流畅动画
+- ✅ 响应式布局
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+---
+
+<div align=”center”>
+
+**如果觉得这个项目有帮助，欢迎 Star ⭐**
+
+</div>

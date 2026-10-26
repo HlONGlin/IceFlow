@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.iceflow.ui.theme.IceRadius
 import com.iceflow.data.model.*
 import com.iceflow.data.repository.RoutingResources
+import com.iceflow.i18n.T
+import com.iceflow.i18n.Tf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,6 +41,15 @@ import kotlinx.coroutines.withContext
     var notice by remember { mutableStateOf<String?>(null) }
     var incoming by remember { mutableStateOf<List<RoutingRule>?>(null) }
     var deleting by remember { mutableStateOf<RoutingRule?>(null) }
+    val addLabel = T("route.add")
+    val actionsLabel = T("route.actions")
+    val routeTitle = T("routes.rule")
+    val importFailed = T("route.importFailed")
+    val noImport = T("route.noImport")
+    val copiedFormat = T("route.copied")
+    val importText = T("route.importText")
+    val description = T("route.description")
+    val empty = T("route.empty")
     DisposableEffect(editor, resourcePage) { editing(editor || resourcePage); onDispose { editing(false) } }
     fun commit(rules: List<RoutingRule>) { update { it.copy(routingRules = rules, bypassLan = rules.firstOrNull { r -> r.id == "builtin:private" }?.enabled ?: true) } }
     if (resourcePage) { RoutingResourcePage(resources) { resourcePage = false }; return }
@@ -52,35 +63,35 @@ import kotlinx.coroutines.withContext
     }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.fillMaxWidth().height(68.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            IconButton({ editingId = null; editor = true }) { Icon(Icons.Default.Add, "添加路由规则", tint = MaterialTheme.colorScheme.primary) }
+             IconButton({ editingId = null; editor = true }) { Icon(Icons.Default.Add, addLabel, tint = MaterialTheme.colorScheme.primary) }
             Box {
-                 IconButton({ menu = true }) { Icon(Icons.Default.MoreVert, "路由操作", tint = MaterialTheme.colorScheme.primary) }
+                  IconButton({ menu = true }) { Icon(Icons.Default.MoreVert, actionsLabel, tint = MaterialTheme.colorScheme.primary) }
                 IceDropdownMenu(menu, { menu = false }) {
-                    IceMenuItem("禁用所有规则", Icons.Default.Close) { menu = false; commit(settings.routingRules.map { it.copy(enabled = false) }) }
-                    IceMenuItem("启用所有规则", Icons.Default.Check) { menu = false; commit(settings.routingRules.map { it.copy(enabled = true) }) }
+                     IceMenuItem(T("route.disableAll"), Icons.Default.Close) { menu = false; commit(settings.routingRules.map { it.copy(enabled = false) }) }
+                     IceMenuItem(T("route.enableAll"), Icons.Default.Check) { menu = false; commit(settings.routingRules.map { it.copy(enabled = true) }) }
                     HorizontalDivider(Modifier.padding(horizontal = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    IceMenuItem("从剪贴板导入 JSON 规则", Icons.Default.Add) {
+                     IceMenuItem(T("route.importJson"), Icons.Default.Add) {
                         menu = false
-                        runCatching { RoutingRules.decode(clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()) }.onSuccess { incoming = it }.onFailure { notice = it.message ?: "导入失败" }
+                         runCatching { RoutingRules.decode(clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()) }.onSuccess { incoming = it }.onFailure { notice = it.message ?: importFailed }
                     }
-                    IceMenuItem("从剪贴板导入 Clash 规则", Icons.Default.Add) {
+                     IceMenuItem(T("route.importClash"), Icons.Default.Add) {
                         menu = false
                         runCatching {
                             val text = clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
                             com.iceflow.data.ClashYamlParser.parseRules(text)
-                        }.onSuccess { rules ->
-                            if (rules.isEmpty()) notice = "未找到可导入的规则"
+                         }.onSuccess { rules ->
+                             if (rules.isEmpty()) notice = noImport
                             else incoming = rules
-                        }.onFailure { notice = it.message ?: "导入失败" }
+                         }.onFailure { notice = it.message ?: importFailed }
                     }
-                    IceMenuItem("导出到剪贴板", Icons.Default.Send) { menu = false; clipboard?.setPrimaryClip(ClipData.newPlainText("IceFlow 路由规则", RoutingRules.encode(settings.routingRules))); notice = "已复制 ${settings.routingRules.size} 条规则" }
-                    IceMenuItem("管理路由资源", Icons.Default.Settings) { menu = false; resourcePage = true }
+                     IceMenuItem(T("route.export"), Icons.Default.Send) { menu = false; clipboard?.setPrimaryClip(ClipData.newPlainText(routeTitle, RoutingRules.encode(settings.routingRules))); notice = String.format(copiedFormat, settings.routingRules.size) }
+                     IceMenuItem(T("route.resources"), Icons.Default.Settings) { menu = false; resourcePage = true }
                 }
             }
         }
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-             item { Text("规则从上到下优先匹配，未匹配流量使用当前节点。修改后重新连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IceRadius.row)).padding(14.dp)) }
-            if (settings.routingRules.isEmpty()) item { Text("暂无规则，点击右上角添加。", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
+             item { Text(description, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(IceRadius.row)).padding(14.dp)) }
+             if (settings.routingRules.isEmpty()) item { Text(empty, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
             itemsIndexed(settings.routingRules, key = { _, rule -> rule.id }) { index, rule ->
                  Surface(shape = RoundedCornerShape(IceRadius.row), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp, border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
@@ -91,8 +102,8 @@ import kotlinx.coroutines.withContext
                          Text(rule.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                              Text(rule.action.label, color = if (rule.action == RouteAction.BLOCK) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-                            TextButton(enabled = index > 0, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index - 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text("上移", style = MaterialTheme.typography.labelSmall) }
-                            TextButton(enabled = index < settings.routingRules.lastIndex, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index + 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text("下移", style = MaterialTheme.typography.labelSmall) }
+                             TextButton(enabled = index > 0, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index - 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text(T("route.moveUp"), style = MaterialTheme.typography.labelSmall) }
+                             TextButton(enabled = index < settings.routingRules.lastIndex, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index + 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text(T("route.moveDown"), style = MaterialTheme.typography.labelSmall) }
                             IconButton({ deleting = rule }, Modifier.size(32.dp)) { Icon(Icons.Default.Delete, "删除${rule.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) }
                             Switch(rule.enabled, { enabled -> commit(settings.routingRules.map { if (it.id == rule.id) it.copy(enabled = enabled) else it }) })
                         }
@@ -101,16 +112,16 @@ import kotlinx.coroutines.withContext
             }
         }
     }
-    notice?.let { message -> AlertDialog(onDismissRequest = { notice = null }, title = { Text("路由") }, text = { Text(message) }, confirmButton = { TextButton({ notice = null }) { Text("确定") } }) }
-    incoming?.let { rules -> AlertDialog(onDismissRequest = { incoming = null }, title = { Text("导入 ${rules.size} 条规则") }, text = { Text("追加将放在现有规则之前；替换将移除现有规则。") }, confirmButton = { TextButton({ commit(rules + settings.routingRules); incoming = null }) { Text("追加") } }, dismissButton = { Row { TextButton({ incoming = null }) { Text("取消") }; TextButton({ commit(rules); incoming = null }) { Text("替换") } } }) }
-    deleting?.let { rule -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("删除规则？") }, text = { Text(rule.name) }, confirmButton = { TextButton({ commit(settings.routingRules.filterNot { it.id == rule.id }); deleting = null }) { Text("删除") } }, dismissButton = { TextButton({ deleting = null }) { Text("取消") } }) }
+    notice?.let { message -> AlertDialog(onDismissRequest = { notice = null }, title = { Text(routeTitle) }, text = { Text(message) }, confirmButton = { TextButton({ notice = null }) { Text(T("common.ok")) } }) }
+    incoming?.let { rules -> AlertDialog(onDismissRequest = { incoming = null }, title = { Text(Tf("route.importTitle", rules.size)) }, text = { Text(importText) }, confirmButton = { TextButton({ commit(rules + settings.routingRules); incoming = null }) { Text(T("route.append")) } }, dismissButton = { Row { TextButton({ incoming = null }) { Text(T("common.cancel")) }; TextButton({ commit(rules); incoming = null }) { Text(T("route.replace")) } } }) }
+    deleting?.let { rule -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(T("route.deleteTitle")) }, text = { Text(rule.name) }, confirmButton = { TextButton({ commit(settings.routingRules.filterNot { it.id == rule.id }); deleting = null }) { Text(T("common.delete")) } }, dismissButton = { TextButton({ deleting = null }) { Text(T("common.cancel")) } }) }
 }
 
 @Composable internal fun EditorHeader(title: String, onBack: () -> Unit, onSave: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack) { Icon(Icons.Default.Close, "关闭", tint = MaterialTheme.colorScheme.primary) }
+        IconButton(onBack) { Icon(Icons.Default.Close, T("common.close"), tint = MaterialTheme.colorScheme.primary) }
         Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        if (onSave != null) IconButton(onSave) { Icon(Icons.Default.Check, "保存", tint = MaterialTheme.colorScheme.primary) }
+        if (onSave != null) IconButton(onSave) { Icon(Icons.Default.Check, T("common.save"), tint = MaterialTheme.colorScheme.primary) }
     }
 }
 

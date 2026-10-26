@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.iceflow.ui.component.SegmentedSelector
 import com.iceflow.ui.theme.IceRadius
+import com.iceflow.i18n.T
+import com.iceflow.i18n.Tf
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,6 +53,15 @@ fun AppSelectorScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showSystemApps by remember { mutableStateOf(false) }
     var filter by remember { mutableStateOf(AppFilter.ALL) }
+    val title = if (proxyMode) T("apps.proxyTitle") else T("apps.bypassTitle")
+    val backLabel = T("common.back")
+    val doneLabel = T("common.done")
+    val searchHint = T("apps.searchHint")
+    val clearLabel = T("apps.clear")
+    val systemLabel = T("apps.system")
+    val filterLabels = listOf(T("apps.all"), T("apps.selected"), T("apps.unselected"))
+    val selectAllLabel = T("apps.selectAll")
+    val notFoundLabel = T("apps.notFound")
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -88,6 +99,7 @@ fun AppSelectorScreen(
              app.packageName.contains(searchQuery, ignoreCase = true))
         }
     }
+    val selectedCount = Tf("apps.selectedCount", selectedApps.size, filteredApps.size)
 
     Scaffold(
         topBar = {
@@ -95,9 +107,9 @@ fun AppSelectorScreen(
                 Modifier.fillMaxWidth().height(64.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, "返回", tint = MaterialTheme.colorScheme.primary) }
-                Text(if (proxyMode) "选择代理应用" else "选择绕过应用", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text("完成", color = MaterialTheme.colorScheme.primary) }
+                IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, backLabel, tint = MaterialTheme.colorScheme.primary) }
+                Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) { Text(doneLabel, color = MaterialTheme.colorScheme.primary) }
             }
         }
     ) { padding ->
@@ -115,12 +127,12 @@ fun AppSelectorScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    placeholder = { Text("搜索应用名称或包名") },
+                    placeholder = { Text(searchHint) },
                     leadingIcon = { Icon(Icons.Default.Search, null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, "清除")
+                                Icon(Icons.Default.Close, clearLabel)
                             }
                         }
                     },
@@ -136,13 +148,13 @@ fun AppSelectorScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "${selected.size} 个已选 · 共 ${filteredApps.size} 个",
+                    selectedCount,
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 8.dp)) {
-                    Text("系统应用", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(systemLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.width(4.dp))
                     Switch(
                         checked = showSystemApps,
@@ -158,7 +170,7 @@ fun AppSelectorScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 SegmentedSelector(
-                    options = listOf("全部", "已选", "未选"),
+                    options = filterLabels,
                     selectedIndex = filter.ordinal,
                     onSelect = { filter = AppFilter.entries[it] },
                     modifier = Modifier.weight(1f),
@@ -166,11 +178,11 @@ fun AppSelectorScreen(
                 TextButton(onClick = {
                     val visible = filteredApps.map { it.packageName }.toSet()
                     onSelectionChange((selected + visible).toList())
-                }, enabled = filteredApps.isNotEmpty()) { Text("全选") }
+                }, enabled = filteredApps.isNotEmpty()) { Text(selectAllLabel) }
                 TextButton(onClick = {
                     val visible = filteredApps.map { it.packageName }.toSet()
                     onSelectionChange(selectedApps.filterNot { it in visible })
-                }, enabled = filteredApps.any { it.packageName in selected }) { Text("清除") }
+                }, enabled = filteredApps.any { it.packageName in selected }) { Text(clearLabel) }
             }
             }
 
@@ -193,7 +205,7 @@ fun AppSelectorScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    "未找到应用",
+                                    notFoundLabel,
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

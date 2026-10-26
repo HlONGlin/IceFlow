@@ -3,11 +3,13 @@ package com.iceflow.ui.component
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.iceflow.ui.theme.IceFlowTheme
+import com.iceflow.i18n.T
 
 /** 延迟标签文案。null 表示尚未测速，负数表示超时。 */
+@Composable
 fun latencyText(ms: Int?): String = when {
-    ms == null -> "未测试"
-    ms < 0 -> "超时"
+    ms == null -> T("common.noValue")
+    ms < 0 -> T("latency.timeout")
     else -> "${ms}ms"
 }
 

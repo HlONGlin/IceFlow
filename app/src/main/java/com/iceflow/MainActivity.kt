@@ -47,7 +47,12 @@ class MainActivity : ComponentActivity() {
         }
         setContent {
             val settings by vm.settings.collectAsStateWithLifecycle()
-            IceFlowTheme(theme = settings.theme, nightMode = settings.nightMode, textSize = settings.textSize) {
+            IceFlowTheme(
+                theme = settings.theme,
+                nightMode = settings.nightMode,
+                textSize = settings.textSize,
+                language = com.iceflow.data.model.AppLanguage.fromTag(settings.language),
+            ) {
                 IceFlowRoot(vm = vm, onToggleVpn = ::toggleVpn)
             }
         }

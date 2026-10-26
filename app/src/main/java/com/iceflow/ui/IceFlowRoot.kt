@@ -131,6 +131,9 @@ import com.iceflow.ui.component.latencyText
 import com.iceflow.ui.screen.AppSelectorScreen
 import com.iceflow.ui.screen.SettingsScreen
 import com.iceflow.ui.theme.IceRadius
+import com.iceflow.data.model.AppLanguage
+import com.iceflow.i18n.T
+import com.iceflow.i18n.stringsOf
 import com.iceflow.util.formatSpeed
 import com.iceflow.util.formatDuration
 import com.iceflow.util.formatBytes
@@ -138,12 +141,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private enum class Tab(val title: String, val icon: ImageVector) {
-    HOME("节点", Icons.Filled.Home), SUBS("分组", Icons.Filled.Refresh), ROUTES("路由", Icons.Filled.List), SETTINGS("设置", Icons.Filled.Settings)
+private enum class Tab(val labelKey: String, val icon: ImageVector) {
+    HOME("tab.home", Icons.Filled.Home), SUBS("tab.groups", Icons.Filled.Refresh), ROUTES("tab.routes", Icons.Filled.List), SETTINGS("tab.settings", Icons.Filled.Settings)
 }
 
 /** 未分组节点在工作台中的虚拟分组，不参与分组管理与排序持久化。 */
-private val UngroupedGroup = NodeGroup("builtin:ungrouped", null, "未分组")
+private val UngroupedGroup: NodeGroup @Composable get() = NodeGroup("builtin:ungrouped", null, T("groups.ungrouped"))
 
 @Composable
 fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
@@ -180,9 +183,11 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     LaunchedEffect(store.selectedGroupId) { if (groupId != store.selectedGroupId) groupId = store.selectedGroupId }
     var toast by remember { mutableStateOf<String?>(null) }
     var previousState by remember { mutableStateOf<VpnState>(VpnState.Idle) }
+    val connectedToast = T("home.toast.connected")
+    val disconnectedToast = T("home.toast.disconnected")
     LaunchedEffect(state) {
-        if (state is VpnState.Connected && previousState !is VpnState.Connected) toast = "已连接"
-        if (state is VpnState.Idle && previousState is VpnState.Connected) toast = "已断开连接"
+        if (state is VpnState.Connected && previousState !is VpnState.Connected) toast = connectedToast
+        if (state is VpnState.Idle && previousState is VpnState.Connected) toast = disconnectedToast
         previousState = state
     }
     // UI 侧感知耗时：Compose 真正观察到「已连接」的时刻（含主线程排队与重组延迟）
@@ -253,16 +258,39 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 }
             }
             }
-            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !backupOpen && !nodeEditorOpen && !appsOpen) Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(top = 8.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !backupOpen && !nodeEditorOpen && !appsOpen) Row(
+                Modifier.fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .navigationBarsPadding()
+                    .padding(top = 8.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Tab.entries.forEachIndexed { index, item ->
                     val moduleInteraction = remember { MutableInteractionSource() }
-                    Column(Modifier.weight(1f).clickable(
-                        interactionSource = moduleInteraction,
-                        indication = null,
-                        onClick = { tab = index },
-                    ), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(item.icon, item.title, tint = if (tab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(23.dp))
-                        Text(item.title, style = MaterialTheme.typography.labelSmall, color = if (tab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(
+                        Modifier.weight(1f)
+                            .clickable(
+                                interactionSource = moduleInteraction,
+                                indication = null,
+                                onClick = { tab = index },
+                            )
+                            .padding(vertical = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            item.icon,
+                            T(item.labelKey),
+                            tint = if (tab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(23.dp)
+                        )
+                        Text(
+                            T(item.labelKey),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (tab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
                     }
                 }
             }
@@ -342,7 +370,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
     LaunchedEffect(state) { while (state is VpnState.Connected) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
     val selected = store.selected
-    val running = state is VpnState.Connected || state is VpnState.Connecting || state is VpnState.Stopping || state is VpnState.WaitingNetwork
+    val running = state is VpnState.Connected || state is VpnState.Connecting || state is VpnState.WaitingNetwork
     LaunchedEffect(running) { panelVisibility.targetState = running }
     LaunchedEffect(state) { if (running) lastRunningState = state }
     fun visibleNodes(id: String?, filter: String = query) = store.servers.filter { server ->
@@ -356,29 +384,29 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (searchOpen) "搜索" else "IceFlow", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }) { Icon(if (searchOpen) Icons.Filled.Close else Icons.Filled.Search, "搜索节点", tint = MaterialTheme.colorScheme.primary) }
+                Text(if (searchOpen) T("home.search") else "IceFlow", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }) { Icon(if (searchOpen) Icons.Filled.Close else Icons.Filled.Search, T("home.searchHint"), tint = MaterialTheme.colorScheme.primary) }
                 Box {
-                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, "添加节点", tint = MaterialTheme.colorScheme.primary) }
+                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, T("home.import.menu"), tint = MaterialTheme.colorScheme.primary) }
                     IceDropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                        IceMenuItem("从剪贴板导入", Icons.Filled.List) { addMenu = false; onImportClipboard() }
-                        IceMenuItem("手动输入", Icons.Filled.Add) { addMenu = false; onAddNode() }
-                        IceMenuItem("从文件导入", Icons.Filled.Home) { addMenu = false; fileLauncher.launch("*/*") }
-                        IceMenuItem("扫描二维码", Icons.Filled.Search) { addMenu = false; scanLauncher.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false)) }
+                        IceMenuItem(T("home.import.clipboard"), Icons.Filled.List) { addMenu = false; onImportClipboard() }
+                        IceMenuItem(T("home.import.manual"), Icons.Filled.Add) { addMenu = false; onAddNode() }
+                        IceMenuItem(T("home.import.file"), Icons.Filled.Home) { addMenu = false; fileLauncher.launch("*/*") }
+                        IceMenuItem(T("home.import.qr"), Icons.Filled.Search) { addMenu = false; scanLauncher.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false)) }
                     }
                 }
                 Box {
-                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Filled.MoreVert, "更多操作", tint = MaterialTheme.colorScheme.primary) }
+                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Filled.MoreVert, T("common.more"), tint = MaterialTheme.colorScheme.primary) }
                     IceDropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
-                        IceMenuItem("更新订阅", Icons.Filled.Refresh) { moreMenu = false; onRefreshSubs() }
-                        IceMenuItem(if (testing) "测速中…" else "测试连接速度", Icons.Filled.Send, enabled = !testing) { moreMenu = false; onTest() }
+                        IceMenuItem(T("sub.refreshAll"), Icons.Filled.Refresh) { moreMenu = false; onRefreshSubs() }
+                        IceMenuItem(if (testing) T("node.test.testing") else T("home.testAll"), Icons.Filled.Send, enabled = !testing) { moreMenu = false; onTest() }
                         HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                        IceMenuItem("排序", Icons.Filled.List) { moreMenu = false; sortMenu = true }
-                        IceMenuItem("节点去重", Icons.Filled.Check) { moreMenu = false; onDedupe() }
+                        IceMenuItem(T("home.sort"), Icons.Filled.List) { moreMenu = false; sortMenu = true }
+                        IceMenuItem(T("home.dedupe"), Icons.Filled.Check) { moreMenu = false; onDedupe() }
                     }
                     IceDropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                         GroupSort.entries.forEach { sort ->
-                            IceMenuItem(sort.label, Icons.Filled.List, enabled = !testing) {
+                            IceMenuItem(T(sort.stringKey), Icons.Filled.List, enabled = !testing) {
                                 sortMenu = false
                                 if (sort == GroupSort.LATENCY) onSortGroupByLatency(groupId) else onSetGroupSort(groupId, sort)
                             }
@@ -386,22 +414,22 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
+            if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text(T("home.searchPlaceholder")) }, singleLine = true, shape = RoundedCornerShape(12.dp))
             val visibleGroups = if (visibleNodes(null, "").isEmpty()) store.orderedGroups else listOf(UngroupedGroup) + store.orderedGroups
-            if (visibleGroups.isEmpty()) EmptyStateMessage("暂无分组或节点。可在分组页点 + 创建分组，或在节点页点 + 导入节点。", Modifier.weight(1f))
+            if (visibleGroups.isEmpty()) EmptyStateMessage(T("home.empty"), Modifier.weight(1f))
             else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
                 val sorting = sortingKey == group.key
                 val nodes = if (sorting) visibleNodes(group.id, "") else visibleNodes(group.id)
                 if (sorting) Column(Modifier.fillMaxSize()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("拖动右侧图标调整顺序", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { sortingKey = null }) { Text("完成", color = MaterialTheme.colorScheme.primary) }
+                        Text(T("home.dragHint"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { sortingKey = null }) { Text(T("common.done"), color = MaterialTheme.colorScheme.primary) }
                     }
                     ReorderableNodeList(nodes, { onReorderNodes(group.id, it) }, Modifier.weight(1f), PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp)) { server, handle ->
                         NodeRow(server, store.localGroups, server.id == store.selectedId, {}, {}, {}, {}, {}, {}, dragHandle = handle, showNodeLatency = showNodeLatency)
                     }
                 } else LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    if (nodes.isEmpty()) item { Text(if (query.isBlank()) "此分组暂无节点" else "没有匹配的节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
+                    if (nodes.isEmpty()) item { Text(if (query.isBlank()) T("home.groupEmpty") else T("home.noMatch"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.fillMaxWidth().padding(24.dp)) }
                     items(nodes, key = { it.id }) { server -> NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, if (query.isBlank()) ({ sortingKey = group.key }) else null, showTrafficStats = showTrafficStats, showNodeLatency = showNodeLatency) }
                 }
             }
@@ -426,7 +454,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     val connected = state is VpnState.Connected
     val waitingNetwork = state == VpnState.WaitingNetwork
     // 等待网络恢复时不是"正在连接"，用不同的图标，避免无限转圈造成的误解
-    val busy = state == VpnState.Connecting || state == VpnState.Stopping || waitingNetwork
+    // 断开连接时不显示loading，因为断开应该是即时的
+    val busy = state == VpnState.Connecting || waitingNetwork
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .91f else 1f, spring(dampingRatio = .6f, stiffness = 480f), label = "connectPress")
@@ -445,7 +474,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             AnimatedContent(
                 targetState = when {
                     waitingNetwork -> 2   // 等待网络
-                    busy -> 1            // 连接中/断开中
+                    busy -> 1            // 连接中
                     else -> 0            // 空闲
                 },
                 // 连接成功后立即隐藏转圈指示器：退出动画压到 120ms，
@@ -454,9 +483,9 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 label = "connectStatus",
             ) { loading ->
                 when (loading) {
-                    2 -> Icon(Icons.Filled.WifiOff, "等待网络恢复", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(size * .40f))
+                    2 -> Icon(Icons.Filled.WifiOff, T("state.waitingNetwork"), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(size * .40f))
                     1 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
-                    else -> Icon(Icons.Filled.Send, if (connected) "断开连接" else "连接", tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
+                    else -> Icon(Icons.Filled.Send, if (connected) T("connect.disconnect") else T("connect.title"), tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
                 }
             }
         }
@@ -465,7 +494,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
 
 @Composable internal fun ConnectionPanel(state: VpnState, traffic: TrafficSnapshot, now: Long, test: ConnectionTestState, onTest: () -> Unit, modifier: Modifier = Modifier) {
     val connected = state is VpnState.Connected
-    val busy = state == VpnState.Connecting || state == VpnState.Stopping || state == VpnState.WaitingNetwork
+    // 断开时不显示busy状态，让UI立即响应
+    val busy = state == VpnState.Connecting || state == VpnState.WaitingNetwork
     val panelColor by animateColorAsState(if (connected) MaterialTheme.colorScheme.primary else if (busy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface, tween(420), label = "panelColor")
     val textColor = if (connected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val secondaryColor = if (connected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .78f) else MaterialTheme.colorScheme.onSurfaceVariant
@@ -485,17 +515,16 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 if (test.testing) CircularProgressIndicator(Modifier.size(12.dp), color = textColor, strokeWidth = 1.5.dp)
                 Text(when {
                     !connected -> when (state) {
-                        VpnState.Stopping -> "正在断开…"
-                        VpnState.WaitingNetwork -> "等待网络恢复…"
-                        else -> "正在连接…"
+                        VpnState.WaitingNetwork -> T("state.waitingNetwork") + "…"
+                        else -> T("state.connecting") + "…"
                     }
-                    test.testing -> "测速中…"
-                    test.latencyMs == null -> "点击测速"
-                    test.latencyMs < 0 -> "超时 · 重试"
+                    test.testing -> T("node.test.testing")
+                    test.latencyMs == null -> T("node.test.tap")
+                    test.latencyMs < 0 -> T("latency.timeout") + " · " + T("common.retry")
                     else -> "${test.latencyMs} ms"
                 }, color = textColor, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium, maxLines = 1)
             }
-            Text(if (connected) formatDuration(now - (state as VpnState.Connected).since) else "请稍候", color = secondaryColor, style = MaterialTheme.typography.labelSmall)
+            Text(if (connected) formatDuration(now - (state as VpnState.Connected).since) else T("common.pleaseWait"), color = secondaryColor, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -514,7 +543,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (dragHandle != null) {
-            Box(dragHandle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Menu, "拖动排序", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
+            Box(dragHandle, contentAlignment = Alignment.Center) { Icon(Icons.Filled.Menu, T("common.drag"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp)) }
             Spacer(Modifier.size(10.dp))
         } else {
             Box(Modifier.size(8.dp).background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline, androidx.compose.foundation.shape.CircleShape))
@@ -551,19 +580,19 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         }
         if (dragHandle == null) {
             Box {
-                IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) { Icon(Icons.Filled.MoreVert, "节点操作", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp)) }
+                IconButton(onClick = { menu = true }, modifier = Modifier.size(40.dp)) { Icon(Icons.Filled.MoreVert, T("node.actions"), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp)) }
                 IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    IceMenuItem("测速", Icons.Filled.Info) { menu = false; onTest() }
-                    IceMenuItem("编辑", Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
-                    IceMenuItem("分享节点", Icons.Filled.Share) { menu = false; onShare() }
-                    if (onSort != null) IceMenuItem("单独排序", Icons.Filled.List) { menu = false; onSort() }
+                    IceMenuItem(T("node.test.one"), Icons.Filled.Info) { menu = false; onTest() }
+                    IceMenuItem(T("common.edit"), Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
+                    IceMenuItem(T("node.share.title"), Icons.Filled.Share) { menu = false; onShare() }
+                    if (onSort != null) IceMenuItem(T("node.sort"), Icons.Filled.List) { menu = false; onSort() }
                     HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                    IceMenuItem("删除", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
+                    IceMenuItem(T("common.delete"), Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
                 }
             }
         }
     }
-    if (edit) AlertDialog(onDismissRequest = { edit = false }, title = { Text("编辑节点") }, text = { OutlinedTextField(name, { name = it }, label = { Text("节点名称") }, singleLine = true) }, confirmButton = { TextButton(onClick = { edit = false; onRename(name.trim()) }, enabled = name.isNotBlank()) { Text("保存") } }, dismissButton = { TextButton(onClick = { edit = false }) { Text("取消") } })
+    if (edit) AlertDialog(onDismissRequest = { edit = false }, title = { Text(T("node.editTitle")) }, text = { OutlinedTextField(name, { name = it }, label = { Text(T("node.name")) }, singleLine = true) }, confirmButton = { TextButton(onClick = { edit = false; onRename(name.trim()) }, enabled = name.isNotBlank()) { Text(T("common.save")) } }, dismissButton = { TextButton(onClick = { edit = false }) { Text(T("common.cancel")) } })
 }
 
 @Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, refreshGroup: (String) -> Unit, refreshingGroups: Set<String>, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit, createGroupFromUngrouped: (String) -> Unit = {}, deleteUngrouped: () -> Unit = {}, subscriptionLoad: SubscriptionLoadState = SubscriptionLoadState.Idle, onPreviewSubscription: (url: String, name: String) -> Unit = { _, _ -> }, onCommitPreview: (groupId: String) -> Unit = {}, onDismissPreview: () -> Unit = {}) {
@@ -573,7 +602,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
     var ungroupedEditOpen by rememberSaveable { mutableStateOf(false) }
     var ungroupedDeleteOpen by rememberSaveable { mutableStateOf(false) }
-    var ungroupedName by rememberSaveable { mutableStateOf("未分组节点") }
+    val ungroupedDefaultName = T("groups.ungrouped.defaultName")
+    var ungroupedName by rememberSaveable { mutableStateOf(ungroupedDefaultName) }
     DisposableEffect(settingsOpen) {
         onEditingChange(settingsOpen)
         onDispose { onEditingChange(false) }
@@ -606,22 +636,22 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             Row(Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End) {
                 IconButton(onClick = refresh, enabled = !refreshing) {
                     if (refreshing) CircularProgressIndicator(Modifier.size(22.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                    else Icon(Icons.Filled.Refresh, "刷新全部订阅", tint = MaterialTheme.colorScheme.primary)
+                    else Icon(Icons.Filled.Refresh, T("sub.refreshAll"), tint = MaterialTheme.colorScheme.primary)
                 }
-                IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, "新增分组", tint = MaterialTheme.colorScheme.primary) }
+                IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, T("groups.newGroup"), tint = MaterialTheme.colorScheme.primary) }
             }
             if (store.orderedGroups.isEmpty() && store.servers.none { it.subscriptionId == null && it.groupId == null }) {
-                EmptyStateMessage("暂无分组。点右上角 + 创建分组；也可到节点页点 + 导入节点。", Modifier.weight(1f))
+                EmptyStateMessage(T("groups.empty"), Modifier.weight(1f))
             } else {
                 Column(Modifier.weight(1f)) {
                     val ungroupedCount = store.servers.count { it.subscriptionId == null && it.groupId == null }
                     if (ungroupedCount > 0) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                             GroupCard(
-                                title = "${UngroupedGroup.name}节点",
-                                tags = listOf("$ungroupedCount 节点", "可整理或删除"),
+                                title = UngroupedGroup.name,
+                                tags = listOf(String.format(T("groups.nodes"), ungroupedCount), T("groups.ungroupedTags")),
                                 selected = selectedId == null,
-                                onEdit = { ungroupedName = "未分组节点"; ungroupedEditOpen = true },
+                                onEdit = { ungroupedName = ungroupedDefaultName; ungroupedEditOpen = true },
                                 onDelete = { ungroupedDeleteOpen = true },
                                 handle = Modifier,
                                 showHandle = false,
@@ -633,12 +663,12 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                             val sub = store.subscriptions.firstOrNull { it.id == group.id }
                             val tags = when {
                                 sub != null -> buildList {
-                                    add("${store.servers.count { it.subscriptionId == sub.id }} 节点")
+                                    add(String.format(T("groups.nodes"), store.servers.count { it.subscriptionId == sub.id }))
                                     add(dateText(sub.updatedAt))
-                                    add(if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时")
+                                    add(if (sub.updateIntervalHours <= 0) T("groups.noAutoUpdate") else String.format(T("groups.everyHours"), sub.updateIntervalHours))
                                 }
-                                group.id != null -> listOf("${store.servers.count { it.groupId == group.id }} 节点", "本地分组")
-                                else -> listOf("${store.servers.count { it.subscriptionId == null && it.groupId == null }} 节点", "未分组")
+                                group.id != null -> listOf(String.format(T("groups.nodes"), store.servers.count { it.groupId == group.id }), T("groups.local"))
+                                else -> listOf(String.format(T("groups.nodes"), store.servers.count { it.subscriptionId == null && it.groupId == null }), T("groups.ungrouped"))
                             }
                             GroupCard(group.name, tags, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle, onRefresh = if (sub != null) ({ refreshGroup(group.id!!) }) else null, refreshing = group.id in refreshingGroups) { onSelect(group.id) }
                         }
@@ -654,19 +684,19 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         AlertDialog(
             onDismissRequest = { if (currentLoad !is SubscriptionLoadState.Loading) onDismissPreview() },
             title = { Text(when (currentLoad) {
-                is SubscriptionLoadState.Loading -> "正在加载订阅…"
-                is SubscriptionLoadState.Preview -> "加载完成"
-                is SubscriptionLoadState.Failure -> "加载失败"
+                is SubscriptionLoadState.Loading -> T("sub.loading")
+                is SubscriptionLoadState.Preview -> T("sub.loaded")
+                is SubscriptionLoadState.Failure -> T("sub.loadFailed")
                 else -> ""
             }) },
             text = {
                 when (currentLoad) {
                     is SubscriptionLoadState.Loading -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
-                        Text("正在获取节点，请稍候…", style = MaterialTheme.typography.bodyMedium)
+                        Text(T("sub.fetchingNodes"), style = MaterialTheme.typography.bodyMedium)
                     }
                     is SubscriptionLoadState.Preview -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("共发现 ${currentLoad.servers.size} 个节点：", style = MaterialTheme.typography.bodyMedium)
+                        Text(String.format(T("sub.foundNodes"), currentLoad.servers.size), style = MaterialTheme.typography.bodyMedium)
                         val preview = currentLoad.servers.take(5)
                         preview.forEach { server ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -675,7 +705,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                             }
                         }
                         if (currentLoad.servers.size > 5) {
-                            Text("… 还有 ${currentLoad.servers.size - 5} 个节点", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(String.format(T("sub.moreNodes"), currentLoad.servers.size - 5), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     is SubscriptionLoadState.Failure -> Text(currentLoad.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
@@ -684,13 +714,13 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             },
             confirmButton = {
                 when (currentLoad) {
-                    is SubscriptionLoadState.Preview -> TextButton(onClick = { pendingConfigId?.let { onCommitPreview(it); pendingConfigId = null } }) { Text("确认导入") }
-                    is SubscriptionLoadState.Failure -> TextButton(onClick = onDismissPreview) { Text("关闭") }
+                    is SubscriptionLoadState.Preview -> TextButton(onClick = { pendingConfigId?.let { onCommitPreview(it); pendingConfigId = null } }) { Text(T("sub.previewConfirm")) }
+                    is SubscriptionLoadState.Failure -> TextButton(onClick = onDismissPreview) { Text(T("common.close")) }
                     else -> {}
                 }
             },
             dismissButton = {
-                if (currentLoad is SubscriptionLoadState.Preview) TextButton(onClick = onDismissPreview) { Text("取消") }
+                if (currentLoad is SubscriptionLoadState.Preview) TextButton(onClick = onDismissPreview) { Text(T("common.cancel")) }
             }
         )
     }
@@ -698,46 +728,46 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     deletingId?.let { id ->
         val subscription = store.subscriptions.firstOrNull { it.id == id }
         val name = subscription?.name ?: store.localGroups.firstOrNull { it.id == id }?.name.orEmpty()
-        AlertDialog(onDismissRequest = { deletingId = null }, title = { Text("删除分组？") }, text = {
-            Text(if (subscription != null) "删除“$name”后，会同时移除该订阅下的节点并停止自动更新。" else "删除“$name”后，其中的节点将移回本地节点。")
+        AlertDialog(onDismissRequest = { deletingId = null }, title = { Text(T("groups.deleteTitle")) }, text = {
+            Text(if (subscription != null) String.format(T("groups.delete.subText"), name) else String.format(T("groups.delete.localText"), name))
         }, confirmButton = { TextButton(onClick = {
             if (subscription != null) deleteSubscription(id) else deleteLocal(id)
             if (editingId == id) settingsOpen = false
             deletingId = null
-        }) { Text("删除", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
+        }) { Text(T("common.delete"), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text(T("common.cancel"), color = MaterialTheme.colorScheme.primary) } })
     }
 
     if (ungroupedEditOpen) {
         AlertDialog(
             onDismissRequest = { ungroupedEditOpen = false },
-            title = { Text("整理未分组节点") },
+            title = { Text(T("groups.ungrouped.arrange")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("将把所有未分组节点移入一个新的本地分组。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(ungroupedName, { ungroupedName = it }, label = { Text("分组名称") }, singleLine = true)
+                    Text(T("groups.ungrouped.arrangeText"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(ungroupedName, { ungroupedName = it }, label = { Text(T("groups.name")) }, singleLine = true)
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = { createGroupFromUngrouped(ungroupedName.trim()); ungroupedEditOpen = false },
                     enabled = ungroupedName.isNotBlank(),
-                ) { Text("创建", color = MaterialTheme.colorScheme.primary) }
+                ) { Text(T("common.create"), color = MaterialTheme.colorScheme.primary) }
             },
-            dismissButton = { TextButton(onClick = { ungroupedEditOpen = false }) { Text("取消", color = MaterialTheme.colorScheme.primary) } },
+            dismissButton = { TextButton(onClick = { ungroupedEditOpen = false }) { Text(T("common.cancel"), color = MaterialTheme.colorScheme.primary) } },
         )
     }
 
     if (ungroupedDeleteOpen) {
         AlertDialog(
             onDismissRequest = { ungroupedDeleteOpen = false },
-            title = { Text("删除未分组节点？") },
-            text = { Text("将删除所有未分组节点，且无法恢复。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            title = { Text(T("groups.ungrouped.deleteTitle")) },
+            text = { Text(T("groups.ungrouped.deleteText"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
             confirmButton = {
                 TextButton(onClick = { deleteUngrouped(); ungroupedDeleteOpen = false }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(T("common.delete"), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { ungroupedDeleteOpen = false }) { Text("取消", color = MaterialTheme.colorScheme.primary) } },
+            dismissButton = { TextButton(onClick = { ungroupedDeleteOpen = false }) { Text(T("common.cancel"), color = MaterialTheme.colorScheme.primary) } },
         )
     }
 }
@@ -754,6 +784,8 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     var nodePicker by remember { mutableStateOf<String?>(null) }
     var chooser by remember { mutableStateOf<String?>(null) }
     var saveError by remember { mutableStateOf<String?>(null) }
+    val noLinkText = T("groups.noLinkInClipboard")
+    val subLabel = T("groups.subscription")
     var discard by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val config = GroupConfiguration(id, name.trim(), subscription, url.trim(), hours.toIntOrNull() ?: 0, GroupSort.valueOf(order), frontNodeId, landingNodeId)
@@ -762,92 +794,97 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     BackHandler(onBack = back)
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = back) { Icon(Icons.Filled.Close, "取消", tint = MaterialTheme.colorScheme.primary) }
-            Text("分组设置", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            TextButton(onClick = { saveError = config.validationError() ?: onConfirm(config) }) { Text("保存", color = MaterialTheme.colorScheme.primary) }
+            IconButton(onClick = back) { Icon(Icons.Filled.Close, T("common.cancel"), tint = MaterialTheme.colorScheme.primary) }
+            Text(T("groups.settings"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            TextButton(onClick = { saveError = config.validationError() ?: onConfirm(config) }) { Text(T("common.save"), color = MaterialTheme.colorScheme.primary) }
         }
         LazyColumn(contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp)) {
-            item { SettingGroup("基本设置") {
-                GroupSettingText("分组名称", name, "请输入分组名称") { name = it; saveError = null }
-                GroupSettingChoice("分组类型", if (subscription) "订阅" else "基本", Icons.Filled.List) { chooser = "分组类型" }
-                GroupSettingChoice("排序", config.sort.label, Icons.Filled.Refresh) { chooser = "排序" }
+            item { SettingGroup(T("groups.basic")) {
+                GroupSettingText(T("groups.name"), name, T("groups.nameHint")) { name = it; saveError = null }
+                GroupSettingChoice(T("groups.type"), if (subscription) T("groups.subscription") else T("groups.basicType"), Icons.Filled.List) { chooser = "type" }
+                GroupSettingChoice(T("groups.sort"), T(config.sort.stringKey), Icons.Filled.Refresh) { chooser = "sort" }
             } }
-            item { SettingGroup("链式代理") {
-                GroupSettingChoice("前置节点", frontNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Send) { nodePicker = "前置节点" }
-                GroupSettingChoice("落地节点", landingNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: "节点已失效，请重选" } ?: "禁用", Icons.Filled.Home) { nodePicker = "落地节点" }
-                Text("连接顺序：本机 → 前置节点 → 本分组节点 → 落地节点 → 目标。请选择其他分组的节点，保存后下次连接生效。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            item { SettingGroup(T("groups.chain")) {
+                GroupSettingChoice(T("groups.frontNode"), frontNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: T("groups.nodeInvalid") } ?: T("groups.disabled"), Icons.Filled.Send) { nodePicker = "front" }
+                GroupSettingChoice(T("groups.landingNode"), landingNodeId?.let { selected -> servers.firstOrNull { it.id == selected }?.name ?: T("groups.nodeInvalid") } ?: T("groups.disabled"), Icons.Filled.Home) { nodePicker = "landing" }
+                Text(T("groups.chainHint"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
-            if (subscription) item { SettingGroup("订阅设置") {
-                GroupSettingText("订阅链接", url, "https://example.com/subscription") { url = it; saveError = null }
+            if (subscription) item { SettingGroup(T("groups.subSettings")) {
+                GroupSettingText(T("groups.subUrl"), url, "https://example.com/subscription") { url = it; saveError = null }
                 TextButton(onClick = {
                     val text = readClipboard(context)
-                    if (text.isNullOrBlank()) saveError = "剪贴板中没有链接" else { url = text.trim(); saveError = null }
-                }, modifier = Modifier.padding(start = 48.dp)) { Text("从剪贴板粘贴", color = MaterialTheme.colorScheme.primary) }
-                GroupSettingText("更新间隔（小时）", hours, "0–720，0 为不自动更新", numeric = true) { hours = it; saveError = null }
-                Text("保存后自动更新订阅；间隔填 0 则不自动更新。更新失败时保留原有节点，可在分组页重试。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
-                if (editing && !initial.subscription) Text("转为订阅后，现有节点归入该订阅；首次更新成功时会替换为链接中的节点。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                    if (text.isNullOrBlank()) saveError = noLinkText else { url = text.trim(); saveError = null }
+                }, modifier = Modifier.padding(start = 48.dp)) { Text(T("groups.pasteClipboard"), color = MaterialTheme.colorScheme.primary) }
+                GroupSettingText(T("groups.interval"), hours, T("groups.intervalHint"), numeric = true) { hours = it; saveError = null }
+                Text(T("groups.intervalHelp"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+                if (editing && !initial.subscription) Text(T("groups.toSubHint"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             } }
-            if (!subscription && initial.subscription) item { Text("转为基本分组后保留现有节点，并停止订阅自动更新。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
-            item { Text("排序设置仅作用于本分组，未测速的节点排在最后。", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
+            if (!subscription && initial.subscription) item { Text(T("groups.toBasicHint"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
+            item { Text(T("groups.sortHint"), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)) }
             saveError?.let { error -> item { Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 32.dp, vertical = 12.dp)) } }
             if (editing) item {
                 TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.size(8.dp))
-                    Text("删除分组", color = MaterialTheme.colorScheme.error)
+                    Text(T("groups.delete"), color = MaterialTheme.colorScheme.error)
                 }
             }
         }
     }
     nodePicker?.let { title ->
-        GroupNodePicker(title, servers.filter { it.groupId != id && it.subscriptionId != id }, if (title == "前置节点") frontNodeId else landingNodeId, { nodePicker = null }) { selected ->
-            if (title == "前置节点") frontNodeId = selected else landingNodeId = selected
+        GroupNodePicker(title, servers.filter { it.groupId != id && it.subscriptionId != id }, if (title == "front") frontNodeId else landingNodeId, { nodePicker = null }) { selected ->
+            if (title == "front") frontNodeId = selected else landingNodeId = selected
             saveError = null
             nodePicker = null
         }
     }
     chooser?.let { title ->
-        val options = if (title == "分组类型") listOf("基本", "订阅") else GroupSort.entries.map { it.label }
-        AlertDialog(onDismissRequest = { chooser = null }, title = { Text(title) }, text = {
+        val typeOptions = listOf(T("groups.basicType"), T("groups.subscription"))
+        val sortOptions = GroupSort.entries.map { it to T(it.stringKey) }
+        val options = if (title == "type") typeOptions else sortOptions.map { it.second }
+        val dialogTitle = if (title == "type") T("groups.type") else T("groups.sort")
+        val selectedType = if (subscription) T("groups.subscription") else T("groups.basicType")
+        val selectedSort = T(config.sort.stringKey)
+        AlertDialog(onDismissRequest = { chooser = null }, title = { Text(dialogTitle) }, text = {
             Column { options.forEach { option ->
                 TextButton(onClick = {
-                    if (title == "分组类型") subscription = option == "订阅" else order = GroupSort.entries.first { it.label == option }.name
+                    if (title == "type") subscription = option == subLabel else order = sortOptions.first { it.second == option }.first.name
                     saveError = null; chooser = null
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text(option, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
-                    if (option == if (title == "分组类型") { if (subscription) "订阅" else "基本" } else config.sort.label) Icon(Icons.Filled.Check, "当前选项", tint = MaterialTheme.colorScheme.primary)
+                    if (option == if (title == "type") selectedType else selectedSort) Icon(Icons.Filled.Check, T("common.selected"), tint = MaterialTheme.colorScheme.primary)
                 }
             } }
-        }, confirmButton = { TextButton(onClick = { chooser = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
+        }, confirmButton = { TextButton(onClick = { chooser = null }) { Text(T("common.cancel"), color = MaterialTheme.colorScheme.primary) } })
     }
-    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text("放弃修改？") }, text = { Text("当前修改尚未保存。") }, confirmButton = { TextButton(onClick = onBack) { Text("放弃", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { discard = false }) { Text("继续编辑", color = MaterialTheme.colorScheme.primary) } })
+    if (discard) AlertDialog(onDismissRequest = { discard = false }, title = { Text(T("groups.discardTitle")) }, text = { Text(T("groups.discardText")) }, confirmButton = { TextButton(onClick = onBack) { Text(T("groups.discard"), color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { discard = false }) { Text(T("groups.keepEditing"), color = MaterialTheme.colorScheme.primary) } })
 }
 
 @Composable private fun GroupNodePicker(title: String, servers: List<ServerProfile>, selected: String?, onDismiss: () -> Unit, onSelect: (String?) -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("设置$title") }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(String.format(T("groups.pickerTitle"), title)) }, text = {
         Column {
-            OutlinedTextField(query, { query = it }, placeholder = { Text("搜索节点", style = MaterialTheme.typography.bodySmall) }, singleLine = true, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(query, { query = it }, placeholder = { Text(T("groups.pickerSearch"), style = MaterialTheme.typography.bodySmall) }, singleLine = true, textStyle = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
             LazyColumn(Modifier.height(300.dp)) {
-                item { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("禁用", color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f)); if (selected == null) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary) } }
+                item { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text(T("groups.disabled"), color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f)); if (selected == null) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary) } }
                 items(servers.filter { query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true) }, key = { it.id }) { node ->
                     TextButton(onClick = { onSelect(node.id) }, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.weight(1f)) { Text(node.name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodySmall); Text(node.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall) }
                         if (selected == node.id) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.primary)
                     }
                 }
-                if (servers.isEmpty()) item { Text("暂无可选节点，请先导入其他分组的节点。", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp)) }
+                if (servers.isEmpty()) item { Text(T("groups.pickerEmpty"), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(12.dp)) }
             }
         }
-    }, confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+    }, confirmButton = { TextButton(onClick = onDismiss) { Text(T("common.cancel")) } })
 }
 
 @Composable private fun GroupSettingText(title: String, value: String, placeholder: String, numeric: Boolean = false, onValueChange: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(if (title == "订阅链接") Icons.Filled.Refresh else Icons.Filled.Settings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
+        Icon(if (title == T("groups.subUrl")) Icons.Filled.Refresh else Icons.Filled.Settings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp))
         Spacer(Modifier.size(14.dp))
         OutlinedTextField(value, onValueChange, label = { Text(title, style = MaterialTheme.typography.bodySmall) }, placeholder = { Text(placeholder, style = MaterialTheme.typography.bodySmall) }, textStyle = MaterialTheme.typography.bodySmall, singleLine = true, shape = RoundedCornerShape(12.dp),
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (numeric) androidx.compose.ui.text.input.KeyboardType.Number else if (title == "订阅链接") androidx.compose.ui.text.input.KeyboardType.Uri else androidx.compose.ui.text.input.KeyboardType.Text),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = if (numeric) androidx.compose.ui.text.input.KeyboardType.Number else if (title == T("groups.subUrl")) androidx.compose.ui.text.input.KeyboardType.Uri else androidx.compose.ui.text.input.KeyboardType.Text),
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary, cursorColor = MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f))
     }
 }
@@ -863,9 +900,9 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable private fun MoveNodeDialog(groups: List<com.iceflow.data.model.LocalGroup>, onDismiss: () -> Unit, onSelect: (String?) -> Unit) {
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("移动到分组") }, text = {
-        Column { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text("本地节点", color = MaterialTheme.colorScheme.primary) }; groups.forEach { group -> TextButton(onClick = { onSelect(group.id) }, modifier = Modifier.fillMaxWidth()) { Text(group.name, color = MaterialTheme.colorScheme.primary) } } }
-    }, confirmButton = { TextButton(onClick = onDismiss) { Text("取消") } })
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(T("node.moveTitle")) }, text = {
+        Column { TextButton(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) { Text(T("node.local"), color = MaterialTheme.colorScheme.primary) }; groups.forEach { group -> TextButton(onClick = { onSelect(group.id) }, modifier = Modifier.fillMaxWidth()) { Text(group.name, color = MaterialTheme.colorScheme.primary) } } }
+    }, confirmButton = { TextButton(onClick = onDismiss) { Text(T("common.cancel")) } })
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -896,7 +933,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 if (showHandle) {
                     Box(handle, contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Filled.List, "长按拖动$title 排序",
+                            Icons.Filled.List, String.format(T("groups.dragHint"), title),
                             tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(22.dp),
                         )
@@ -914,21 +951,21 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 )
                 if (selected) {
                     Spacer(Modifier.size(6.dp))
-                    Icon(Icons.Filled.Check, "已选", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Filled.Check, T("common.selected"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 }
                 if (onRefresh != null) {
                     IconButton(onClick = onRefresh, enabled = !refreshing, modifier = Modifier.size(38.dp)) {
                         if (refreshing) CircularProgressIndicator(Modifier.size(17.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.Refresh, "刷新$title", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))
+                        else Icon(Icons.Filled.Refresh, String.format(T("groups.refreshTitle"), title), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(19.dp))
                     }
                 }
                 Box {
                     IconButton(onClick = { menu = true }, modifier = Modifier.size(38.dp)) {
-                        Icon(Icons.Filled.MoreVert, "更多操作", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+                        Icon(Icons.Filled.MoreVert, T("common.more"), tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
                     }
                     IceDropdownMenu(menu, { menu = false }) {
-                        if (onEdit != null) IceMenuItem("编辑分组", Icons.Filled.Settings) { menu = false; onEdit() }
-                        if (onDelete != null) IceMenuItem("删除分组", Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
+                        if (onEdit != null) IceMenuItem(T("groups.edit"), Icons.Filled.Settings) { menu = false; onEdit() }
+                        if (onDelete != null) IceMenuItem(T("groups.delete"), Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
                     }
                 }
             }
@@ -1012,8 +1049,8 @@ private fun dateText(value: Long): String = if (value == 0L) "尚未更新" else
         EditorInput("HTTP / HTTPS 链接", url, { url = it })
         Text("用于单节点、批量和启动栏测速，建议选择返回 204 的轻量页面。", style = MaterialTheme.typography.bodySmall)
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-    } }, confirmButton = { TextButton({ runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(url) }.onSuccess { valid -> update { it.copy(testUrl = valid) }; urlOpen = false }.onFailure { error = it.message } }) { Text("保存") } }, dismissButton = { TextButton({ urlOpen = false }) { Text("取消") } })
-    if (dnsOpen) AlertDialog(onDismissRequest = { dnsOpen = false }, title = { Text("DNS 设置") }, text = { EditorInput("每行一个 DNS 地址", dns, { dns = it }, multiline = true) }, confirmButton = { TextButton({ val values = dns.lines().map { it.trim() }.filter { it.isNotEmpty() }; if (values.isNotEmpty()) { update { it.copy(dnsServers = values, remoteDns = values.first()) }; dnsOpen = false } }) { Text("保存") } }, dismissButton = { TextButton({ dnsOpen = false }) { Text("取消") } })
+    } }, confirmButton = { TextButton({ runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(url) }.onSuccess { valid -> update { it.copy(testUrl = valid) }; urlOpen = false }.onFailure { error = it.message } }) { Text(T("common.save")) } }, dismissButton = { TextButton({ urlOpen = false }) { Text(T("common.cancel")) } })
+    if (dnsOpen) AlertDialog(onDismissRequest = { dnsOpen = false }, title = { Text("DNS 设置") }, text = { EditorInput("每行一个 DNS 地址", dns, { dns = it }, multiline = true) }, confirmButton = { TextButton({ val values = dns.lines().map { it.trim() }.filter { it.isNotEmpty() }; if (values.isNotEmpty()) { update { it.copy(dnsServers = values, remoteDns = values.first()) }; dnsOpen = false } }) { Text(T("common.save")) } }, dismissButton = { TextButton({ dnsOpen = false }) { Text(T("common.cancel")) } })
     if (themeOpen) ThemeSelectionDialog(
         currentTheme = settings.theme,
         onDismiss = { themeOpen = false },
@@ -1035,7 +1072,7 @@ private fun ThemeSelectionDialog(
         containerColor = MaterialTheme.colorScheme.surface,
         title = { 
             Text(
-                "选择主题",
+                T("settings.themeChoice"),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface
             ) 
@@ -1118,12 +1155,13 @@ private fun ThemePreviewCard(
     }
 }
 
+@Composable
 private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
-    com.iceflow.data.model.AppTheme.LIGHT_BLUE -> "浅蓝"
-    com.iceflow.data.model.AppTheme.MINT_GREEN -> "薄荷绿"
-    com.iceflow.data.model.AppTheme.SAKURA_PINK -> "樱花粉"
-    com.iceflow.data.model.AppTheme.PEACH_ORANGE -> "蜜桃橙"
-    com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> "曜石黑"
+    com.iceflow.data.model.AppTheme.LIGHT_BLUE -> T("theme.lightBlue")
+    com.iceflow.data.model.AppTheme.MINT_GREEN -> T("theme.mintGreen")
+    com.iceflow.data.model.AppTheme.SAKURA_PINK -> T("theme.sakuraPink")
+    com.iceflow.data.model.AppTheme.PEACH_ORANGE -> T("theme.peachOrange")
+    com.iceflow.data.model.AppTheme.OBSIDIAN_BLACK -> T("theme.obsidianBlack")
 }
 
 @Composable private fun AppSelectionPage(selected: List<String>, update: (List<String>) -> Unit, onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -1132,8 +1170,8 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
     val apps = remember { packageManager.getInstalledApplications(0).sortedBy { it.loadLabel(packageManager).toString() } }
     Column(modifier.statusBarsPadding().fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Row(Modifier.fillMaxWidth().height(68.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回", tint = MaterialTheme.colorScheme.primary) }
-            Text("选择绕过应用", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, T("common.back"), tint = MaterialTheme.colorScheme.primary) }
+            Text(T("apps.bypassTitle"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground)
         }
         LazyColumn(contentPadding = PaddingValues(16.dp)) {
             items(apps, key = { it.packageName }) { app ->
@@ -1149,10 +1187,10 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
 
 @Composable private fun SettingGroup(title: String, content: @Composable () -> Unit) { Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp)) { Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)); Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(14.dp))) { content() } } }
 @Composable private fun SettingRow(title: String, value: String, icon: ImageVector) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) } }
-@Composable private fun SettingAction(title: String, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Text("查看", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) } }
+@Composable private fun SettingAction(title: String, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Text(T("common.view"), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall) } }
 @Composable private fun SettingSwitch(title: String, checked: Boolean, icon: ImageVector, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(21.dp)); Spacer(Modifier.size(14.dp)); Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f)); Switch(checked, { onClick() }) } }
 
-@Composable private fun AddSubscriptionDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) { var url by rememberSaveable { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("添加订阅") }, text = { OutlinedTextField(url, { url = it }, label = { Text("订阅地址") }, singleLine = true) }, confirmButton = { TextButton(onClick = { onConfirm(url.trim()) }, enabled = url.startsWith("http")) { Text("添加") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }) }
+@Composable private fun AddSubscriptionDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) { var url by rememberSaveable { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text(T("sub.add")) }, text = { OutlinedTextField(url, { url = it }, label = { Text(T("sub.url")) }, singleLine = true) }, confirmButton = { TextButton(onClick = { onConfirm(url.trim()) }, enabled = url.startsWith("http")) { Text(T("common.add")) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(T("common.cancel")) } }) }
 
 private fun readClipboard(context: Context): String? { val cm = context.getSystemService(ClipboardManager::class.java) ?: return null; return cm.primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0).coerceToText(context).toString() else null } }
 
@@ -1170,10 +1208,10 @@ private fun readClipboard(context: Context): String? { val cm = context.getSyste
         onDismissRequest = onDismiss,
         title = {
             Text(when (state) {
-                UpdateState.Checking -> "检查更新"
-                is UpdateState.Available -> "发现新版本 ${state.info.version}"
-                is UpdateState.UpToDate -> "已是最新版本"
-                is UpdateState.Failed -> "检查更新失败"
+                UpdateState.Checking -> T("update.title")
+                is UpdateState.Available -> String.format(T("update.available"), state.info.version)
+                is UpdateState.UpToDate -> T("update.upToDate")
+                is UpdateState.Failed -> T("update.failed")
                 else -> ""
             })
         },
@@ -1181,11 +1219,11 @@ private fun readClipboard(context: Context): String? { val cm = context.getSyste
             when (state) {
                 UpdateState.Checking -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                    Text("正在检查…", style = MaterialTheme.typography.bodySmall)
+                    Text(T("update.checkingText"), style = MaterialTheme.typography.bodySmall)
                 }
                 is UpdateState.Available -> Column {
                     Text(
-                        state.info.notes.ifBlank { "前往发布页查看更新内容。" },
+                        state.info.notes.ifBlank { T("update.notesFallback") },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 8,
@@ -1194,35 +1232,35 @@ private fun readClipboard(context: Context): String? { val cm = context.getSyste
                     Spacer(Modifier.height(6.dp))
                     Row(Modifier.fillMaxWidth().clickable { dontRemind = !dontRemind }, verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(dontRemind, { dontRemind = it })
-                        Text("不再自动提醒更新", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text(T("update.dontRemind"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                     }
                 }
-                is UpdateState.UpToDate -> Text("当前版本 ${state.version}，已是最新版本。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                is UpdateState.UpToDate -> Text(String.format(T("update.upToDateText"), state.version), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 is UpdateState.Failed -> Column {
                     Text(state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(token, { token = it }, label = { Text("GitHub 只读令牌（私有仓库）") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(token, { token = it }, label = { Text(T("update.token")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 else -> {}
             }
         },
         confirmButton = {
             when (state) {
-                is UpdateState.Available -> TextButton(onClick = { if (dontRemind) onDontRemind(); onDownload(state.info) }) { Text("去下载", color = MaterialTheme.colorScheme.primary) }
-                is UpdateState.Failed -> TextButton(onClick = { onRetry(token) }) { Text("重试", color = MaterialTheme.colorScheme.primary) }
+                is UpdateState.Available -> TextButton(onClick = { if (dontRemind) onDontRemind(); onDownload(state.info) }) { Text(T("update.download"), color = MaterialTheme.colorScheme.primary) }
+                is UpdateState.Failed -> TextButton(onClick = { onRetry(token) }) { Text(T("common.retry"), color = MaterialTheme.colorScheme.primary) }
                 UpdateState.Checking -> {}
-                else -> TextButton(onClick = onDismiss) { Text("好的", color = MaterialTheme.colorScheme.primary) }
+                else -> TextButton(onClick = onDismiss) { Text(T("common.ok"), color = MaterialTheme.colorScheme.primary) }
             }
         },
         dismissButton = {
-            if (state is UpdateState.Available) TextButton(onClick = { if (dontRemind) onDontRemind(); onDismiss() }) { Text("稍后", color = MaterialTheme.colorScheme.primary) }
-            else if (state is UpdateState.Failed) TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.primary) }
+            if (state is UpdateState.Available) TextButton(onClick = { if (dontRemind) onDontRemind(); onDismiss() }) { Text(T("update.later"), color = MaterialTheme.colorScheme.primary) }
+            else if (state is UpdateState.Failed) TextButton(onClick = onDismiss) { Text(T("common.cancel"), color = MaterialTheme.colorScheme.primary) }
         },
     )
 }
 
-private fun shareNode(context: Context, server: ServerProfile) {
-    shareText(context, "分享节点", ShareLinkParser.encodeV2rayN(server))
+private fun shareNode(context: Context, server: ServerProfile, title: String) {
+    shareText(context, title, ShareLinkParser.encodeV2rayN(server))
 }
 
 private fun shareText(context: Context, title: String, text: String) {

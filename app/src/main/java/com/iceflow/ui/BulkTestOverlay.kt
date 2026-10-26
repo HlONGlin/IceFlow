@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.iceflow.data.model.ServerProfile
+import com.iceflow.i18n.T
 import com.iceflow.ui.theme.IceRadius
 
 @Composable internal fun BulkTestOverlay(state: BulkTestState, dismiss: () -> Unit) {
@@ -29,10 +30,10 @@ import com.iceflow.ui.theme.IceRadius
             Column(Modifier.padding(18.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(if (state.testing) "正在逐个测试节点" else "全部测速完成", style = MaterialTheme.typography.titleMedium)
+                        Text(if (state.testing) T("node.test.testing") else T("node.test.done"), style = MaterialTheme.typography.titleMedium)
                         Text("${state.completed} / ${state.nodes.size}", style = MaterialTheme.typography.bodySmall, color = colors.primary)
                     }
-                    if (!state.testing) IconButton(dismiss) { Icon(Icons.Default.Close, "关闭测速结果", tint = colors.primary) }
+                    if (!state.testing) IconButton(dismiss) { Icon(Icons.Default.Close, T("common.close"), tint = colors.primary) }
                 }
                 if (state.testing) {
                     Spacer(Modifier.height(8.dp))
@@ -67,8 +68,8 @@ import com.iceflow.ui.theme.IceRadius
         }
         when {
             current -> CircularProgressIndicator(Modifier.size(17.dp), color = colors.primary, strokeWidth = 2.dp)
-            result == null -> Text("等待", color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            result < 0 -> Text("超时", color = colors.error, style = MaterialTheme.typography.bodySmall)
+            result == null -> Text(T("node.test.waiting"), color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            result < 0 -> Text(T("latency.timeout"), color = colors.error, style = MaterialTheme.typography.bodySmall)
             else -> Text("${result} ms", color = colors.primary, style = MaterialTheme.typography.bodySmall)
         }
     }
@@ -84,9 +85,9 @@ import com.iceflow.ui.theme.IceRadius
         val onInverse = MaterialTheme.colorScheme.inverseOnSurface
         if (state.testing) CircularProgressIndicator(Modifier.size(15.dp), color = onInverse, strokeWidth = 2.dp)
         Text(
-            if (state.testing) "${state.name}：测速中"
-            else if ((state.latencyMs ?: -1) < 0) "${state.name}：超时"
-            else "${state.name}：${state.latencyMs} ms",
+            if (state.testing) "${state.name}: ${T("latency.testing")}"
+            else if ((state.latencyMs ?: -1) < 0) "${state.name}: ${T("latency.timeout")}"
+            else "${state.name}: ${state.latencyMs} ms",
             style = MaterialTheme.typography.bodySmall,
             color = onInverse,
             maxLines = 1,

@@ -3,6 +3,7 @@ package com.iceflow.data.repository
 import android.content.Context
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.RoutingRules
+import com.iceflow.data.model.AppLanguage
 import com.iceflow.data.model.AppTheme
 import com.iceflow.data.model.NightMode
 import com.iceflow.data.model.TextSize
@@ -83,7 +84,7 @@ class SettingsRepository(context: Context) {
             logRetentionDays = prefs.getInt("log_retention_days", 3),
             appProxyMode = prefs.getBoolean("app_proxy_mode", legacyProxyAppsOnly),
             appRoutingEnabled = prefs.getBoolean("app_routing_enabled", legacyProxyAppsOnly || bypassApps.isNotEmpty()),
-            language = prefs.getString("language", d.language) ?: d.language,
+            language = AppLanguage.fromTag(prefs.getString("language", d.language)).tag,
         )
     }
 

@@ -27,6 +27,9 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Hub
 import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Language
+import com.iceflow.data.model.AppLanguage
+import com.iceflow.i18n.T
+import com.iceflow.i18n.stringsOf
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
@@ -171,12 +174,13 @@ private fun ComboGroup(content: @Composable ColumnScope.() -> Unit) {
 private fun SettingsDetailPage(
     title: String,
     onBack: () -> Unit,
-    actionLabel: String = "完成",
+    actionLabel: String? = null,
     onAction: () -> Unit = onBack,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     // 复用全局主题配色，避免详情页自成一派
     val appColors = MaterialTheme.colorScheme
+    val resolvedActionLabel = actionLabel ?: T("common.done")
     Dialog(
         onDismissRequest = onBack,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -198,9 +202,9 @@ private fun SettingsDetailPage(
                         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 8.dp, end = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconButton(onClick = onBack) { Icon(Icons.Filled.Close, "关闭", tint = MaterialTheme.colorScheme.primary) }
+                        IconButton(onClick = onBack) { Icon(Icons.Filled.Close, T("common.close"), tint = MaterialTheme.colorScheme.primary) }
                         Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                        TextButton(onClick = onAction) { Text(actionLabel, color = MaterialTheme.colorScheme.primary) }
+                        TextButton(onClick = onAction) { Text(resolvedActionLabel, color = MaterialTheme.colorScheme.primary) }
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Column(
@@ -235,7 +239,7 @@ private fun SettingsOptionRow(title: String, selected: Boolean, onClick: () -> U
             Text(title, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             subtitle?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        if (trailing != null) trailing() else if (selected) Icon(Icons.Filled.Check, "已选择", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        if (trailing != null) trailing() else if (selected) Icon(Icons.Filled.Check, T("common.selected"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -246,15 +250,15 @@ private fun SettingsDetailDivider() {
 
 @Composable
 private fun ThemeSettingsPage(current: AppTheme, onBack: () -> Unit, onSelect: (AppTheme) -> Unit) {
-    SettingsDetailPage("主题", onBack) {
-        SettingsDetailSection("选择主题") {
+    SettingsDetailPage(T("settings.theme"), onBack) {
+        SettingsDetailSection(T("settings.themeChoice")) {
             AppTheme.entries.forEachIndexed { index, theme ->
                 val (primary, soft) = com.iceflow.ui.theme.themePreviewColors(theme)
                 SettingsOptionRow(themeLabel(theme), theme == current, { onSelect(theme) }, trailing = {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(28.dp).clip(CircleShape).background(soft))
                         Box(Modifier.size(20.dp).clip(CircleShape).background(primary))
-                        if (theme == current) Icon(Icons.Filled.Check, "已选择", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                         if (theme == current) Icon(Icons.Filled.Check, T("common.selected"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
                 })
                 if (index != AppTheme.entries.lastIndex) SettingsDetailDivider()
@@ -266,7 +270,7 @@ private fun ThemeSettingsPage(current: AppTheme, onBack: () -> Unit, onSelect: (
 @Composable
 private fun ChoiceSettingsPage(title: String, options: List<String>, selected: String, onBack: () -> Unit, onSelect: (String) -> Unit, subtitleFor: (String) -> String? = { null }) {
     SettingsDetailPage(title, onBack) {
-        SettingsDetailSection("选择$title") {
+        SettingsDetailSection(T("settings.choosePrefix") + title) {
             options.forEachIndexed { index, option ->
                 SettingsOptionRow(option, option == selected, { onSelect(option) }, subtitleFor(option))
                 if (index != options.lastIndex) SettingsDetailDivider()
@@ -336,6 +340,14 @@ fun SettingsScreen(
     onCheckUpdate: () -> Unit = {},
     onDetailOpenChange: (Boolean) -> Unit = {},
 ) {
+    val nightHint = T("settings.nightAutoHint")
+    val foreverLabel = T("settings.forever")
+    val daysFormat = T("settings.days")
+    val dnsRequired = T("settings.dnsRequired")
+    val dnsPlaceholder = T("settings.dnsPlaceholder")
+    val nightOptions = NightMode.entries.map { it to T(it.stringKey) }
+    val textSizeOptions = TextSize.entries.map { it to T(it.stringKey) }
+    val routingOptions = RoutingMode.entries.map { it to T(it.stringKey) }
     var port by rememberSaveable { mutableStateOf(settings.socksPort.toString()) }
     var detail by rememberSaveable { mutableStateOf<String?>(null) }
     val portValid = port.toIntOrNull()?.let { it in 1024..65535 } == true
@@ -345,128 +357,138 @@ fun SettingsScreen(
 
     if (detail != null) {
         when (detail) {
+            "language" -> ChoiceSettingsPage(
+                T("settings.languageChoice"),
+                AppLanguage.entries.map { stringsOf(it).get("lang.${it.tag}") },
+                stringsOf(AppLanguage.fromTag(settings.language)).get("lang.${AppLanguage.fromTag(settings.language).tag}"),
+                { detail = null },
+                { label -> AppLanguage.entries.firstOrNull { stringsOf(it).get("lang.${it.tag}") == label }
+                    ?.let { lang -> onUpdate { it.copy(language = lang.tag) } } },
+            )
             "theme" -> ThemeSettingsPage(settings.theme, { detail = null }) { theme -> onUpdate { it.copy(theme = theme) } }
             "nightMode" -> ChoiceSettingsPage(
-                "夜间模式",
-                NightMode.entries.map { it.label },
-                settings.nightMode.label,
+                T("settings.nightMode"),
+                nightOptions.map { it.second },
+                nightOptions.first { it.first == settings.nightMode }.second,
                 { detail = null },
-                { label -> onUpdate { it.copy(nightMode = NightMode.entries.first { mode -> mode.label == label }) } },
-                { label -> if (label == NightMode.AUTO.label) "每天 22:00 至次日 06:00 自动切换" else null },
+                { label -> onUpdate { it.copy(nightMode = nightOptions.first { it.second == label }.first) } },
+                { label -> if (label == nightOptions.first { it.first == NightMode.AUTO }.second) nightHint else null },
             )
             "textSize" -> ChoiceSettingsPage(
-                "文字大小",
-                TextSize.entries.map { it.label },
-                settings.textSize.label,
+                T("settings.textSize"),
+                textSizeOptions.map { it.second },
+                textSizeOptions.first { it.first == settings.textSize }.second,
                 { detail = null },
                 { label ->
-                    onUpdate { it.copy(textSize = TextSize.entries.first { size -> size.label == label }) }
+                    onUpdate { it.copy(textSize = textSizeOptions.first { it.second == label }.first) }
                     detail = null
                 },
             )
             "routing" -> ChoiceSettingsPage(
-                "路由模式", RoutingMode.entries.map { it.label }, settings.routingMode.label,
+                T("settings.routing"), routingOptions.map { it.second }, routingOptions.first { it.first == settings.routingMode }.second,
                 onBack = { detail = null },
                 onSelect = { label ->
-                    RoutingMode.entries.first { it.label == label }.let { mode -> onUpdate { it.copy(routingMode = mode) } }
+                    routingOptions.first { it.second == label }.first.let { mode -> onUpdate { it.copy(routingMode = mode) } }
                 },
             )
             "logRetention" -> ChoiceSettingsPage(
-                "日志保留天数", listOf("永久", "1 天", "3 天", "7 天", "30 天"),
-                if (settings.logRetentionDays == 0) "永久" else "${settings.logRetentionDays} 天",
+                T("settings.logRetention"), listOf(foreverLabel, 1, 3, 7, 30).map { if (it is String) it else String.format(daysFormat, it) },
+                if (settings.logRetentionDays == 0) foreverLabel else String.format(daysFormat, settings.logRetentionDays),
                 onBack = { detail = null },
                 onSelect = { label ->
-                    val days = if (label == "永久") 0 else label.removeSuffix(" 天").toInt()
+                    val days = if (label == foreverLabel) 0 else label.filter(Char::isDigit).toInt()
                     onUpdate { it.copy(logRetentionDays = days) }
                 },
             )
-            "dns" -> TextSettingsPage("远程 DNS", "每行一个 DNS 地址", settings.dnsServers.joinToString("\n"), multiline = true, onBack = { detail = null }, onSave = { text ->
+            "dns" -> TextSettingsPage(T("settings.remoteDns"), dnsPlaceholder, settings.dnsServers.joinToString("\n"), multiline = true, onBack = { detail = null }, onSave = { text ->
                 val values = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
                 runCatching {
-                    require(values.isNotEmpty()) { "至少输入一个 DNS 地址" }
+                    require(values.isNotEmpty()) { dnsRequired }
                     settings.copy(dnsServers = values, remoteDns = values.first()).validate()
                     onUpdate { it.copy(dnsServers = values, remoteDns = values.first()) }
                     detail = null
                 }.exceptionOrNull()?.message
             })
-            "testUrl" -> TextSettingsPage("测速 URL", "HTTP / HTTPS 链接", settings.testUrl, onBack = { detail = null }, onSave = { text ->
+            "testUrl" -> TextSettingsPage(T("settings.testUrl"), T("settings.testUrlPlaceholder"), settings.testUrl, onBack = { detail = null }, onSave = { text ->
                 runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(text) }
                     .onSuccess { valid -> onUpdate { it.copy(testUrl = valid) }; detail = null }
                     .exceptionOrNull()?.message
-            }, help = "用于单节点、批量和启动栏测速，建议选择返回 204 的轻量页面。")
-            "username" -> AuthSettingsPage("用户名", settings.socksUsername, false, { detail = null }) { value -> onUpdate { it.copy(socksUsername = value) }; detail = null }
-            "password" -> AuthSettingsPage("密码", settings.socksPassword, true, { detail = null }) { value -> onUpdate { it.copy(socksPassword = value) }; detail = null }
+            }, help = T("settings.testUrlHelp"))
+            "username" -> AuthSettingsPage(T("settings.username"), settings.socksUsername, false, { detail = null }) { value -> onUpdate { it.copy(socksUsername = value) }; detail = null }
+            "password" -> AuthSettingsPage(T("settings.password"), settings.socksPassword, true, { detail = null }) { value -> onUpdate { it.copy(socksPassword = value) }; detail = null }
             else -> detail = null
         }
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-        Text("设置", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground,
+        Text(T("settings.title"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 20.dp, top = 12.dp, bottom = 4.dp))
 
         // ── 外观 ──────────────────────────────────────────────────────────────────
-        SectionHeader("外观")
+        SectionHeader(T("settings.appearance"))
         SettingsCard {
-            SettingAction(Icons.Outlined.Palette, "主题", themeLabel(settings.theme)) { detail = "theme" }
+            SettingAction(Icons.Outlined.Palette, T("settings.theme"), themeLabel(settings.theme)) { detail = "theme" }
             RowDivider()
-            SettingAction(Icons.Outlined.Brightness4, "夜间模式", settings.nightMode.label) { detail = "nightMode" }
+            SettingAction(Icons.Outlined.Brightness4, T("settings.nightMode"), T(settings.nightMode.stringKey)) { detail = "nightMode" }
             RowDivider()
-            SettingAction(Icons.Outlined.FormatSize, "文字大小", settings.textSize.label) { detail = "textSize" }
+            SettingAction(Icons.Outlined.FormatSize, T("settings.textSize"), T(settings.textSize.stringKey)) { detail = "textSize" }
             RowDivider()
-            SettingRow(icon = Icons.Outlined.Language, title = "语言", trailing = {
-                Text(if (settings.language == "zh-CN") "简体中文" else settings.language, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            })
+            SettingAction(
+                icon = Icons.Outlined.Language,
+                title = T("settings.language"),
+                value = stringsOf(AppLanguage.fromTag(settings.language)).get("lang.${AppLanguage.fromTag(settings.language).tag}"),
+            ) { detail = "language" }
         }
 
         // ── 代理 ──────────────────────────────────────────────────────────────────
-        SectionHeader("代理")
+        SectionHeader(T("settings.proxy"))
         SettingsCard {
-            SettingAction(Icons.AutoMirrored.Outlined.AltRoute, "路由模式", settings.routingMode.label) { detail = "routing" }
+            SettingAction(Icons.AutoMirrored.Outlined.AltRoute, T("settings.routing"), T(settings.routingMode.stringKey)) { detail = "routing" }
             RowDivider()
-            ToggleRow(Icons.Outlined.Hub, "启用 SOCKS5 路由", "允许其他应用使用本地代理", settings.socksEnabled) { v -> onUpdate { it.copy(socksEnabled = v) } }
+            ToggleRow(Icons.Outlined.Hub, T("settings.socks"), T("settings.socksHint"), settings.socksEnabled) { v -> onUpdate { it.copy(socksEnabled = v) } }
             // 端口 + 用户名 + 密码 组合
             ComboGroup {
                 OutlinedTextField(
                     value = port,
                     onValueChange = { port = it.filter(Char::isDigit).take(5); port.toIntOrNull()?.takeIf { p -> p in 1024..65535 }?.let { p -> onUpdate { s -> s.copy(socksPort = p) } } },
-                    label = { Text("本地 SOCKS5 端口", style = MaterialTheme.typography.labelSmall) },
+                    label = { Text(T("settings.socksPort"), style = MaterialTheme.typography.labelSmall) },
                     leadingIcon = { Icon(Icons.Outlined.SettingsEthernet, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(IconSize)) },
                     textStyle = MaterialTheme.typography.bodySmall, isError = !portValid,
-                    supportingText = { if (!portValid) Text("范围 1024–65535", style = MaterialTheme.typography.labelSmall) },
+                    supportingText = { if (!portValid) Text(T("settings.portRange"), style = MaterialTheme.typography.labelSmall) },
                     singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
                 )
                 RowDivider()
-                SettingAction(Icons.Outlined.Person, "用户名", settings.socksUsername.ifBlank { "未设置" }) { detail = "username" }
+                SettingAction(Icons.Outlined.Person, T("settings.username"), settings.socksUsername.ifBlank { T("common.noValue") }) { detail = "username" }
                 RowDivider()
-                SettingAction(Icons.Outlined.Lock, "密码", if (settings.socksPassword.isBlank()) "未设置" else "已设置") { detail = "password" }
+                SettingAction(Icons.Outlined.Lock, T("settings.password"), if (settings.socksPassword.isBlank()) T("common.noValue") else T("common.set")) { detail = "password" }
             }
             // UDP 放最底部
-            ToggleRow(Icons.Outlined.SwapHoriz, "UDP", "允许 UDP 转发", settings.socksUdp) { v -> onUpdate { it.copy(socksUdp = v) } }
+            ToggleRow(Icons.Outlined.SwapHoriz, T("settings.udp"), T("settings.udpHint"), settings.socksUdp) { v -> onUpdate { it.copy(socksUdp = v) } }
         }
 
                 // ── DNS 与网络 ────────────────────────────────────────────────────────────
-        SectionHeader("DNS 与网络")
+        SectionHeader(T("settings.dnsSection"))
         SettingsCard {
-            ToggleRow(Icons.Outlined.Lan, "绕过局域网", "局域网与保留地址直连", settings.bypassLan) { v -> onUpdate { it.copy(bypassLan = v) } }
+            ToggleRow(Icons.Outlined.Lan, T("settings.bypassLan"), T("settings.bypassLanHint"), settings.bypassLan) { v -> onUpdate { it.copy(bypassLan = v) } }
             RowDivider()
-            SettingAction(Icons.Outlined.Dns, "远程 DNS", settings.remoteDns.ifBlank { "未设置" }) { detail = "dns" }
+            SettingAction(Icons.Outlined.Dns, T("settings.remoteDns"), settings.remoteDns.ifBlank { T("common.noValue") }) { detail = "dns" }
             RowDivider()
-            ToggleRow(Icons.Outlined.VpnKey, "DNS 代理", "关闭后 DNS 请求按普通 UDP 跟随路由规则", settings.dnsProxyEnabled) { v -> onUpdate { it.copy(dnsProxyEnabled = v) } }
+            ToggleRow(Icons.Outlined.VpnKey, T("settings.dnsProxy"), T("settings.dnsProxyHint"), settings.dnsProxyEnabled) { v -> onUpdate { it.copy(dnsProxyEnabled = v) } }
             RowDivider()
-            ToggleRow(Icons.Outlined.FilterAlt, "虚拟 DNS（Fake-IP）", "关闭后使用 DNS over TCP", settings.fakeDns) { v -> onUpdate { it.copy(fakeDns = v) } }
+            ToggleRow(Icons.Outlined.FilterAlt, T("settings.fakeDns"), T("settings.fakeDnsHint"), settings.fakeDns) { v -> onUpdate { it.copy(fakeDns = v) } }
             RowDivider()
-            ToggleRow(Icons.Outlined.Public, "启用 IPv6", "允许 IPv6 流量通过代理", settings.ipv6Enabled) { v -> onUpdate { it.copy(ipv6Enabled = v) } }
+            ToggleRow(Icons.Outlined.Public, T("settings.ipv6"), T("settings.ipv6Hint"), settings.ipv6Enabled) { v -> onUpdate { it.copy(ipv6Enabled = v) } }
         }
 
         // ── 应用路由 ──────────────────────────────────────────────────────────────
-        SectionHeader("应用路由")
+        SectionHeader(T("settings.appRouting"))
         SettingsCard {
-            ToggleRow(Icons.Outlined.Apps, "应用路由", "启用所选应用的绕过或代理策略", settings.appRoutingEnabled) { v -> onUpdate { it.copy(appRoutingEnabled = v) } }
+            ToggleRow(Icons.Outlined.Apps, T("settings.appRouting"), T("settings.appRoutingHint"), settings.appRoutingEnabled) { v -> onUpdate { it.copy(appRoutingEnabled = v) } }
             RowDivider()
             // 两个模式：分应用代理 / 允许应用绕过代理
             SegmentedSelector(
-                options = listOf("分应用代理", "允许应用绕过"),
+                options = listOf(T("settings.proxyMode"), T("settings.bypassMode")),
                 selectedIndex = if (settings.appProxyMode) 0 else 1,
                 onSelect = { index ->
                     val proxyOnly = index == 0
@@ -475,53 +497,54 @@ fun SettingsScreen(
                 modifier = Modifier.padding(start = 52.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
             )
             RowDivider()
-            SettingRow(icon = Icons.Outlined.Checklist, title = "选择应用", onClick = onOpenAppSelector, trailing = {
-                Text("${settings.bypassApps.size} 个应用", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SettingRow(icon = Icons.Outlined.Checklist, title = T("settings.pickApps"), onClick = onOpenAppSelector, trailing = {
+                Text(String.format(T("settings.appCount"), settings.bypassApps.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(2.dp))
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
             })
         }
 
         // ── 核心与日志 ────────────────────────────────────────────────────────────
-        SectionHeader("核心与日志")
+        SectionHeader(T("settings.coreSection"))
         SettingsCard {
-            SettingAction(Icons.Outlined.Speed, "测速 URL", settings.testUrl) { detail = "testUrl" }
+            SettingAction(Icons.Outlined.Speed, T("settings.testUrl"), settings.testUrl) { detail = "testUrl" }
             RowDivider()
-            ToggleRow(Icons.Outlined.BarChart, "显示流量统计", "在节点卡片显示累计流量", settings.showTrafficStats) { v -> onUpdate { it.copy(showTrafficStats = v) } }
+            ToggleRow(Icons.Outlined.BarChart, T("settings.showTraffic"), T("settings.showTrafficHint"), settings.showTrafficStats) { v -> onUpdate { it.copy(showTrafficStats = v) } }
             RowDivider()
-            ToggleRow(Icons.Outlined.Speed, "显示节点延迟", "在节点卡片显示延迟；未测速的节点不显示", settings.showNodeLatency) { v -> onUpdate { it.copy(showNodeLatency = v) } }
+            ToggleRow(Icons.Outlined.Speed, T("settings.showLatency"), T("settings.showLatencyHint"), settings.showNodeLatency) { v -> onUpdate { it.copy(showNodeLatency = v) } }
             RowDivider()
-            SettingAction(Icons.Outlined.History, "日志保留天数", if (settings.logRetentionDays == 0) "永久" else "${settings.logRetentionDays} 天") { detail = "logRetention" }
+            SettingAction(Icons.Outlined.History, T("settings.logRetention"), if (settings.logRetentionDays == 0) T("settings.forever") else String.format(T("settings.days"), settings.logRetentionDays)) { detail = "logRetention" }
             RowDivider()
-            SettingRow(icon = Icons.AutoMirrored.Outlined.Article, title = "查看运行日志", onClick = onOpenLogs, trailing = {
+            SettingRow(icon = Icons.AutoMirrored.Outlined.Article, title = T("settings.viewLogs"), onClick = onOpenLogs, trailing = {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
             })
         }
 
         // ── 关于 ──────────────────────────────────────────────────────────────────
-        SectionHeader("数据")
+        SectionHeader(T("settings.dataSection"))
         SettingsCard {
-            SettingAction(Icons.Outlined.Save, "备份与恢复", "节点、订阅、路由规则和设置") { onOpenBackup() }
+            SettingAction(Icons.Outlined.Save, T("settings.backup"), T("settings.backupHint")) { onOpenBackup() }
         }
 
-        SectionHeader("关于")
+        SectionHeader(T("settings.aboutSection"))
         SettingsCard {
-            SettingRow(title = "IceFlow", subtitle = "点按检查更新", onClick = onCheckUpdate, trailing = {
+            SettingRow(title = "IceFlow", subtitle = T("settings.checkUpdate"), onClick = onCheckUpdate, trailing = {
                 Text(appVersion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             })
             RowDivider()
-            InfoRow("xray-core", xrayVersion ?: "未集成")
+            InfoRow("xray-core", xrayVersion ?: T("settings.notIntegrated"))
             RowDivider()
-            InfoRow("Rust 核心", coreVersion ?: "未集成")
+            InfoRow(T("settings.rustCore"), coreVersion ?: T("settings.notIntegrated"))
         }
     }
 
 }
 
+@Composable
 private fun themeLabel(theme: AppTheme): String = when (theme) {
-    AppTheme.LIGHT_BLUE -> "浅蓝"
-    AppTheme.MINT_GREEN -> "薄荷绿"
-    AppTheme.SAKURA_PINK -> "樱花粉"
-    AppTheme.PEACH_ORANGE -> "蜜桃橙"
-    AppTheme.OBSIDIAN_BLACK -> "曜石黑"
+    AppTheme.LIGHT_BLUE -> T("theme.lightBlue")
+    AppTheme.MINT_GREEN -> T("theme.mintGreen")
+    AppTheme.SAKURA_PINK -> T("theme.sakuraPink")
+    AppTheme.PEACH_ORANGE -> T("theme.peachOrange")
+    AppTheme.OBSIDIAN_BLACK -> T("theme.obsidianBlack")
 }
