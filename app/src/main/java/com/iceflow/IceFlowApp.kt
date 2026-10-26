@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import com.iceflow.data.repository.ServerRepository
 import com.iceflow.data.repository.SettingsRepository
+import com.iceflow.data.repository.UpdatePreferences
 import com.iceflow.service.IceFlowVpnService
 import com.iceflow.service.SubscriptionScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,7 @@ import java.io.File
 class AppContainer(context: Context) {
     val servers = ServerRepository(File(context.filesDir, "servers.json"))
     val settings = SettingsRepository(context)
+    val updates = UpdatePreferences(context)
     val routingResources = com.iceflow.data.repository.RoutingResources(context)
 }
 

@@ -70,7 +70,7 @@ fun BackupPage(export: suspend () -> String, restore: suspend (String) -> Unit, 
             Text("备份与恢复", style = MaterialTheme.typography.titleMedium)
         }
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("备份包含节点密码、订阅链接、分组、路由规则和设置，请妥善保存。", style = MaterialTheme.typography.bodyMedium)
+            Text("备份包含节点密码、订阅链接、分组、路由规则、应用路由选择的应用和设置，请妥善保存。", style = MaterialTheme.typography.bodyMedium)
             Button(onClick = { save.launch("IceFlow-backup.json") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.FileDownload, null); Spacer(Modifier.width(8.dp)); Text("导出备份")
             }
@@ -85,7 +85,7 @@ fun BackupPage(export: suspend () -> String, restore: suspend (String) -> Unit, 
         AlertDialog(
             onDismissRequest = { if (!busy) pending = null },
             title = { Text("恢复备份？") },
-            text = { Text("将恢复 ${backup.store.servers.size} 个节点、${backup.store.subscriptions.size} 个订阅，替换当前数据及设置，并断开当前 VPN。") },
+            text = { Text("将恢复 ${backup.store.servers.size} 个节点、${backup.store.subscriptions.size} 个订阅、${backup.settings.bypassApps.size} 个应用路由选择，替换当前数据及设置，并断开当前 VPN。未安装的应用会自动跳过。") },
             confirmButton = { TextButton(enabled = !busy, onClick = {
                 scope.launch {
                     busy = true

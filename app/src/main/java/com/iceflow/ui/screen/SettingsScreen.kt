@@ -333,6 +333,7 @@ fun SettingsScreen(
     onOpenLogs: () -> Unit = {},
     onOpenBackup: () -> Unit = {},
     onOpenAppSelector: () -> Unit = {},
+    onCheckUpdate: () -> Unit = {},
     onDetailOpenChange: (Boolean) -> Unit = {},
 ) {
     var port by rememberSaveable { mutableStateOf(settings.socksPort.toString()) }
@@ -505,7 +506,9 @@ fun SettingsScreen(
 
         SectionHeader("关于")
         SettingsCard {
-            InfoRow("IceFlow", appVersion)
+            SettingRow(title = "IceFlow", subtitle = "点按检查更新", onClick = onCheckUpdate, trailing = {
+                Text(appVersion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            })
             RowDivider()
             InfoRow("xray-core", xrayVersion ?: "未集成")
             RowDivider()

@@ -185,19 +185,26 @@ class IceFlowTileService : TileService() {
             VpnState.Stopping -> "断开中"
             else -> "已断开"
         }
-        // 已连接时用实际在用的节点名（连接过程中切换过节点也能对上），
-        // 未连接时用当前选中的节点，用户在磁贴上就能看到会连到哪台。
-        val nodeName = (state as? VpnState.Connected)?.serverName?.takeIf { it.isNotBlank() }
-            ?: selectedName?.takeIf { it.isNotBlank() }
+        // 只有磁贴处于「启用」状态时才展示节点名：已连接用实际在用的节点，
+        // 连接中/等待网络用当前选中的节点。关闭（已断开/断开中）时不显示，
+        // 让副标题恢复为空，避免关掉后仍残留节点信息。
+        val showNode = state !is VpnState.Idle && state !is VpnState.Stopping
+        val nodeName = if (showNode) {
+            (state as? VpnState.Connected)?.serverName?.takeIf { it.isNotBlank() }
+                ?: selectedName?.takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
         tile.state = if (connected) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.icon = Icon.createWithResource(this, iconFor(state))
         tile.contentDescription = if (nodeName != null) "IceFlow · $status · $nodeName" else "IceFlow · $status"
+        // 节点名同时写进 label 和 subtitle：label 是各版本 SystemUI 都会显示在图标下方的
+        // 主文案，部分国产 ROM 不渲染第三方磁贴的 subtitle，只靠 subtitle 会看不到节点。
+        // 关闭状态下 label 恢复应用名、subtitle 清空，磁贴下方不再残留节点信息。
+        val shortNode = nodeName?.let { if (it.length > 12) it.take(11) + "…" else it }
+        tile.label = shortNode ?: getString(R.string.app_name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // 副标题优先显示节点名，节点名过长时截断，避免磁贴排版被撑破。
-            tile.subtitle = nodeName?.let { if (it.length > 18) it.take(17) + "…" else it } ?: status
-        } else {
-            // Android 9 及以下没有 subtitle，改用 label 承载节点名，否则用户看不到。
-            tile.label = nodeName?.let { if (it.length > 14) it.take(13) + "…" else it } ?: getString(R.string.app_name)
+            tile.subtitle = if (shortNode != null) status else ""
         }
         tile.updateTile()
     }

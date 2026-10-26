@@ -15,13 +15,12 @@ OUT = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "res", "drawable")
 )
 
-# ---- 配色：白 + 浅蓝 ----
-WHITE = "#FFFFFFFF"          # 雪花高光 / 纯白
-SNOW_LO = "#FFFFFFFF"        # 雪花渐变起点（白）
-SNOW_HI = "#FFCDEBFF"        # 雪花渐变终点（浅蓝）
-ICE = "#FF4FB2EE"            # 水流弧主色（蓝，在浅蓝底上保证对比度）
-BG_LO = "#FFEAF7FF"          # 背景渐变起点（极浅蓝）
-BG_HI = "#FF7EC8F3"          # 背景渐变终点（浅蓝）
+# ---- 配色：白底 + 深蓝主色 + 橙色点缀 ----
+WHITE = "#FFFFFFFF"          # 纯白
+DEEP_BLUE = "#FF1E3A8A"      # 深蓝（主色，圆环）
+LIGHT_BLUE = "#FF3B82F6"     # 亮蓝（流线）
+ORANGE = "#FFFF6B35"         # 活力橙（高光点、强调）
+BG_WHITE = "#FFFFFFFF"       # 白色背景
 TILE_ON = "#FFFFFFFF"        # 磁贴·已连接（实心白）
 
 # 磁贴水流动画的帧数（等分一周）
@@ -120,37 +119,25 @@ def snow_grad_path(indent="        "):
 
 
 def launcher_background():
-    """启动图标背景：白 → 浅蓝的对角渐变。"""
+    """启动图标背景：纯白色。"""
     return f'''<?xml version="1.0" encoding="utf-8"?>
-<!-- 启动图标背景：白 → 浅蓝渐变 -->
+<!-- 启动图标背景：纯白色 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M0,0h108v108h-108z">
-        <aapt:attr xmlns:aapt="http://schemas.android.com/aapt" name="android:fillColor">
-            <gradient
-                android:type="linear"
-                android:startX="0"
-                android:startY="0"
-                android:endX="108"
-                android:endY="108">
-                <item android:offset="0" android:color="{BG_LO}" />
-                <item android:offset="0.5" android:color="#FFBCE4FA" />
-                <item android:offset="1" android:color="{BG_HI}" />
-            </gradient>
-        </aapt:attr>
-    </path>
+    <path
+        android:fillColor="{BG_WHITE}"
+        android:pathData="M0,0h108v108h-108z" />
 </vector>
 '''
 
 
 def launcher_foreground():
-    """启动图标前景：白色雪花 + 蓝色水流弧（浅蓝底上的流动）。"""
-    arcs = strokes_xml(flow_arcs(), ICE, 1.5, "        ")
+    """启动图标前景：字母 F 艺术设计 - 深蓝主体 + 对称亮蓝流线 + 橙色右向箭头。"""
     return f'''<?xml version="1.0" encoding="utf-8"?>
-<!-- 启动图标前景：白色雪花 + 蓝色水流弧 -->
+<!-- 启动图标前景：字母 F 艺术设计 - 深蓝主体 + 对称亮蓝流线 + 橙色右向箭头 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -161,13 +148,30 @@ def launcher_foreground():
         android:scaleY="2.6"
         android:translateX="22.8"
         android:translateY="22.8">
-{arcs}
-{snow_group(0.95, "        ")}
-{snow_grad_path("            ")}
-        </group>
+        <!-- 深蓝 F 字母主体 -->
+        <path
+            android:strokeColor="{DEEP_BLUE}"
+            android:strokeWidth="2.6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000"
+            android:pathData="M 6,4 L 6,20 M 6,4 L 17,4 M 6,11.5 L 14,11.5" />
+        <!-- 亮蓝流线（上下对称，保持平衡） -->
+        <path
+            android:strokeColor="{LIGHT_BLUE}"
+            android:strokeWidth="1.6"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000"
+            android:alpha="0.85"
+            android:pathData="M 8.5,6 L 15,6 M 8.5,13.5 L 12,13.5" />
+        <!-- 橙色三角箭头：位于 F 左上角顶点，指向右 -->
+        <path
+            android:fillColor="{ORANGE}"
+            android:pathData="M 6,3 L 9,4.5 L 6,6 Z" />
     </group>
 </vector>
 '''
+
 
 
 def launcher_monochrome():
@@ -213,68 +217,132 @@ def _mark(arc_color, flake_fill, flake_stroke=None, indent="        "):
 
 
 def tile_default():
-    """磁贴·默认：与应用图标同款标记（雪花 + 水流弧）。"""
+    """磁贴·默认：深蓝 F 字母 + 亮蓝流线。"""
     return f'''<?xml version="1.0" encoding="utf-8"?>
-<!-- 磁贴·默认：与应用图标同款，雪花 + 水流弧 -->
+<!-- 磁贴·默认：深蓝 F 字母 + 亮蓝流线 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-{_mark(ICE, WHITE, ICE)}
+    <!-- 深蓝 F 主体 -->
+    <path
+        android:strokeColor="{DEEP_BLUE}"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 6,4 L 6,20 M 6,4 L 17,4 M 6,11.5 L 14,11.5" />
+    <!-- 亮蓝流线 -->
+    <path
+        android:strokeColor="{LIGHT_BLUE}"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:alpha="0.85"
+        android:pathData="M 8.5,6 L 15,6 M 8.5,13.5 L 12,13.5" />
 </vector>
 '''
 
 
 
 def tile_active():
-    """磁贴·已连接：实心白色，状态明确。"""
+    """磁贴·已连接：白色 F 字母 + 流线。"""
     return f'''<?xml version="1.0" encoding="utf-8"?>
-<!-- 磁贴·已连接：实心雪花 + 白色水流弧 -->
+<!-- 磁贴·已连接：白色 F 字母 + 流线 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-{_mark(TILE_ON, TILE_ON)}
+    <!-- 白色 F 主体 -->
+    <path
+        android:strokeColor="{TILE_ON}"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 6,4 L 6,20 M 6,4 L 17,4 M 6,11.5 L 14,11.5" />
+    <!-- 白色流线 -->
+    <path
+        android:strokeColor="{TILE_ON}"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:alpha="0.75"
+        android:pathData="M 8.5,6 L 15,6 M 8.5,13.5 L 12,13.5" />
 </vector>
 '''
 
 
-def tile_flow_frame(angle):
-    """磁贴·水流动画的一帧：高光珠沿水流弧滑动到 angle 度。
+def tile_flow_frame(frame_index):
+    """磁贴·水流动画的一帧：橙色三角箭头沿 F 字母笔画运动。
 
-    水流弧本身是三等分对称的，整体旋转看不出来，所以让不对称的高光珠
-    绕圆心旋转，才能明确表达「在流动」。磁贴图标由 SystemUI 绘制，
-    animated-vector 在那边不会真的跑动画，所以改成切帧 + updateTile()。
+    动画路径（12 帧）：从 F 的左上角顶点出发，沿笔画顺序运动：
+    - 起点：F 左上角 (6,4)
+    - 上横笔：从左向右 (6,4) → (17,4)
+    - 右端向下：转向左竖笔
+    - 左竖笔：向下 (6,4) → (6,20)
+    - 中横笔：从左向右 (6,11.5) → (14,11.5)
+    箭头的朝向跟随当前运动方向（右、下）。
     """
-    arcs = strokes_xml(flow_arcs(), ICE, 1.5, "        ")
-    comet = f"""    <group
-        android:name="comet"
-        android:pivotX="12"
-        android:pivotY="12"
-        android:rotation="{angle}">
-        <path
-            android:fillColor="#CCFFFFFF"
-            android:pathData="M10.55,1.28 L11.85,0.62 L12.62,1.72 Z" />
-        <path
-            android:fillColor="#FFFFFFFF"
-            android:pathData="M12.0,0.15 a0.95,0.95 0 1,0 0.01,0 z" />
-    </group>
-"""
+    # F 的笔画路径关键点：
+    # 左竖笔：(6, 4) → (6, 20)
+    # 上横笔：(6, 4) → (17, 4)
+    # 中横笔：(6, 11.5) → (14, 11.5)
+
+    # 每一帧的箭头路径（三角形）+ 注释
+    # 箭头格式：尖端在前，底边在后
+    arrows = [
+        # 帧 0: 起点 - F 左上角，箭头向右
+        "M 6,3 L 9,4.5 L 6,6 Z",
+        # 帧 1-4: 上横笔，箭头向右移动
+        "M 8,3 L 11,4.5 L 8,6 Z",
+        "M 10.5,3 L 13.5,4.5 L 10.5,6 Z",
+        "M 13,3 L 16,4.5 L 13,6 Z",
+        "M 15.5,3 L 18.5,4.5 L 15.5,6 Z",
+        # 帧 5: 上横笔末端，准备转向
+        "M 17,4.5 L 18.5,7.5 L 15.5,7.5 Z",
+        # 帧 6-8: 左竖笔上段，箭头向下
+        "M 4.5,7 L 6,10 L 7.5,7 Z",
+        "M 4.5,10 L 6,13 L 7.5,10 Z",
+        "M 4.5,13 L 6,16 L 7.5,13 Z",
+        # 帧 9: 中横笔起点，箭头转向右
+        "M 6,10.5 L 9,12 L 6,13.5 Z",
+        # 帧 10-11: 中横笔，箭头向右
+        "M 9,10.5 L 12,12 L 9,13.5 Z",
+        "M 12,10.5 L 15,12 L 12,13.5 Z",
+    ]
+
+    arrow_path = arrows[frame_index % len(arrows)]
+
     return f'''<?xml version="1.0" encoding="utf-8"?>
-<!-- 磁贴·水流帧：高光珠沿水流弧滑动 -->
+<!-- 磁贴·水流帧 {frame_index:02d}：橙色箭头沿 F 笔画运动 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <group>
-{arcs}
-    </group>
-{comet}{snow_group(0.44, "    ")}
-{snow_fill_path(WHITE)}
-    </group>
+    <!-- 深蓝 F 主体 -->
+    <path
+        android:strokeColor="{DEEP_BLUE}"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M 6,4 L 6,20 M 6,4 L 17,4 M 6,11.5 L 14,11.5" />
+    <!-- 亮蓝流线（上下对称） -->
+    <path
+        android:strokeColor="{LIGHT_BLUE}"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:alpha="0.85"
+        android:pathData="M 8.5,6 L 15,6 M 8.5,13.5 L 12,13.5" />
+    <!-- 橙色三角箭头 -->
+    <path
+        android:fillColor="{ORANGE}"
+        android:pathData="{arrow_path}" />
 </vector>
 '''
 
@@ -301,6 +369,6 @@ if __name__ == "__main__":
     write("ic_notification.xml", notification())
     write("ic_tile.xml", tile_default())
     write("ic_tile_active.xml", tile_active())
-    # 水流动画：12 帧等分一周，由磁贴服务按帧率切换
+    # 水流动画：12 帧沿 F 字母路径滑动
     for i in range(TILE_FLOW_FRAMES):
-        write(f"ic_tile_flow_{i:02d}.xml", tile_flow_frame(i * 360 // TILE_FLOW_FRAMES))
+        write(f"ic_tile_flow_{i:02d}.xml", tile_flow_frame(i))

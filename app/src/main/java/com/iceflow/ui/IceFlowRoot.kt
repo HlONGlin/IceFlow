@@ -3,6 +3,7 @@ package com.iceflow.ui
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
@@ -112,11 +113,13 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.LocalGroup
+import com.iceflow.data.model.NodeGroup
 import com.iceflow.data.model.GroupConfiguration
 import com.iceflow.data.model.GroupSort
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.ShareLinkParser
+import com.iceflow.data.UpdateInfo
 import com.iceflow.service.AppLog
 import com.iceflow.service.TrafficSnapshot
 import com.iceflow.service.VpnController
@@ -139,6 +142,9 @@ private enum class Tab(val title: String, val icon: ImageVector) {
     HOME("节点", Icons.Filled.Home), SUBS("分组", Icons.Filled.Refresh), ROUTES("路由", Icons.Filled.List), SETTINGS("设置", Icons.Filled.Settings)
 }
 
+/** 未分组节点在工作台中的虚拟分组，不参与分组管理与排序持久化。 */
+private val UngroupedGroup = NodeGroup("builtin:ungrouped", null, "未分组")
+
 @Composable
 fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val context = LocalContext.current
@@ -156,6 +162,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     val connectionTest by vm.connectionTest.collectAsStateWithLifecycle()
     val nodeTest by vm.nodeTest.collectAsStateWithLifecycle()
     val bulkTest by vm.bulkTest.collectAsStateWithLifecycle()
+    val updateState by vm.updateState.collectAsStateWithLifecycle()
     val dismissBulkTest = vm::dismissBulkTest
     LaunchedEffect(vm) { vm.messages.collect { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() } }
     val publicIp by vm.publicIp.collectAsStateWithLifecycle()
@@ -227,8 +234,8 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context)) }, vm::importText, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency)
-                        Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
+                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency)
+                        Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, vm::createGroupFromUngrouped, vm::deleteUngroupedServers, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
                             xrayVersion = XrayBridge.version(),
@@ -238,6 +245,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                             onOpenLogs = { vm.cleanOldLogs(); logsOpen = true },
                             onOpenBackup = { backupOpen = true },
                             onOpenAppSelector = { appsOpen = true },
+                            onCheckUpdate = { vm.checkForUpdate(manual = true) },
                             onDetailOpenChange = { settingsDetailOpen = it },
                         )
                         Tab.ROUTES -> RoutingPage(settings, vm::updateSettings, vm.routingResources, { groupSettingsOpen = it })
@@ -272,6 +280,20 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
                 onDismiss = { shareNodeId = null }
             )
         }
+
+        UpdateDialog(
+            state = updateState,
+            onDismiss = vm::dismissUpdate,
+            onRetry = { token -> vm.setUpdateToken(token); vm.checkForUpdate(manual = true) },
+            onDontRemind = { vm.setAutoRemind(false) },
+            onDownload = { info ->
+                val target = info.downloadUrl?.takeIf { it.isNotBlank() } ?: info.pageUrl
+                if (target.isNotBlank()) runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                }
+                vm.dismissUpdate()
+            },
+        )
 
     LaunchedEffect(state) {
         if (state is VpnState.Connected) {
@@ -365,18 +387,9 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 }
             }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text("搜索节点名称或地址") }, singleLine = true, shape = RoundedCornerShape(12.dp))
-            val visibleGroups = store.orderedGroups
-            if (visibleGroups.isEmpty()) {
-                val ungroupedNodes = visibleNodes(null)
-                if (ungroupedNodes.isEmpty()) {
-                    EmptyStateMessage("暂无分组或节点。可在分组页点 + 创建分组，或在节点页点 + 导入节点。", Modifier.weight(1f))
-                } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = if (running) 112.dp else 80.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    item { Text("未分组节点", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp)) }
-                    items(ungroupedNodes, key = { it.id }) { server ->
-                        NodeRow(server, store.localGroups, server.id == store.selectedId, { onSelect(server.id) }, { if (!testing) onTestOne(server) }, { onDelete(server.id) }, { onMove(server.id, it) }, { onShare(server) }, { onUpdate(server.copy(name = it)) }, { onEditNode(server) }, showTrafficStats = showTrafficStats, showNodeLatency = showNodeLatency)
-                    }
-                }
-            } else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
+            val visibleGroups = if (visibleNodes(null, "").isEmpty()) store.orderedGroups else listOf(UngroupedGroup) + store.orderedGroups
+            if (visibleGroups.isEmpty()) EmptyStateMessage("暂无分组或节点。可在分组页点 + 创建分组，或在节点页点 + 导入节点。", Modifier.weight(1f))
+            else GroupPager(visibleGroups, groupId?.takeIf { id -> visibleGroups.any { it.key == id } }, onSelectGroup, Modifier.weight(1f)) { group ->
                 val sorting = sortingKey == group.key
                 val nodes = if (sorting) visibleNodes(group.id, "") else visibleNodes(group.id)
                 if (sorting) Column(Modifier.fillMaxSize()) {
@@ -553,11 +566,14 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     if (edit) AlertDialog(onDismissRequest = { edit = false }, title = { Text("编辑节点") }, text = { OutlinedTextField(name, { name = it }, label = { Text("节点名称") }, singleLine = true) }, confirmButton = { TextButton(onClick = { edit = false; onRename(name.trim()) }, enabled = name.isNotBlank()) { Text("保存") } }, dismissButton = { TextButton(onClick = { edit = false }) { Text("取消") } })
 }
 
-@Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, refreshGroup: (String) -> Unit, refreshingGroups: Set<String>, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit, subscriptionLoad: SubscriptionLoadState = SubscriptionLoadState.Idle, onPreviewSubscription: (url: String, name: String) -> Unit = { _, _ -> }, onCommitPreview: (groupId: String) -> Unit = {}, onDismissPreview: () -> Unit = {}) {
+@Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, refreshGroup: (String) -> Unit, refreshingGroups: Set<String>, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit, createGroupFromUngrouped: (String) -> Unit = {}, deleteUngrouped: () -> Unit = {}, subscriptionLoad: SubscriptionLoadState = SubscriptionLoadState.Idle, onPreviewSubscription: (url: String, name: String) -> Unit = { _, _ -> }, onCommitPreview: (groupId: String) -> Unit = {}, onDismissPreview: () -> Unit = {}) {
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingConfigId by remember { mutableStateOf<String?>(null) }
     var deletingId by rememberSaveable { mutableStateOf<String?>(null) }
+    var ungroupedEditOpen by rememberSaveable { mutableStateOf(false) }
+    var ungroupedDeleteOpen by rememberSaveable { mutableStateOf(false) }
+    var ungroupedName by rememberSaveable { mutableStateOf("未分组节点") }
     DisposableEffect(settingsOpen) {
         onEditingChange(settingsOpen)
         onDispose { onEditingChange(false) }
@@ -594,20 +610,40 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 }
                 IconButton(onClick = { edit(null) }) { Icon(Icons.Filled.Add, "新增分组", tint = MaterialTheme.colorScheme.primary) }
             }
-            if (store.orderedGroups.isEmpty()) {
+            if (store.orderedGroups.isEmpty() && store.servers.none { it.subscriptionId == null && it.groupId == null }) {
                 EmptyStateMessage("暂无分组。点右上角 + 创建分组；也可到节点页点 + 导入节点。", Modifier.weight(1f))
-            } else ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
-                val sub = store.subscriptions.firstOrNull { it.id == group.id }
-                val tags = when {
-                    sub != null -> buildList {
-                        add("${store.servers.count { it.subscriptionId == sub.id }} 节点")
-                        add(dateText(sub.updatedAt))
-                        add(if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时")
+            } else {
+                Column(Modifier.weight(1f)) {
+                    val ungroupedCount = store.servers.count { it.subscriptionId == null && it.groupId == null }
+                    if (ungroupedCount > 0) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                            GroupCard(
+                                title = "${UngroupedGroup.name}节点",
+                                tags = listOf("$ungroupedCount 节点", "可整理或删除"),
+                                selected = selectedId == null,
+                                onEdit = { ungroupedName = "未分组节点"; ungroupedEditOpen = true },
+                                onDelete = { ungroupedDeleteOpen = true },
+                                handle = Modifier,
+                                showHandle = false,
+                            ) { onSelect(null) }
+                        }
                     }
-                    group.id != null -> listOf("${store.servers.count { it.groupId == group.id }} 节点", "本地分组")
-                    else -> listOf("${store.servers.count { it.subscriptionId == null && it.groupId == null }} 节点", "未分组")
+                    if (store.orderedGroups.isNotEmpty()) {
+                        ReorderableGroupList(store.orderedGroups, onReorder, Modifier.weight(1f)) { group, handle ->
+                            val sub = store.subscriptions.firstOrNull { it.id == group.id }
+                            val tags = when {
+                                sub != null -> buildList {
+                                    add("${store.servers.count { it.subscriptionId == sub.id }} 节点")
+                                    add(dateText(sub.updatedAt))
+                                    add(if (sub.updateIntervalHours <= 0) "不自动更新" else "每 ${sub.updateIntervalHours} 小时")
+                                }
+                                group.id != null -> listOf("${store.servers.count { it.groupId == group.id }} 节点", "本地分组")
+                                else -> listOf("${store.servers.count { it.subscriptionId == null && it.groupId == null }} 节点", "未分组")
+                            }
+                            GroupCard(group.name, tags, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle, onRefresh = if (sub != null) ({ refreshGroup(group.id!!) }) else null, refreshing = group.id in refreshingGroups) { onSelect(group.id) }
+                        }
+                    }
                 }
-                GroupCard(group.name, tags, false, if (group.id == null) null else ({ edit(group.id) }), if (group.id == null) null else ({ deletingId = group.id }), handle, onRefresh = if (sub != null) ({ refreshGroup(group.id!!) }) else null, refreshing = group.id in refreshingGroups) { onSelect(group.id) }
             }
         }
     }
@@ -669,6 +705,40 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             if (editingId == id) settingsOpen = false
             deletingId = null
         }) { Text("删除", color = MaterialTheme.colorScheme.error) } }, dismissButton = { TextButton(onClick = { deletingId = null }) { Text("取消", color = MaterialTheme.colorScheme.primary) } })
+    }
+
+    if (ungroupedEditOpen) {
+        AlertDialog(
+            onDismissRequest = { ungroupedEditOpen = false },
+            title = { Text("整理未分组节点") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("将把所有未分组节点移入一个新的本地分组。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(ungroupedName, { ungroupedName = it }, label = { Text("分组名称") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { createGroupFromUngrouped(ungroupedName.trim()); ungroupedEditOpen = false },
+                    enabled = ungroupedName.isNotBlank(),
+                ) { Text("创建", color = MaterialTheme.colorScheme.primary) }
+            },
+            dismissButton = { TextButton(onClick = { ungroupedEditOpen = false }) { Text("取消", color = MaterialTheme.colorScheme.primary) } },
+        )
+    }
+
+    if (ungroupedDeleteOpen) {
+        AlertDialog(
+            onDismissRequest = { ungroupedDeleteOpen = false },
+            title = { Text("删除未分组节点？") },
+            text = { Text("将删除所有未分组节点，且无法恢复。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            confirmButton = {
+                TextButton(onClick = { deleteUngrouped(); ungroupedDeleteOpen = false }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { ungroupedDeleteOpen = false }) { Text("取消", color = MaterialTheme.colorScheme.primary) } },
+        )
     }
 }
 
@@ -806,6 +876,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     onEdit: (() -> Unit)?,
     onDelete: (() -> Unit)?,
     handle: Modifier,
+    showHandle: Boolean = true,
     onRefresh: (() -> Unit)? = null,
     refreshing: Boolean = false,
     onClick: () -> Unit,
@@ -822,14 +893,16 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         )
         Column(Modifier.padding(start = 16.dp, top = 14.dp, end = 8.dp, bottom = 14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(handle, contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Filled.List, "长按拖动$title 排序",
-                        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp),
-                    )
+                if (showHandle) {
+                    Box(handle, contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.List, "长按拖动$title 排序",
+                            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Spacer(Modifier.size(10.dp))
                 }
-                Spacer(Modifier.size(10.dp))
                 Text(
                     title,
                     style = MaterialTheme.typography.titleSmall,
@@ -1082,6 +1155,71 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
 @Composable private fun AddSubscriptionDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) { var url by rememberSaveable { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text("添加订阅") }, text = { OutlinedTextField(url, { url = it }, label = { Text("订阅地址") }, singleLine = true) }, confirmButton = { TextButton(onClick = { onConfirm(url.trim()) }, enabled = url.startsWith("http")) { Text("添加") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }) }
 
 private fun readClipboard(context: Context): String? { val cm = context.getSystemService(ClipboardManager::class.java) ?: return null; return cm.primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0).coerceToText(context).toString() else null } }
+
+@Composable private fun UpdateDialog(
+    state: UpdateState,
+    onDismiss: () -> Unit,
+    onRetry: (String) -> Unit,
+    onDontRemind: () -> Unit,
+    onDownload: (UpdateInfo) -> Unit,
+) {
+    if (state is UpdateState.Idle) return
+    var dontRemind by remember(state) { mutableStateOf(false) }
+    var token by remember(state) { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(when (state) {
+                UpdateState.Checking -> "检查更新"
+                is UpdateState.Available -> "发现新版本 ${state.info.version}"
+                is UpdateState.UpToDate -> "已是最新版本"
+                is UpdateState.Failed -> "检查更新失败"
+                else -> ""
+            })
+        },
+        text = {
+            when (state) {
+                UpdateState.Checking -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Text("正在检查…", style = MaterialTheme.typography.bodySmall)
+                }
+                is UpdateState.Available -> Column {
+                    Text(
+                        state.info.notes.ifBlank { "前往发布页查看更新内容。" },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 8,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Row(Modifier.fillMaxWidth().clickable { dontRemind = !dontRemind }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(dontRemind, { dontRemind = it })
+                        Text("不再自动提醒更新", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                }
+                is UpdateState.UpToDate -> Text("当前版本 ${state.version}，已是最新版本。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                is UpdateState.Failed -> Column {
+                    Text(state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(token, { token = it }, label = { Text("GitHub 只读令牌（私有仓库）") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                }
+                else -> {}
+            }
+        },
+        confirmButton = {
+            when (state) {
+                is UpdateState.Available -> TextButton(onClick = { if (dontRemind) onDontRemind(); onDownload(state.info) }) { Text("去下载", color = MaterialTheme.colorScheme.primary) }
+                is UpdateState.Failed -> TextButton(onClick = { onRetry(token) }) { Text("重试", color = MaterialTheme.colorScheme.primary) }
+                UpdateState.Checking -> {}
+                else -> TextButton(onClick = onDismiss) { Text("好的", color = MaterialTheme.colorScheme.primary) }
+            }
+        },
+        dismissButton = {
+            if (state is UpdateState.Available) TextButton(onClick = { if (dontRemind) onDontRemind(); onDismiss() }) { Text("稍后", color = MaterialTheme.colorScheme.primary) }
+            else if (state is UpdateState.Failed) TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.primary) }
+        },
+    )
+}
 
 private fun shareNode(context: Context, server: ServerProfile) {
     shareText(context, "分享节点", ShareLinkParser.encodeV2rayN(server))

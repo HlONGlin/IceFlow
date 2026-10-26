@@ -61,6 +61,14 @@ $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH"
 
 ## 测试
 
+## 自动更新与私有仓库
+
+应用启动后会静默检查 GitHub Releases；发现更高版本时弹窗提醒。自动提醒可以在弹窗中勾选“不再自动提醒”，手动检查入口位于“设置 → 关于 → IceFlow”软件名称。
+
+如果仓库是私有仓库，GitHub API 必须带有能读取该仓库 Releases 的 Fine-grained token（Repository access 选择 `IceFlow`，权限至少包含 Contents: Read）。首次手动检查失败时，在弹窗中填入 token 即可；token 只保存在本机应用偏好中，不写入备份文件。
+
+推送 `v*` 标签会触发 GitHub Actions，构建 debug 与 release 的 ABI 包和 universal 包，并自动创建 GitHub Release。未配置签名密钥时，release 包会标记为 `unsigned`；debug 包带有调试签名，可直接安装测试。
+
 - `app/src/test`：分享链接解析、xray 配置生成、格式化（JVM 单元测试）
 - `app/src/androidTest`：连接按钮 Compose UI 测试；`NativeBridgeTest` 验证 Rust/xray 原生库加载、各协议配置被 xray-core 接受、SOCKS 入站局域网直连（需设备/模拟器，不连外网）
 - `rust-core`：`cargo test`

@@ -1,6 +1,7 @@
 package com.iceflow.data.repository
 
 import com.iceflow.data.model.Protocol
+import com.iceflow.data.model.LocalGroup
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import java.io.File
@@ -56,5 +57,33 @@ class ServerRepositorySafetyTest {
         assertEquals("after", stored.name)
         assertEquals(20L, stored.uploadBytes)
         assertEquals(40L, stored.downloadBytes)
+    }
+
+    @Test fun clipboardImportUsesCurrentLocalGroupAndCreatesOneWhenMissing() {
+        val repository = ServerRepository(File(temp.root, "servers.json"))
+        val current = LocalGroup(name = "当前分组")
+        repository.replace(ServerStore(localGroups = listOf(current), selectedGroupId = current.id))
+
+        val imported = repository.importServers(listOf(node("clipboard")), current.id)
+        assertEquals(current.id, imported.id)
+        assertEquals(current.id, repository.store.value.servers.single().groupId)
+
+        val second = ServerRepository(File(temp.root, "second.json"))
+        val created = second.importServers(listOf(node("first import")), null)
+        assertEquals("新分组", created.name)
+        assertEquals(created.id, second.store.value.selectedGroupId)
+        assertEquals(created.id, second.store.value.servers.single().groupId)
+    }
+
+    @Test fun ungroupedNodesCanBeGroupedAndDeleted() {
+        val repository = ServerRepository(File(temp.root, "servers.json"))
+        repository.addServers(listOf(node("one"), node("two")))
+
+        val grouped = repository.createGroupFromUngrouped("整理后")
+        assertTrue(repository.store.value.servers.all { it.groupId == grouped.id })
+
+        repository.addServers(listOf(node("orphan")))
+        repository.deleteUngroupedServers()
+        assertEquals(listOf("one", "two"), repository.store.value.servers.map { it.name })
     }
 }

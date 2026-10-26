@@ -73,6 +73,57 @@ class ServerRepository(private val file: File) {
 
     fun addLocalGroup(name: String) = mutate { s -> s.copy(localGroups = s.localGroups + LocalGroup(name = name.trim())) }
 
+    /** 导入节点到指定本地分组；分组缺失（或传入的是订阅分组）时自动新建并选中。 */
+    fun importServers(servers: List<ServerProfile>, preferredGroupId: String?): LocalGroup {
+        var targetId: String? = null
+        mutate { s ->
+            val existing = s.localGroups.firstOrNull { it.id == preferredGroupId }
+            val group = existing ?: LocalGroup(name = nextGroupName(s))
+            targetId = group.id
+            s.copy(
+                localGroups = if (existing == null) s.localGroups + group else s.localGroups,
+                servers = s.servers + servers.map { it.copy(groupId = group.id, subscriptionId = null) },
+                selectedId = s.selectedId ?: servers.firstOrNull()?.id,
+                selectedGroupId = group.id,
+            )
+        }
+        return store.value.localGroups.first { it.id == targetId }
+    }
+
+    /** 把未分组节点整理成一个新的本地分组。 */
+    fun createGroupFromUngrouped(name: String): LocalGroup {
+        var targetId: String? = null
+        mutate { s ->
+            val group = LocalGroup(name = name.trim())
+            targetId = group.id
+            s.copy(
+                localGroups = s.localGroups + group,
+                servers = s.servers.map {
+                    if (it.subscriptionId == null && it.groupId == null) it.copy(groupId = group.id) else it
+                },
+                selectedGroupId = group.id,
+            )
+        }
+        return store.value.localGroups.first { it.id == targetId }
+    }
+
+    /** 清空未分组节点。 */
+    fun deleteUngroupedServers() = mutate { s ->
+        val remaining = s.servers.filterNot { it.subscriptionId == null && it.groupId == null }
+        s.copy(
+            servers = remaining,
+            selectedId = s.selectedId?.takeIf { id -> remaining.any { it.id == id } } ?: remaining.firstOrNull()?.id,
+        )
+    }
+
+    private fun nextGroupName(store: ServerStore): String {
+        val used = (store.localGroups.map { it.name } + store.subscriptions.map { it.name }).toSet()
+        if ("新分组" !in used) return "新分组"
+        var index = 2
+        while ("新分组 $index" in used) index++
+        return "新分组 $index"
+    }
+
     fun saveGroup(config: GroupConfiguration) = mutate { s ->
         require(config.validationError() == null) { config.validationError().orEmpty() }
         require(!config.subscription || s.subscriptions.none { it.id != config.id && it.url == config.url.trim() }) { "该订阅链接已存在" }

@@ -26,6 +26,16 @@ android {
         }
     }
 
+    // Generate installable ABI-specific APKs plus one universal APK for Releases.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     val signingValues = listOf("ICEFLOW_KEYSTORE_PATH", "ICEFLOW_KEYSTORE_PASSWORD", "ICEFLOW_KEY_ALIAS", "ICEFLOW_KEY_PASSWORD")
         .map { providers.environmentVariable(it).orNull }
     require(signingValues.all { it == null } || signingValues.all { !it.isNullOrBlank() }) {

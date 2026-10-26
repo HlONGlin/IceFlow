@@ -176,5 +176,5 @@ if __name__ == "__main__":
     res = os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "res", "drawable")
     out = os.path.join(os.path.dirname(__file__), "..", "preview")
     os.makedirs(out, exist_ok=True)
-    for name in ("ic_launcher_foreground", "ic_tile", "ic_tile_off"):
+    for name in ("ic_launcher_foreground", "ic_tile", "ic_tile_active"):
         render(os.path.join(res, name + ".xml"), os.path.join(out, name + ".png"))

@@ -10,6 +10,8 @@ import com.iceflow.data.XrayConfigBuilder
 import com.iceflow.data.BackupCodec
 import com.iceflow.service.VpnState
 import com.iceflow.data.ShareLinkParser
+import com.iceflow.data.UpdateChecker
+import com.iceflow.data.UpdateInfo
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.GroupConfiguration
 import com.iceflow.data.model.GroupSort
@@ -46,6 +48,15 @@ sealed interface SubscriptionLoadState {
     data object Loading : SubscriptionLoadState
     data class Preview(val name: String, val servers: List<ServerProfile>) : SubscriptionLoadState
     data class Failure(val message: String) : SubscriptionLoadState
+}
+
+/** 检查更新的界面状态。 */
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data class Available(val info: UpdateInfo) : UpdateState
+    data class UpToDate(val version: String) : UpdateState
+    data class Failed(val message: String) : UpdateState
 }
 
 /** 订阅预览的完整内容，确认后写入仓库。 */
@@ -98,6 +109,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val connectionTest = _connectionTest.asStateFlow()
     private var connectionTestJob: Job? = null
 
+    /** 检查更新状态与本地偏好（自动提醒、私有仓库令牌）。 */
+    private val updatePrefs = container.updates
+    private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+    private var updateJob: Job? = null
+
     init {
         viewModelScope.launch {
             while (true) {
@@ -114,7 +131,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _publicIp.value = null
             }
         }
+        if (updatePrefs.autoRemind) viewModelScope.launch {
+            kotlinx.coroutines.delay(1500)
+            checkForUpdate(manual = false)
+        }
     }
+
+    /** 检查新版本；[manual] 为 false 时静默失败，不打扰用户。 */
+    fun checkForUpdate(manual: Boolean = true) {
+        if (updateJob?.isActive == true) return
+        if (manual) _updateState.value = UpdateState.Checking
+        updateJob = viewModelScope.launch {
+            val result = UpdateChecker.check(appVersion, updatePrefs.githubToken)
+            val info = result.info
+            _updateState.value = when {
+                info == null -> if (manual) UpdateState.Failed(result.error ?: "检查更新失败") else UpdateState.Idle
+                UpdateChecker.isNewer(info.version, appVersion) -> UpdateState.Available(info)
+                manual -> UpdateState.UpToDate(appVersion)
+                else -> UpdateState.Idle
+            }
+        }
+    }
+
+    fun dismissUpdate() { _updateState.value = UpdateState.Idle }
+
+    fun setUpdateToken(token: String) { updatePrefs.githubToken = token }
+
+    fun setAutoRemind(enabled: Boolean) { updatePrefs.autoRemind = enabled }
 
     fun testRunningConnection() {
         val session = vpnState.value as? VpnState.Connected ?: run {
@@ -181,6 +224,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun addLocalGroup(name: String) = container.servers.addLocalGroup(name)
     fun renameLocalGroup(id: String, name: String) = container.servers.renameLocalGroup(id, name)
     fun deleteLocalGroup(id: String) = container.servers.deleteLocalGroup(id)
+    fun createGroupFromUngrouped(name: String) = container.servers.createGroupFromUngrouped(name)
+    fun deleteUngroupedServers() = container.servers.deleteUngroupedServers()
     fun moveServerToGroup(serverId: String, groupId: String?) = container.servers.moveServerToLocalGroup(serverId, groupId)
     fun selectGroup(groupId: String?) = container.servers.selectGroup(groupId)
     fun reorderGroups(keys: List<String>) = container.servers.reorderGroups(keys)
@@ -301,7 +346,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _messages.tryEmit(if (removed > 0) "已移除 $removed 个重复节点" else "没有发现重复节点")
     }
 
-    fun importText(text: String?) {
+    fun importText(text: String?, groupId: String? = null) {
         val servers = runCatching { ShareLinkParser.parseMany(text.orEmpty()) }.getOrElse {
             _messages.tryEmit("导入失败：${it.message}")
             return
@@ -309,8 +354,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (servers.isEmpty()) {
             _messages.tryEmit("内容中没有可识别的分享链接或 Clash 节点")
         } else {
-            container.servers.addServers(servers)
-            _messages.tryEmit("已导入 ${servers.size} 个节点")
+            // 优先使用调用方传入的当前分组；没有传入时回退到仓库记住的当前分组。
+            // 没有可用本地分组时自动新建一个并切换过去。
+            val targetGroupId = groupId ?: store.value.selectedGroupId
+            val group = container.servers.importServers(servers, targetGroupId)
+            _messages.tryEmit("已导入 ${servers.size} 个节点到「${group.name}」")
         }
     }
 
@@ -398,9 +446,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         withContext(Dispatchers.IO) {
             val previousStore = store.value
             val previousSettings = settings.value
+            // 应用路由备份的是包名，恢复时只保留本机仍安装的应用，缺失的自动跳过。
+            val installedPackages = runCatching {
+                getApplication<Application>().packageManager
+                    .getInstalledPackages(0)
+                    .mapTo(HashSet()) { it.packageName }
+            }.getOrNull()
+            val restoredSettings = if (installedPackages == null) {
+                backup.settings
+            } else {
+                backup.settings.copy(
+                    bypassApps = BackupCodec.filterInstalledApps(backup.settings.bypassApps, installedPackages),
+                )
+            }
             container.servers.replace(backup.store)
             try {
-                container.settings.update { backup.settings }
+                container.settings.update { restoredSettings }
             } catch (error: Exception) {
                 container.servers.replace(previousStore)
                 container.settings.update { previousSettings }

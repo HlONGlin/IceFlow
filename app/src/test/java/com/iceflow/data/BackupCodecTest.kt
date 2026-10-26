@@ -8,10 +8,17 @@ class BackupCodecTest {
     @Test fun fullBackupRoundTripsCredentialsGroupsRulesAndSettings() {
         val node = ServerProfile(name = "node", protocol = Protocol.SOCKS, address = "localhost", port = 1080, username = "user", password = "secret", groupId = "local")
         val store = ServerStore(servers = listOf(node), selectedId = node.id, localGroups = listOf(LocalGroup(id = "local", name = "Local")), selectedGroupId = "local", groupOrder = listOf("local"))
-        val settings = AppSettings(socksEnabled = false, dnsProxyEnabled = false, nightMode = NightMode.ENABLED, socksPassword = "local-secret")
+        val settings = AppSettings(socksEnabled = false, dnsProxyEnabled = false, nightMode = NightMode.ENABLED, socksPassword = "local-secret", bypassApps = listOf("com.example.a", "com.example.b"), appRoutingEnabled = true)
         val restored = BackupCodec.decode(BackupCodec.encode(store, settings))
         assertEquals(store, restored.store)
         assertEquals(settings, restored.settings)
+        assertEquals(listOf("com.example.a", "com.example.b"), restored.settings.bypassApps)
+    }
+
+    @Test fun restoreSkipsAppRoutingEntriesThatAreNoLongerInstalled() {
+        val apps = listOf("com.example.installed", "com.example.removed")
+        val installed = setOf("com.example.installed", "com.example.other")
+        assertEquals(listOf("com.example.installed"), BackupCodec.filterInstalledApps(apps, installed))
     }
 
     @Test fun rejectsFutureFormatsInvalidDnsAndDuplicateNodesBeforeRestore() {

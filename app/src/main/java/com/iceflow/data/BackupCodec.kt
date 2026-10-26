@@ -21,6 +21,13 @@ object BackupCodec {
         json.encodeToString(BackupDocument.serializer(), BackupDocument(store = store, settings = settings))
             .also { require(it.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "备份不能超过 16 MiB" } }
 
+    /**
+     * 应用路由只按包名备份。恢复时过滤掉本机未安装的应用，
+     * 保证恢复后选择列表里不会残留无法生效的包名。
+     */
+    fun filterInstalledApps(apps: List<String>, installedPackages: Set<String>): List<String> =
+        apps.filter { it in installedPackages }
+
     fun decode(text: String): BackupDocument {
         require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "备份不能超过 16 MiB" }
         val backup = json.decodeFromString<BackupDocument>(text)
