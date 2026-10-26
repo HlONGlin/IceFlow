@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -258,7 +257,7 @@ private fun ThemeSettingsPage(current: AppTheme, onBack: () -> Unit, onSelect: (
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(28.dp).clip(CircleShape).background(soft))
                         Box(Modifier.size(20.dp).clip(CircleShape).background(primary))
-                         if (theme == current) Icon(Icons.Filled.Check, T("common.selected"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        if (theme == current) Icon(Icons.Filled.Check, T("common.selected"), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                     }
                 })
                 if (index != AppTheme.entries.lastIndex) SettingsDetailDivider()
@@ -314,7 +313,7 @@ private fun TextSettingsPage(
 private fun AuthSettingsPage(title: String, initialValue: String, password: Boolean, onBack: () -> Unit, onSave: (String) -> Unit) {
     var value by rememberSaveable { mutableStateOf(initialValue) }
     SettingsDetailPage(title, onBack, onAction = { onSave(value) }) {
-        SettingsDetailSection("SOCKS5 认证") {
+        SettingsDetailSection(T("settings.socksAuth")) {
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
@@ -467,7 +466,7 @@ fun SettingsScreen(
             ToggleRow(Icons.Outlined.SwapHoriz, T("settings.udp"), T("settings.udpHint"), settings.socksUdp) { v -> onUpdate { it.copy(socksUdp = v) } }
         }
 
-                // ── DNS 与网络 ────────────────────────────────────────────────────────────
+        // ── DNS 与网络 ────────────────────────────────────────────────────────────
         SectionHeader(T("settings.dnsSection"))
         SettingsCard {
             ToggleRow(Icons.Outlined.Lan, T("settings.bypassLan"), T("settings.bypassLanHint"), settings.bypassLan) { v -> onUpdate { it.copy(bypassLan = v) } }
@@ -528,9 +527,16 @@ fun SettingsScreen(
 
         SectionHeader(T("settings.aboutSection"))
         SettingsCard {
-            SettingRow(title = "IceFlow", subtitle = T("settings.checkUpdate"), onClick = onCheckUpdate, trailing = {
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onCheckUpdate).defaultMinSize(minHeight = 44.dp).padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("IceFlow", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    Text(T("settings.checkUpdate"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text(appVersion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            })
+            }
             RowDivider()
             InfoRow("xray-core", xrayVersion ?: T("settings.notIntegrated"))
             RowDivider()
