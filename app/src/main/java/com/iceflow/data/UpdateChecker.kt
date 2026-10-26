@@ -64,7 +64,11 @@ object UpdateChecker {
                     add(asset.optString("name") to asset.optString("browser_download_url"))
                 }
             }
-            val apk = apkNames.firstOrNull { it.first.endsWith(".apk", true) && it.first.contains("universal", true) }
+            // Prefer an installable universal APK. CI also uploads unsigned release
+            // artifacts, which must never be offered as the primary download.
+            val installable = apkNames.filter { it.first.endsWith(".apk", true) && !it.first.contains("unsigned", true) }
+            val apk = installable.firstOrNull { it.first.contains("universal", true) }
+                ?: installable.firstOrNull()
                 ?: apkNames.firstOrNull { it.first.endsWith(".apk", true) }
             UpdateResult(
                 UpdateInfo(
