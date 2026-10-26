@@ -518,7 +518,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                         VpnState.WaitingNetwork -> T("state.waitingNetwork") + "…"
                         else -> T("state.connecting") + "…"
                     }
-                    test.testing -> T("node.test.testing")
+                    test.testing -> T("connect.testing")
                     test.latencyMs == null -> T("node.test.tap")
                     test.latencyMs < 0 -> T("latency.timeout") + " · " + T("common.retry")
                     else -> "${test.latencyMs} ms"
