@@ -16,8 +16,8 @@ android {
         applicationId = "com.iceflow"
         minSdk = 26
         targetSdk = 35
-        versionCode = providers.gradleProperty("iceflow.versionCode").getOrElse("1").toInt().also { require(it > 0) }
-        versionName = providers.gradleProperty("iceflow.versionName").getOrElse("0.1.0")
+        versionCode = providers.gradleProperty("iceflow.versionCode").getOrElse("3").toInt().also { require(it > 0) }
+        versionName = providers.gradleProperty("iceflow.versionName").getOrElse("0.1.2")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

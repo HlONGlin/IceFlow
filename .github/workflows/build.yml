@@ -56,14 +56,30 @@ jobs:
       - name: Build xray-core AAR
         run: bash xray-wrapper/build-aar.sh
 
+      - name: Resolve app version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="0.1.2"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Unsupported app version: $version"
+            exit 1
+          fi
+          IFS=. read -r major minor patch <<< "$version"
+          echo "ICEFLOW_VERSION_NAME=$version" >> "$GITHUB_ENV"
+          echo "ICEFLOW_VERSION_CODE=$((major * 10000 + minor * 100 + patch))" >> "$GITHUB_ENV"
+
       - name: Unit tests
         run: ./gradlew testDebugUnitTest lintDebug
 
       - name: Build APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug -Piceflow.versionName="$ICEFLOW_VERSION_NAME" -Piceflow.versionCode="$ICEFLOW_VERSION_CODE"
 
       - name: Build release APK
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease -Piceflow.versionName="$ICEFLOW_VERSION_NAME" -Piceflow.versionCode="$ICEFLOW_VERSION_CODE"
 
       - name: Enable emulator acceleration
         run: |
