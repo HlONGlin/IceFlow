@@ -123,10 +123,7 @@ data class GroupConfiguration(
     fun validationError(): String? = when {
         name.isBlank() -> "请输入分组名称"
         frontNodeId != null && frontNodeId == landingNodeId -> "前置节点和落地节点不能相同"
-        subscription && !runCatching {
-            val uri = java.net.URI(url.trim())
-            uri.scheme?.lowercase() in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null
-        }.getOrDefault(false) -> "请输入有效的 HTTP 或 HTTPS 订阅链接"
+        subscription && !runCatching { SubscriptionUrl.requireHttpsUri(url.trim()) }.isSuccess -> "请输入有效的 HTTPS 订阅链接"
         subscription && intervalHours !in 0..720 -> "更新间隔应为 0–720 小时（0 为不自动更新）"
         else -> null
     }

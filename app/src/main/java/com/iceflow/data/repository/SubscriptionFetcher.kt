@@ -1,11 +1,11 @@
 package com.iceflow.data.repository
 
 import com.iceflow.BuildConfig
+import com.iceflow.data.model.SubscriptionUrl
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URI
 
 data class SubscriptionDownload(val body: String, val userInfo: String?, val downloadedBytes: Long)
 
@@ -44,13 +44,7 @@ object SubscriptionFetcher {
         error("订阅重定向次数过多")
     }
 
-    internal fun requireHttpsUri(value: String): URI {
-        val uri = URI(value)
-        require(uri.scheme.equals("https", ignoreCase = true) && !uri.host.isNullOrBlank() && uri.userInfo == null) {
-            "订阅地址及重定向目标必须是有效的 HTTPS 地址"
-        }
-        return uri
-    }
+    internal fun requireHttpsUri(value: String) = SubscriptionUrl.requireHttpsUri(value)
 
     private fun java.io.InputStream.readNBytesCompat(limit: Int): ByteArray {
         val out = java.io.ByteArrayOutputStream()

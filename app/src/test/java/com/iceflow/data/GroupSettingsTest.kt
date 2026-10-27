@@ -100,6 +100,10 @@ class GroupSettingsTest {
         assertEquals(nodes, GroupSort.ORIGINAL.apply(nodes))
     }
 
+    @Test fun httpSubscriptionUrlIsRejected() {
+        assertNotNull(GroupConfiguration(name = "Sub", subscription = true, url = "http://example.com/sub").validationError())
+    }
+
     @Test fun chainSettingsPersistAcrossConversionAndGenerateOrderedHops() {
         val file = temp.newFile()
         val repository = ServerRepository(file)
