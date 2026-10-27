@@ -30,3 +30,19 @@ Thumbs.db
 
 # Claude Code session data
 .opencode/
+
+# 临时发布文件
+QUICK_RELEASE.txt
+RELEASE_GUIDE*.md
+RELEASE_COMPLETE*.md
+RELEASE_SUMMARY*.md
+open-apk-folder.sh
+
+# 测试和调试文件
+servers_backup.json
+servers_now.json
+node.json
+build.log
+
+# 截图（应放在 screenshots/ 或 preview/ 目录）
+/*.png

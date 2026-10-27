@@ -1,1 +1,0 @@
-{"servers":[{"id":"test-node-1","name":"TestVMess","protocol":"VMESS","address":"127.0.0.1","port":1,"uuid":"b831381d-6324-4d53-ad4f-8cda48b30811","alterId":0,"security":"auto","network":"tcp","tls":"none"}],"selectedId":"test-node-1"}
