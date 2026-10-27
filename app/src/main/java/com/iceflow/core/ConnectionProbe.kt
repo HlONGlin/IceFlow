@@ -1,6 +1,7 @@
 package com.iceflow.core
 
 import java.io.IOException
+import java.io.EOFException
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
@@ -74,7 +75,7 @@ object ConnectionProbe {
             4 -> 16
             else -> error("SOCKS 响应地址类型无效")
         }
-        check(input.readNBytes(addressLength + 2).size == addressLength + 2) { "SOCKS 响应不完整" }
+        check(readExactly(input, addressLength + 2).size == addressLength + 2) { "SOCKS 响应不完整" }
     }
 
     private fun java.io.InputStream.readAsciiLine(): String {
@@ -106,10 +107,28 @@ object ConnectionProbe {
             val chunkSize = readAsciiLine().substringBefore(';').toIntOrNull(16) ?: error("HTTP 分块响应无效")
             if (chunkSize == 0) break
             check(output.size() + chunkSize <= maxBytes) { "IP 查询响应过大" }
-            output.write(readNBytes(chunkSize).also { check(it.size == chunkSize) { "HTTP 分块响应不完整" } })
+            output.write(readExactly(this, chunkSize))
             check(readAsciiLine().isEmpty()) { "HTTP 分块响应无效" }
         }
         return output.toByteArray()
+    }
+
+    internal fun readExactly(input: java.io.InputStream, size: Int): ByteArray {
+        require(size >= 0) { "?????????" }
+        val bytes = ByteArray(size)
+        var offset = 0
+        while (offset < size) {
+            val count = input.read(bytes, offset, size - offset)
+            if (count < 0) throw EOFException("???????? $size ????? $offset ??")
+            if (count == 0) {
+                val value = input.read()
+                if (value < 0) throw EOFException("???????? $size ????? $offset ??")
+                bytes[offset++] = value.toByte()
+            } else {
+                offset += count
+            }
+        }
+        return bytes
     }
 
     fun measure(socksPort: Int, username: String = "", password: String = "", url: String = "https://www.google.com/generate_204", timeoutMs: Int = 5000): Int {
