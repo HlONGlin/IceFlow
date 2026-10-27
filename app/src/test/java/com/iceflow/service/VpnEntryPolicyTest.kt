@@ -14,7 +14,7 @@ class VpnEntryPolicyTest {
             VpnState.Connected("node", 0) to VpnUserOperation.STOP,
             VpnState.WaitingNetwork to VpnUserOperation.RETRY,
             VpnState.Stopping to VpnUserOperation.IGNORE,
-            VpnState.Error("failed") to VpnUserOperation.CONNECT,
+            VpnState.Error(VpnErrorCatalog.presentation(VpnErrorType.CORE_START_FAILED, com.iceflow.data.model.AppLanguage.ENGLISH)) to VpnUserOperation.CONNECT,
         )
         cases.forEach { (state, expected) ->
             entries.forEach { entry ->
@@ -28,7 +28,7 @@ class VpnEntryPolicyTest {
         entries.forEach { entry ->
             assertEquals(VpnUserOperation.STOP, VpnEntryPolicy.secondary(VpnState.WaitingNetwork, entry))
         }
-        listOf(VpnState.Idle, VpnState.Connecting, VpnState.Connected("node", 0), VpnState.Stopping, VpnState.Error("failed"))
+        listOf(VpnState.Idle, VpnState.Connecting, VpnState.Connected("node", 0), VpnState.Stopping, VpnState.Error(VpnErrorCatalog.presentation(VpnErrorType.CORE_START_FAILED, com.iceflow.data.model.AppLanguage.ENGLISH)))
             .forEach { state -> entries.forEach { entry -> assertEquals(null, VpnEntryPolicy.secondary(state, entry)) } }
     }
 }

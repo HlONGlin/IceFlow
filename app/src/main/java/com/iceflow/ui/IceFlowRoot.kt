@@ -127,6 +127,8 @@ import com.iceflow.service.AppLog
 import com.iceflow.service.TrafficSnapshot
 import com.iceflow.service.VpnController
 import com.iceflow.service.VpnState
+import com.iceflow.service.VpnErrorAction
+import com.iceflow.service.VpnErrorPresentation
 import com.iceflow.service.VpnEntryPoint
 import com.iceflow.core.XrayBridge
 import com.iceflow.ui.component.ShareNodeDialog
@@ -153,7 +155,7 @@ private enum class Tab(val labelKey: String, val icon: ImageVector) {
 private val UngroupedGroup: NodeGroup @Composable get() = NodeGroup("builtin:ungrouped", null, T("groups.ungrouped"))
 
 @Composable
-fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
+fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: Boolean = false, onLogsOpened: () -> Unit = {}) {
     val context = LocalContext.current
     LaunchedEffect(vm) {
         vm.recoveryMessage?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
@@ -184,6 +186,14 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     var nodeEditorOpen by rememberSaveable { mutableStateOf(false) }
     var nodeEditorId by rememberSaveable { mutableStateOf<String?>(null) }
     var groupId by rememberSaveable { mutableStateOf<String?>(store.selectedGroupId) }
+    LaunchedEffect(openLogsRequested) {
+        if (openLogsRequested) {
+            tab = Tab.HOME.ordinal
+            vm.cleanOldLogs()
+            logsOpen = true
+            onLogsOpened()
+        }
+    }
     LaunchedEffect(store.selectedGroupId) { if (groupId != store.selectedGroupId) groupId = store.selectedGroupId }
     var toast by remember { mutableStateOf<String?>(null) }
     var previousState by remember { mutableStateOf<VpnState>(VpnState.Idle) }
@@ -243,7 +253,14 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency)
+                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency) { action ->
+                            when (action) {
+                                VpnErrorAction.REAUTHORIZE, VpnErrorAction.CONNECT -> onToggleVpn()
+                                VpnErrorAction.CHECK_NODE -> store.selected?.let { nodeEditorId = it.id; nodeEditorOpen = true }
+                                    ?: run { tab = Tab.SUBS.ordinal }
+                                VpnErrorAction.OPEN_LOGS -> { vm.cleanOldLogs(); logsOpen = true }
+                            }
+                        }
                         Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, vm::createGroupFromUngrouped, vm::deleteUngroupedServers, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
@@ -356,7 +373,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false) {
+@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false, onErrorAction: (VpnErrorAction) -> Unit) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -425,6 +442,9 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                     }
                 }
             }
+            (state as? VpnState.Error)?.let { error ->
+                VpnErrorBanner(error.presentation, { onErrorAction(error.presentation.action) }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text(T("home.searchPlaceholder")) }, singleLine = true, shape = RoundedCornerShape(12.dp))
             val visibleGroups = if (visibleNodes(null, "").isEmpty()) store.orderedGroups else listOf(UngroupedGroup) + store.orderedGroups
             if (visibleGroups.isEmpty()) EmptyStateMessage(T("home.empty"), Modifier.weight(1f))
@@ -463,6 +483,23 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             if (state == VpnState.Stopping) Text(T("state.stopping"), modifier = Modifier.padding(start = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
         }
         if (toast != null) Text(toast, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), CircleShape).padding(horizontal = 18.dp, vertical = 9.dp))
+    }
+}
+
+@Composable
+private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().widthIn(max = 600.dp)
+            .shadow(5.dp, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(presentation.message, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(presentation.nextAction, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)) {
+            Text(presentation.actionLabel, color = MaterialTheme.colorScheme.onErrorContainer)
+        }
     }
 }
 

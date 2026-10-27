@@ -179,7 +179,8 @@ class IceFlowVpnService : VpnService() {
             if (release.succeeded && VpnController.state.value !is VpnState.Error) {
                 VpnController.setState(VpnState.Idle)
             } else if (!release.succeeded) {
-                VpnController.setState(VpnState.Error("VPN resource cleanup failed: ${release.failures.joinToString()}"))
+                AppLog.write(this, "ERROR", "VPN resource cleanup failed: ${release.failures.joinToString()}")
+                publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
             }
         }
         super.onDestroy()
@@ -193,6 +194,7 @@ class IceFlowVpnService : VpnService() {
             is Command.Stop -> stopVpn(command.startId)
             Command.Start -> {
                 if (desiredRunning && VpnController.state.value is VpnState.Connected) return
+                VpnErrorNotifier.dismiss(this)
                 desiredController.userConnect()
                 retryJob?.cancel()
                 retryJob = null
@@ -263,6 +265,7 @@ class IceFlowVpnService : VpnService() {
     private fun scheduleRetry(delayMs: Long? = null) {
         if (!desiredRunning || destroyed) return
         if (delayMs == null && desiredController.retryExhausted(5)) {
+            val errorType = if (networks.isEmpty()) VpnErrorType.NETWORK_UNAVAILABLE else VpnErrorType.RETRIES_EXHAUSTED
             desiredController.terminateWithCleanup(
                 cleanup = {
                     retryJob?.cancel()
@@ -270,10 +273,11 @@ class IceFlowVpnService : VpnService() {
                     releaseResources(closeTun = true, stopXray = true)
                 },
                 publishError = { release ->
-                    val cleanupDetail = release.failures.takeIf { it.isNotEmpty() }
-                        ?.joinToString(prefix = "；资源清理失败：") ?: ""
-                    VpnController.setState(VpnState.Error("连接恢复失败，请检查节点或网络后重试$cleanupDetail"))
-                    updateNotification("连接恢复失败，VPN 仍接管流量")
+                    if (release.succeeded) publishError(errorType)
+                    else {
+                        AppLog.write(this, "ERROR", "Retry exhaustion cleanup failed: ${release.failures.joinToString()}")
+                        publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
+                    }
                 },
             )
             return
@@ -317,11 +321,11 @@ class IceFlowVpnService : VpnService() {
         mark("foreground")
 
         val container = (application as IceFlowApp).container
-        val profile = container.servers.selected ?: return fail("请先选择节点")
+        val profile = container.servers.selected ?: return fail(VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION)
         val settings = container.settings.settings.value
-        if (!XrayBridge.isAvailable) return fail("未集成 xray-core（缺少 app/libs/xray.aar）")
-        if (!RustBridge.isAvailable) return fail("未集成 Rust 核心（缺少 libiceflow_core.so）")
+        if (!XrayBridge.isAvailable || !RustBridge.isAvailable) return fail(VpnErrorType.CORE_START_FAILED)
 
+        var failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
         try {
             settings.validate()
             AppLog.write(this, "INFO", "准备连接节点：${profile.name} [${profile.protocol.label}] ${profile.address}:${profile.port}")
@@ -359,6 +363,7 @@ class IceFlowVpnService : VpnService() {
 
             val tunnelAuth = tunnelUser to tunnelPass
 
+            failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
             val cfg = XrayConfigBuilder.build(
                 profile, settings,
                 store = container.servers.store.value,
@@ -368,6 +373,7 @@ class IceFlowVpnService : VpnService() {
             mark("buildConfig")
 
             if (!xrayAlreadyRunning) {
+                failureType = VpnErrorType.CORE_START_FAILED
                 XrayBridge.start(cfg)
                 mark("xray.start")
                 // 保存配置供后续复用
@@ -379,6 +385,7 @@ class IceFlowVpnService : VpnService() {
                 AppLog.write(this, "INFO", "复用已运行的 xray-core 进程")
             }
 
+            failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
             val builder = Builder()
                 .setSession(profile.name)
                 .setMtu(MTU)
@@ -403,8 +410,10 @@ class IceFlowVpnService : VpnService() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
 
             mark("vpnBuilder.prepare")
-            val pfd = builder.establish() ?: throw IllegalStateException("VPN 权限未授予")
+            failureType = VpnErrorType.VPN_AUTHORIZATION_DENIED
+            val pfd = builder.establish() ?: throw IllegalStateException("VPN authorization unavailable")
             mark("vpn.establish")
+            failureType = VpnErrorType.CORE_START_FAILED
             val previousTun = tun
             tun = pfd
             previousTun?.close()
@@ -448,7 +457,12 @@ class IceFlowVpnService : VpnService() {
             Log.e(TAG, "start failed", t)
             AppLog.write(this, "ERROR", "VPN 连接失败：${t.message}")
             releaseResources(closeTun = false, stopXray = true)
-            if (tun == null || t is IllegalArgumentException) fail(t.message ?: t.toString()) else scheduleRetry()
+            val classifiedFailure = if (failureType == VpnErrorType.CORE_START_FAILED && networks.isEmpty()) {
+                VpnErrorType.NETWORK_UNAVAILABLE
+            } else failureType
+            if (tun == null || classifiedFailure == VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION || classifiedFailure == VpnErrorType.VPN_AUTHORIZATION_DENIED) {
+                fail(classifiedFailure)
+            } else scheduleRetry()
         }
     }
 
@@ -459,22 +473,38 @@ class IceFlowVpnService : VpnService() {
         updateNotification("正在断开…")
         val release = releaseResources(closeTun = true, stopXray = true)
         if (release.succeeded) VpnController.setState(VpnState.Idle)
-        else VpnController.setState(VpnState.Error("VPN resource cleanup failed: ${release.failures.joinToString()}"))
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        else {
+            AppLog.write(this, "ERROR", "VPN stop cleanup failed: ${release.failures.joinToString()}")
+            publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
+        }
+        if (release.succeeded) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (startId == null) stopSelf() else stopSelf(startId)
     }
 
-    private fun fail(message: String) {
+    private fun fail(type: VpnErrorType) {
         resetRetry()
-        val release = desiredController.terminateWithCleanup(
+        desiredController.terminateWithCleanup(
             cleanup = { releaseResources(closeTun = true, stopXray = true) },
-            publishError = {},
+            publishError = { result ->
+                if (result.succeeded) publishError(type)
+                else {
+                    AppLog.write(this, "ERROR", "VPN startup cleanup failed: ${result.failures.joinToString()}")
+                    publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
+                }
+            },
         )
-        val detail = release.failures.takeIf { it.isNotEmpty() }?.joinToString(prefix = "; cleanup failed: ") ?: ""
-        VpnController.setState(VpnState.Error(message + detail))
-        AppLog.write(this, "ERROR", "VPN 失败: $message")
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        AppLog.write(this, "ERROR", "VPN startup failed: $type")
         stopSelf()
+    }
+
+    private fun publishError(type: VpnErrorType) {
+        val language = com.iceflow.data.model.AppLanguage.fromTag(
+            (application as IceFlowApp).container.settings.settings.value.language,
+        )
+        val presentation = VpnErrorCatalog.presentation(type, language)
+        VpnController.setState(VpnState.Error(presentation))
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        VpnErrorNotifier.show(this, presentation)
     }
 
     /** 释放顺序：统计 → tun2proxy（不持有 fd）→ xray-core → 关闭 TUN fd。

@@ -60,7 +60,7 @@ class DesiredRunningControllerTest {
         repeat(5) { controller.nextRetryDelayIndex() }
         controller.terminateWithCleanup(cleanup = {}, publishError = {})
 
-        assertFalse(controller.shouldReconnectForConfigurationChange(VpnState.Error("exhausted")))
+        assertFalse(controller.shouldReconnectForConfigurationChange(VpnState.Error(VpnErrorCatalog.presentation(VpnErrorType.RETRIES_EXHAUSTED, com.iceflow.data.model.AppLanguage.ENGLISH))))
         assertFalse(controller.desiredRunning)
     }
 

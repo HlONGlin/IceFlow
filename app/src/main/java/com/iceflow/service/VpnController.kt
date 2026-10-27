@@ -67,7 +67,7 @@ sealed interface VpnState {
         val tunnelPass: String = "",
     ) : VpnState
     data object Stopping : VpnState
-    data class Error(val message: String) : VpnState
+    data class Error(val presentation: VpnErrorPresentation) : VpnState
 }
 
 data class TrafficPoint(val up: Long, val down: Long)
@@ -164,7 +164,11 @@ object VpnController {
     fun start(context: Context): Boolean {
         if (!restoreCoordinator.canStartConnection()) return false
         val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_START)
-        return runCatching { ContextCompat.startForegroundService(context, intent); true }.getOrDefault(false)
+        return runCatching {
+            ContextCompat.startForegroundService(context, intent)
+            VpnErrorNotifier.dismiss(context)
+            true
+        }.getOrDefault(false)
     }
 
     fun stop(context: Context): Long {
@@ -180,6 +184,12 @@ object VpnController {
         val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_RETRY)
         runCatching { context.startService(intent) }
             .onFailure { Log.w("VpnController", "retry failed: $it") }
+    }
+
+    fun reportError(context: Context, type: VpnErrorType, language: com.iceflow.data.model.AppLanguage) {
+        val presentation = VpnErrorCatalog.presentation(type, language)
+        _state.value = VpnState.Error(presentation)
+        VpnErrorNotifier.show(context, presentation)
     }
 
     fun switch(context: Context) {
