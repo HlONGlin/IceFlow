@@ -32,7 +32,8 @@ class BackupCodecTest {
 
     @Test fun onlyConnectionChangesRequireRestartAndDnsMustBeNumeric() {
         val settings = AppSettings()
-        assertTrue(settings.hasSameConnection(settings.copy(theme = AppTheme.MINT_GREEN, testUrl = "https://example.org/", showTrafficStats = true)))
+        assertTrue(settings.hasSameConnection(settings.copy(theme = AppTheme.MINT_GREEN, testUrl = "https://example.org/", showTrafficStats = true, showPublicIp = true)))
+        assertFalse(settings.showPublicIp)
         assertFalse(settings.hasSameConnection(settings.copy(dnsProxyEnabled = false)))
         assertFalse(settings.hasSameConnection(settings.copy(socksPassword = "changed")))
         assertThrows(IllegalArgumentException::class.java) { settings.copy(dnsServers = listOf("256.1.1.1")).validate() }

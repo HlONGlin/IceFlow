@@ -214,6 +214,8 @@ data class AppSettings(
     val showTrafficStats: Boolean = false,
     /** 是否在节点卡片显示延迟；关闭时不显示延迟与未测速提示 */
     val showNodeLatency: Boolean = false,
+    /** 是否在主页显示公网 IP；默认关闭 */
+    val showPublicIp: Boolean = false,
     val logRetentionDays: Int = 3,
     val appRoutingEnabled: Boolean = false,
     val appProxyMode: Boolean = false,
@@ -222,7 +224,7 @@ data class AppSettings(
     fun hasSameConnection(other: AppSettings): Boolean = copy(
         theme = other.theme, nightMode = other.nightMode, language = other.language,
         showTrafficStats = other.showTrafficStats, logRetentionDays = other.logRetentionDays,
-        showNodeLatency = other.showNodeLatency,
+        showNodeLatency = other.showNodeLatency, showPublicIp = other.showPublicIp,
         testUrl = other.testUrl,
     ) == other
 

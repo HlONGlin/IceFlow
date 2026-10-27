@@ -512,6 +512,8 @@ fun SettingsScreen(
             RowDivider()
             ToggleRow(Icons.Outlined.Speed, T("settings.showLatency"), T("settings.showLatencyHint"), settings.showNodeLatency) { v -> onUpdate { it.copy(showNodeLatency = v) } }
             RowDivider()
+            ToggleRow(Icons.Outlined.Public, T("settings.showPublicIp"), T("settings.showPublicIpHint"), settings.showPublicIp) { v -> onUpdate { it.copy(showPublicIp = v) } }
+            RowDivider()
             SettingAction(Icons.Outlined.History, T("settings.logRetention"), if (settings.logRetentionDays == 0) T("settings.forever") else String.format(T("settings.days"), settings.logRetentionDays)) { detail = "logRetention" }
             RowDivider()
             SettingRow(icon = Icons.AutoMirrored.Outlined.Article, title = T("settings.viewLogs"), onClick = onOpenLogs, trailing = {
