@@ -119,6 +119,7 @@ import com.iceflow.data.model.GroupSort
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.ShareLinkParser
+import com.iceflow.data.BoundedTextReader
 import com.iceflow.data.UpdateInfo
 import com.iceflow.service.AppLog
 import com.iceflow.service.TrafficSnapshot
@@ -366,7 +367,14 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     if (sortingKey != null) BackHandler { sortingKey = null }
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let(onImportText) }
     val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()?.let(onImportText)
+        if (uri != null) {
+            runCatching {
+                val input = context.contentResolver.openInputStream(uri) ?: error("无法读取所选文件")
+                input.use { BoundedTextReader.readUtf8(it) }
+            }.onSuccess(onImportText).onFailure {
+                android.widget.Toast.makeText(context, it.message ?: "读取导入文件失败", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
     LaunchedEffect(state) { while (state is VpnState.Connected) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
     val selected = store.selected
