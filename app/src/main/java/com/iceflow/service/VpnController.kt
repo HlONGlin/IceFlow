@@ -179,11 +179,19 @@ object VpnController {
         return afterRequestId
     }
 
+    fun requestStop(context: Context): Boolean {
+        val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_STOP)
+        return runCatching { context.startService(intent); true }
+            .onFailure { Log.w("VpnController", "stop failed: $it") }
+            .getOrDefault(false)
+    }
+
     /** 在"等待网络恢复"状态下由用户手动触发的重试。 */
-    fun retry(context: Context) {
+    fun retry(context: Context): Boolean {
         val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_RETRY)
-        runCatching { context.startService(intent) }
+        return runCatching { context.startService(intent); true }
             .onFailure { Log.w("VpnController", "retry failed: $it") }
+            .getOrDefault(false)
     }
 
     fun reportError(context: Context, type: VpnErrorType, language: com.iceflow.data.model.AppLanguage) {

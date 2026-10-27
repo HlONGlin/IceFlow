@@ -23,6 +23,33 @@ enum class VpnErrorAction { REAUTHORIZE, CONNECT, CHECK_NODE, OPEN_LOGS }
 
 /** One pure, localized mapping from VPN failure type to user-facing feedback. */
 object VpnErrorCatalog {
+    fun shortLabel(type: VpnErrorType, language: AppLanguage): String = when (language) {
+        AppLanguage.SIMPLIFIED_CHINESE -> when (type) {
+            VpnErrorType.VPN_AUTHORIZATION_DENIED -> "授权被拒"
+            VpnErrorType.CORE_START_FAILED -> "核心启动失败"
+            VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION -> "配置错误"
+            VpnErrorType.NETWORK_UNAVAILABLE -> "网络不可用"
+            VpnErrorType.RETRIES_EXHAUSTED -> "重试耗尽"
+            VpnErrorType.RESOURCE_CLEANUP_FAILED -> "清理失败"
+        }
+        AppLanguage.TRADITIONAL_CHINESE -> when (type) {
+            VpnErrorType.VPN_AUTHORIZATION_DENIED -> "授權遭拒"
+            VpnErrorType.CORE_START_FAILED -> "核心啟動失敗"
+            VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION -> "設定錯誤"
+            VpnErrorType.NETWORK_UNAVAILABLE -> "網路無法使用"
+            VpnErrorType.RETRIES_EXHAUSTED -> "重試耗盡"
+            VpnErrorType.RESOURCE_CLEANUP_FAILED -> "清理失敗"
+        }
+        AppLanguage.ENGLISH -> when (type) {
+            VpnErrorType.VPN_AUTHORIZATION_DENIED -> "Permission denied"
+            VpnErrorType.CORE_START_FAILED -> "Core start failed"
+            VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION -> "Invalid config"
+            VpnErrorType.NETWORK_UNAVAILABLE -> "Network unavailable"
+            VpnErrorType.RETRIES_EXHAUSTED -> "Retries exhausted"
+            VpnErrorType.RESOURCE_CLEANUP_FAILED -> "Cleanup failed"
+        }
+    }
+
     fun presentation(type: VpnErrorType, language: AppLanguage): VpnErrorPresentation {
         val (message, nextAction, actionLabel, action) = when (language) {
             AppLanguage.SIMPLIFIED_CHINESE -> simplifiedChinese(type)
