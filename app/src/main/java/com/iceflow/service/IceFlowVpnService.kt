@@ -175,13 +175,14 @@ class IceFlowVpnService : VpnService() {
         scope.cancel()
         synchronized(operationLock) {
             desiredController.userStop()
+            // releaseResources enters Stopping, so retain the primary error before cleanup.
+            val primaryError = (VpnController.state.value as? VpnState.Error)?.presentation?.type
             val release = releaseResources(closeTun = true, stopXray = true)
-            if (release.succeeded && VpnController.state.value !is VpnState.Error) {
-                VpnController.setState(VpnState.Idle)
-            } else if (!release.succeeded) {
+            if (!release.succeeded) {
                 AppLog.write(this, "ERROR", "VPN resource cleanup failed: ${release.failures.joinToString()}")
-                publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
             }
+            val error = VpnFailurePolicy.afterCleanup(primaryError, release.succeeded)
+            if (error == null) VpnController.setState(VpnState.Idle) else publishError(error)
         }
         super.onDestroy()
     }
@@ -273,11 +274,10 @@ class IceFlowVpnService : VpnService() {
                     releaseResources(closeTun = true, stopXray = true)
                 },
                 publishError = { release ->
-                    if (release.succeeded) publishError(errorType)
-                    else {
+                    if (!release.succeeded) {
                         AppLog.write(this, "ERROR", "Retry exhaustion cleanup failed: ${release.failures.joinToString()}")
-                        publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
                     }
+                    publishError(requireNotNull(VpnFailurePolicy.afterCleanup(errorType, release.succeeded)))
                 },
             )
             return
@@ -472,11 +472,11 @@ class IceFlowVpnService : VpnService() {
         VpnController.setState(VpnState.Stopping)
         updateNotification("正在断开…")
         val release = releaseResources(closeTun = true, stopXray = true)
-        if (release.succeeded) VpnController.setState(VpnState.Idle)
-        else {
+        if (!release.succeeded) {
             AppLog.write(this, "ERROR", "VPN stop cleanup failed: ${release.failures.joinToString()}")
-            publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
         }
+        val error = VpnFailurePolicy.afterCleanup(primaryError = null, cleanupSucceeded = release.succeeded)
+        if (error == null) VpnController.setState(VpnState.Idle) else publishError(error)
         if (release.succeeded) ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (startId == null) stopSelf() else stopSelf(startId)
     }
@@ -486,11 +486,10 @@ class IceFlowVpnService : VpnService() {
         desiredController.terminateWithCleanup(
             cleanup = { releaseResources(closeTun = true, stopXray = true) },
             publishError = { result ->
-                if (result.succeeded) publishError(type)
-                else {
+                if (!result.succeeded) {
                     AppLog.write(this, "ERROR", "VPN startup cleanup failed: ${result.failures.joinToString()}")
-                    publishError(VpnErrorType.RESOURCE_CLEANUP_FAILED)
                 }
+                publishError(requireNotNull(VpnFailurePolicy.afterCleanup(type, result.succeeded)))
             },
         )
         AppLog.write(this, "ERROR", "VPN startup failed: $type")
