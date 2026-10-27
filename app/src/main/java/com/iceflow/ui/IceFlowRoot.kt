@@ -346,7 +346,6 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
 
     LaunchedEffect(state) {
         if (state is VpnState.Connected) {
-            vm.refreshPublicIp()
             // VPN 连接时自动清理旧日志
             vm.cleanOldLogs()
         }
@@ -373,7 +372,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false, onErrorAction: (VpnErrorAction) -> Unit) {
+@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: PublicIpState, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false, onErrorAction: (VpnErrorAction) -> Unit) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -441,6 +440,20 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                         }
                     }
                 }
+            }
+            if (state is VpnState.Connected) {
+                val ipText = when (val result = publicIp) {
+                    PublicIpState.Idle -> T("publicIp.unavailable")
+                    PublicIpState.Loading -> T("publicIp.loading")
+                    is PublicIpState.Success -> result.address
+                    PublicIpState.Failed -> T("publicIp.failed")
+                }
+                Text(
+                    T("publicIp.label") + ": " + ipText,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
             }
             (state as? VpnState.Error)?.let { error ->
                 VpnErrorBanner(error.presentation, { onErrorAction(error.presentation.action) }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))

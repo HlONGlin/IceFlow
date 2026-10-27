@@ -100,8 +100,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** 预览阶段的原始数据，确认后写入仓库。 */
     private var pendingPreview: SubscriptionPreview? = null
 
-    private val _publicIp = MutableStateFlow<String?>(null)
-    val publicIp: StateFlow<String?> = _publicIp.asStateFlow()
+    private val publicIpLookup = PublicIpLookup { failure ->
+        android.util.Log.w("PublicIpLookup", "Public IP lookup failed", failure)
+        AppLog.write(getApplication(), "WARN", "Public IP lookup failed: " + failure.stackTraceToString())
+    }
+    val publicIp: StateFlow<PublicIpState> = publicIpLookup.state
 
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
@@ -129,10 +132,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            vpnState.collectLatest {
+            vpnState.collectLatest { session ->
                 connectionTestJob?.cancel()
                 _connectionTest.value = ConnectionTestState()
-                _publicIp.value = null
+                publicIpLookup.reset()
+                if (session is VpnState.Connected) {
+                    publicIpLookup.query {
+                        withContext(Dispatchers.IO) {
+                            ConnectionProbe.publicIp(session.socksPort, session.tunnelUser, session.tunnelPass)
+                        }
+                    }
+                }
             }
         }
         if (updatePrefs.autoRemind) viewModelScope.launch {
@@ -425,14 +435,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissBulkTest() {
         if (_bulkTest.value.testing) return
         _bulkTest.value = BulkTestState()
-    }
-
-    fun refreshPublicIp() {
-        val session = vpnState.value as? VpnState.Connected ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            val result = runCatching { ConnectionProbe.publicIp(session.socksPort, session.tunnelUser, session.tunnelPass) }.getOrNull()
-            if (vpnState.value == session) _publicIp.value = result
-        }
     }
 
     suspend fun readLogs(): String = withContext(Dispatchers.IO) { AppLog.read(getApplication()) }
