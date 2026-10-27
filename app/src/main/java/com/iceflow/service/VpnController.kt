@@ -85,6 +85,22 @@ data class TrafficSnapshot(
 /** 进程内 VPN 状态中心，UI / 快捷开关 / 服务共享。 */
 object VpnController {
 
+    private val restoreCoordinator = RestoreCoordinator()
+    val isRestoringBackup: Boolean get() = restoreCoordinator.isRestoring
+
+    fun canStartConnection(): Boolean = restoreCoordinator.canStartConnection()
+
+    suspend fun <T> duringBackupRestore(
+        timeoutMs: Long = 10_000,
+        requestStop: () -> Long,
+        replaceConfiguration: suspend () -> T,
+    ): T = restoreCoordinator.restore(
+        timeoutMs = timeoutMs,
+        requestStop = requestStop,
+        awaitRelease = ::awaitNextResourcesReleased,
+        replaceConfiguration = replaceConfiguration,
+    )
+
     private val releases = ResourceReleaseTracker()
     val resourceReleaseStatus: StateFlow<ResourceReleaseStatus> = releases.status
 
@@ -93,6 +109,10 @@ object VpnController {
     internal fun completeResourceRelease(requestId: Long, failures: List<String>) = releases.complete(requestId, failures)
 
     suspend fun awaitResourcesReleased(requestId: Long): ResourceReleaseResult = releases.await(requestId)
+
+    suspend fun awaitNextResourcesReleased(afterRequestId: Long): ResourceReleaseResult =
+        resourceReleaseStatus.first { it.lastCompletedId > afterRequestId }.lastResult
+            ?: error("Resource release completion record is missing")
 
     private val _state = MutableStateFlow<VpnState>(VpnState.Idle)
     val state: StateFlow<VpnState> = _state.asStateFlow()
@@ -123,15 +143,18 @@ object VpnController {
     }
 
     /** 调用前需确保 VpnService.prepare() 已授权。 */
-    fun start(context: Context) {
+    fun start(context: Context): Boolean {
+        if (!restoreCoordinator.canStartConnection()) return false
         val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_START)
-        ContextCompat.startForegroundService(context, intent)
+        return runCatching { ContextCompat.startForegroundService(context, intent); true }.getOrDefault(false)
     }
 
-    fun stop(context: Context) {
+    fun stop(context: Context): Long {
+        val afterRequestId = resourceReleaseStatus.value.lastRequestedId
         val intent = Intent(context, IceFlowVpnService::class.java).setAction(IceFlowVpnService.ACTION_STOP)
         runCatching { context.startService(intent) }
             .onFailure { Log.w("VpnController", "stop failed: $it") }
+        return afterRequestId
     }
 
     /** 在"等待网络恢复"状态下由用户手动触发的重试。 */

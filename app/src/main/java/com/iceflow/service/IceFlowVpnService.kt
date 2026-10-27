@@ -143,6 +143,9 @@ class IceFlowVpnService : VpnService() {
             ACTION_RETRY -> Command.RetryNow
             else -> Command.Start
         }
+        if (command !is Command.Stop && !VpnController.canStartConnection()) {
+            return START_NOT_STICKY
+        }
         if (command !is Command.Stop) {
             val connected = VpnController.state.value as? VpnState.Connected
             val text = if (command == Command.Start && connected != null) getString(R.string.notification_connected, connected.serverName)
@@ -175,6 +178,7 @@ class IceFlowVpnService : VpnService() {
     }
 
     private fun handle(command: Command) {
+        if (command !is Command.Stop && !VpnController.canStartConnection()) return
         Log.i(TAG, "[CMD] $command  desiredRunning=$desiredRunning state=${VpnController.state.value}")
         AppLog.write(this, "INFO", "[CMD] $command desiredRunning=$desiredRunning")
         when (command) {

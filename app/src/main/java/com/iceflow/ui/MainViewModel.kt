@@ -34,8 +34,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -445,36 +443,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     suspend fun restoreBackup(text: String) {
         val backup = withContext(Dispatchers.IO) { BackupCodec.decode(text) }
-        if (vpnState.value != VpnState.Idle) {
-            VpnController.stop(getApplication())
-            withTimeout(10_000) { vpnState.first { it == VpnState.Idle } }
-        }
-        withContext(Dispatchers.IO) {
-            val previousStore = store.value
-            val previousSettings = settings.value
-            // 应用路由备份的是包名，恢复时只保留本机仍安装的应用，缺失的自动跳过。
-            val installedPackages = runCatching {
-                getApplication<Application>().packageManager
-                    .getInstalledPackages(0)
-                    .mapTo(HashSet()) { it.packageName }
-            }.getOrNull()
-            val restoredSettings = if (installedPackages == null) {
-                backup.settings
-            } else {
-                backup.settings.copy(
-                    bypassApps = BackupCodec.filterInstalledApps(backup.settings.bypassApps, installedPackages),
-                )
+        VpnController.duringBackupRestore(
+            requestStop = { VpnController.stop(getApplication()) },
+        ) {
+            withContext(Dispatchers.IO) {
+                val previousStore = store.value
+                val previousSettings = settings.value
+                // 应用路由备份的是包名，恢复时只保留本机仍安装的应用，缺失的自动跳过。
+                val installedPackages = runCatching {
+                    getApplication<Application>().packageManager
+                        .getInstalledPackages(0)
+                        .mapTo(HashSet()) { it.packageName }
+                }.getOrNull()
+                val restoredSettings = if (installedPackages == null) {
+                    backup.settings
+                } else {
+                    backup.settings.copy(
+                        bypassApps = BackupCodec.filterInstalledApps(backup.settings.bypassApps, installedPackages),
+                    )
+                }
+                container.servers.replace(backup.store)
+                try {
+                    container.settings.update { restoredSettings }
+                } catch (error: Exception) {
+                    container.servers.replace(previousStore)
+                    container.settings.update { previousSettings }
+                    throw error
+                }
+                previousStore.subscriptions.forEach { SubscriptionScheduler.cancel(getApplication(), it.id) }
+                backup.store.subscriptions.forEach { SubscriptionScheduler.schedule(getApplication(), it) }
             }
-            container.servers.replace(backup.store)
-            try {
-                container.settings.update { restoredSettings }
-            } catch (error: Exception) {
-                container.servers.replace(previousStore)
-                container.settings.update { previousSettings }
-                throw error
-            }
-            previousStore.subscriptions.forEach { SubscriptionScheduler.cancel(getApplication(), it.id) }
-            backup.store.subscriptions.forEach { SubscriptionScheduler.schedule(getApplication(), it) }
         }
     }
 
