@@ -104,6 +104,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
@@ -119,11 +121,15 @@ import com.iceflow.data.model.GroupSort
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.ShareLinkParser
+import com.iceflow.data.BoundedTextReader
 import com.iceflow.data.UpdateInfo
 import com.iceflow.service.AppLog
 import com.iceflow.service.TrafficSnapshot
 import com.iceflow.service.VpnController
 import com.iceflow.service.VpnState
+import com.iceflow.service.VpnErrorAction
+import com.iceflow.service.VpnErrorPresentation
+import com.iceflow.service.VpnEntryPoint
 import com.iceflow.core.XrayBridge
 import com.iceflow.ui.component.ShareNodeDialog
 import com.iceflow.ui.component.latencyColor
@@ -149,7 +155,7 @@ private enum class Tab(val labelKey: String, val icon: ImageVector) {
 private val UngroupedGroup: NodeGroup @Composable get() = NodeGroup("builtin:ungrouped", null, T("groups.ungrouped"))
 
 @Composable
-fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
+fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: Boolean = false, onLogsOpened: () -> Unit = {}) {
     val context = LocalContext.current
     LaunchedEffect(vm) {
         vm.recoveryMessage?.let { android.widget.Toast.makeText(context, it, android.widget.Toast.LENGTH_LONG).show() }
@@ -180,6 +186,14 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
     var nodeEditorOpen by rememberSaveable { mutableStateOf(false) }
     var nodeEditorId by rememberSaveable { mutableStateOf<String?>(null) }
     var groupId by rememberSaveable { mutableStateOf<String?>(store.selectedGroupId) }
+    LaunchedEffect(openLogsRequested) {
+        if (openLogsRequested) {
+            tab = Tab.HOME.ordinal
+            vm.cleanOldLogs()
+            logsOpen = true
+            onLogsOpened()
+        }
+    }
     LaunchedEffect(store.selectedGroupId) { if (groupId != store.selectedGroupId) groupId = store.selectedGroupId }
     var toast by remember { mutableStateOf<String?>(null) }
     var previousState by remember { mutableStateOf<VpnState>(VpnState.Idle) }
@@ -239,7 +253,14 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit) {
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency)
+                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency) { action ->
+                            when (action) {
+                                VpnErrorAction.REAUTHORIZE, VpnErrorAction.CONNECT -> onToggleVpn()
+                                VpnErrorAction.CHECK_NODE -> store.selected?.let { nodeEditorId = it.id; nodeEditorOpen = true }
+                                    ?: run { tab = Tab.SUBS.ordinal }
+                                VpnErrorAction.OPEN_LOGS -> { vm.cleanOldLogs(); logsOpen = true }
+                            }
+                        }
                         Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, vm::createGroupFromUngrouped, vm::deleteUngroupedServers, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
@@ -352,7 +373,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false) {
+@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: String?, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false, onErrorAction: (VpnErrorAction) -> Unit) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -366,7 +387,14 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     if (sortingKey != null) BackHandler { sortingKey = null }
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let(onImportText) }
     val fileLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) runCatching { context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }.getOrNull()?.let(onImportText)
+        if (uri != null) {
+            runCatching {
+                val input = context.contentResolver.openInputStream(uri) ?: error("无法读取所选文件")
+                input.use { BoundedTextReader.readUtf8(it) }
+            }.onSuccess(onImportText).onFailure {
+                android.widget.Toast.makeText(context, it.message ?: "读取导入文件失败", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
     LaunchedEffect(state) { while (state is VpnState.Connected) { now = System.currentTimeMillis(); kotlinx.coroutines.delay(1000) } }
     val selected = store.selected
@@ -414,6 +442,9 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                     }
                 }
             }
+            (state as? VpnState.Error)?.let { error ->
+                VpnErrorBanner(error.presentation, { onErrorAction(error.presentation.action) }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
             if (searchOpen) OutlinedTextField(query, { query = it }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), placeholder = { Text(T("home.searchPlaceholder")) }, singleLine = true, shape = RoundedCornerShape(12.dp))
             val visibleGroups = if (visibleNodes(null, "").isEmpty()) store.orderedGroups else listOf(UngroupedGroup) + store.orderedGroups
             if (visibleGroups.isEmpty()) EmptyStateMessage(T("home.empty"), Modifier.weight(1f))
@@ -445,17 +476,41 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             ConnectionPanel(panelState, traffic, now, connectionTest, onTestConnection)
         }
         // The control floats over the panel edge instead of leaving an empty gap.
-        Box(Modifier.align(Alignment.BottomCenter).offset(y = (-28).dp)) { ConnectOrb(state, onToggle, 54.dp) }
+        Row(Modifier.align(Alignment.BottomCenter).offset(y = (-28).dp), verticalAlignment = Alignment.CenterVertically) {
+            ConnectOrb(state, onToggle, 54.dp) {
+                VpnController.dispatchEntryAction(context, VpnEntryPoint.HOME, secondary = true)
+            }
+            if (state == VpnState.Stopping) Text(T("state.stopping"), modifier = Modifier.padding(start = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+        }
         if (toast != null) Text(toast, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), CircleShape).padding(horizontal = 18.dp, vertical = 9.dp))
     }
 }
 
-@Composable internal fun ConnectOrb(state: VpnState, onClick: () -> Unit, size: Dp = 54.dp) {
+@Composable
+private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().widthIn(max = 600.dp)
+            .shadow(5.dp, RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.errorContainer, RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(presentation.message, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+        Text(presentation.nextAction, color = MaterialTheme.colorScheme.onErrorContainer, style = MaterialTheme.typography.bodySmall)
+        TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)) {
+            Text(presentation.actionLabel, color = MaterialTheme.colorScheme.onErrorContainer)
+        }
+    }
+}
+
+@Composable internal fun ConnectOrb(state: VpnState, onClick: () -> Unit, size: Dp = 54.dp, onStopWaiting: () -> Unit = {}) {
     val connected = state is VpnState.Connected
     val waitingNetwork = state == VpnState.WaitingNetwork
     // 等待网络恢复时不是"正在连接"，用不同的图标，避免无限转圈造成的误解
     // 断开连接时不显示loading，因为断开应该是即时的
     val busy = state == VpnState.Connecting || waitingNetwork
+    val stopping = state == VpnState.Stopping
+    val stoppingDescription = if (stopping) T("state.stopping") else ""
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) .91f else 1f, spring(dampingRatio = .6f, stiffness = 480f), label = "connectPress")
@@ -470,10 +525,12 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
         Box(Modifier.fillMaxSize()
             .background(Brush.verticalGradient(if (connected) listOf(MaterialTheme.colorScheme.primary.copy(alpha = .84f), orbColor) else listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant)), CircleShape)
             .clip(CircleShape)
-            .clickable(enabled = !busy || waitingNetwork, interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick), contentAlignment = Alignment.Center) {
+            .clickable(enabled = !stopping, interactionSource = interaction, indication = androidx.compose.material3.ripple(), onClick = onClick)
+            .semantics { if (stopping) contentDescription = stoppingDescription }, contentAlignment = Alignment.Center) {
             AnimatedContent(
                 targetState = when {
                     waitingNetwork -> 2   // 等待网络
+                    stopping -> 3        // 断开中
                     busy -> 1            // 连接中
                     else -> 0            // 空闲
                 },
@@ -484,11 +541,15 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             ) { loading ->
                 when (loading) {
                     2 -> Icon(Icons.Filled.WifiOff, T("state.waitingNetwork"), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(size * .40f))
+                    3 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
                     1 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
                     else -> Icon(Icons.Filled.Send, if (connected) T("connect.disconnect") else T("connect.title"), tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
                 }
             }
         }
+    }
+    if (waitingNetwork) {
+        TextButton(onClick = onStopWaiting) { Text(T("notification_disconnect")) }
     }
 }
 

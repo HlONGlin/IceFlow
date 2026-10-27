@@ -11,26 +11,33 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import com.iceflow.service.VpnController
-import com.iceflow.service.VpnState
+import com.iceflow.service.VpnEntryPoint
 import com.iceflow.service.AppLog
+import com.iceflow.service.VpnErrorType
 import com.iceflow.ui.IceFlowRoot
 import com.iceflow.ui.MainViewModel
 import com.iceflow.ui.theme.IceFlowTheme
+import com.iceflow.data.model.AppLanguage
 
 class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_CONNECT_FROM_TILE = "com.iceflow.extra.CONNECT_FROM_TILE"
+        const val EXTRA_OPEN_LOGS = "com.iceflow.extra.OPEN_LOGS"
     }
 
     private val vm: MainViewModel by viewModels()
+    private var openLogsRequested by mutableStateOf(false)
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == RESULT_OK) VpnController.start(this)
+        else VpnController.reportError(this, VpnErrorType.VPN_AUTHORIZATION_DENIED, AppLanguage.fromTag(vm.settings.value.language))
     }
 
     private val notificationPermission =
@@ -53,7 +60,9 @@ class MainActivity : ComponentActivity() {
                 textSize = settings.textSize,
                 language = com.iceflow.data.model.AppLanguage.fromTag(settings.language),
             ) {
-                IceFlowRoot(vm = vm, onToggleVpn = ::toggleVpn)
+                IceFlowRoot(vm = vm, onToggleVpn = ::toggleVpn, openLogsRequested = openLogsRequested) {
+                    openLogsRequested = false
+                }
             }
         }
         if (savedInstanceState == null) handleTileIntent(intent)
@@ -66,30 +75,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleTileIntent(intent: Intent) {
+        if (intent.getBooleanExtra(EXTRA_OPEN_LOGS, false)) {
+            intent.removeExtra(EXTRA_OPEN_LOGS)
+            openLogsRequested = true
+        }
         if (!intent.getBooleanExtra(EXTRA_CONNECT_FROM_TILE, false)) return
         intent.removeExtra(EXTRA_CONNECT_FROM_TILE)
-        when (VpnController.state.value) {
-            VpnState.Idle, is VpnState.Error -> toggleVpn()
-            else -> Unit
-        }
+        toggleVpn(VpnEntryPoint.ACTIVITY)
     }
 
-    private fun toggleVpn() {
-        when (VpnController.state.value) {
-            is VpnState.Connected, VpnState.Connecting -> VpnController.stop(this)
-            VpnState.Stopping -> Unit
-            VpnState.WaitingNetwork -> {
-                // 等待网络恢复时允许用户手动重试，而不是无响应。
-                if (!vm.canConnect()) return
-                VpnController.retry(this)
-            }
-            else -> {
-                if (!vm.canConnect()) return
-                // 记录点击时刻，用于端到端感知耗时统计
+    private fun toggleVpn(entryPoint: VpnEntryPoint = VpnEntryPoint.ACTIVITY) {
+        VpnController.dispatchEntryAction(this, entryPoint, connect = {
+            if (vm.canConnect()) {
                 VpnController.markClick()
                 val intent = VpnService.prepare(this)
                 if (intent != null) vpnPermission.launch(intent) else VpnController.start(this)
             }
-        }
+        })
     }
 }
