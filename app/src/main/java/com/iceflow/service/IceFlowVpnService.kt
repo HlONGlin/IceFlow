@@ -137,10 +137,19 @@ class IceFlowVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "[TIMING] service.onStartCommand action=${intent?.action}")
         AppLog.write(this, "INFO", "[计时] service.onStartCommand action=${intent?.action}")
-        val command = when (intent?.action) {
-            ACTION_STOP -> Command.Stop(startId)
-            ACTION_SWITCH -> Command.Switch
-            ACTION_RETRY -> Command.RetryNow
+        val currentState = VpnController.state.value
+        val requestedAction = intent?.action
+        val command = when {
+            requestedAction == ACTION_STOP && currentState == VpnState.Stopping -> return START_NOT_STICKY
+            requestedAction == ACTION_STOP -> Command.Stop(startId)
+            requestedAction == ACTION_START -> when (VpnEntryPolicy.primary(currentState, VpnEntryPoint.NOTIFICATION)) {
+                VpnUserOperation.CONNECT -> Command.Start
+                VpnUserOperation.CANCEL, VpnUserOperation.STOP -> Command.Stop(startId)
+                VpnUserOperation.RETRY -> Command.RetryNow
+                VpnUserOperation.IGNORE -> return START_NOT_STICKY
+            }
+            requestedAction == ACTION_SWITCH -> Command.Switch
+            requestedAction == ACTION_RETRY -> Command.RetryNow
             else -> Command.Start
         }
         if (command !is Command.Stop && !VpnController.canStartConnection()) {
@@ -437,6 +446,7 @@ class IceFlowVpnService : VpnService() {
         desiredRunning = false
         resetRetry()
         VpnController.setState(VpnState.Stopping)
+        updateNotification("正在断开…")
         val release = releaseResources(closeTun = true, stopXray = true)
         if (release.succeeded) VpnController.setState(VpnState.Idle)
         else VpnController.setState(VpnState.Error("VPN resource cleanup failed: ${release.failures.joinToString()}"))
@@ -543,27 +553,49 @@ class IceFlowVpnService : VpnService() {
     }
 
     private fun buildNotification(text: String): Notification {
+        val entryPoint = VpnEntryPoint.NOTIFICATION
+        val state = VpnController.state.value
+        val primary = VpnEntryPolicy.primary(state, entryPoint)
+        val secondary = VpnEntryPolicy.secondary(state, entryPoint)
+        fun pendingAction(operation: VpnUserOperation, requestCode: Int): PendingIntent = PendingIntent.getService(
+            this,
+            requestCode,
+            Intent(this, IceFlowVpnService::class.java).setAction(
+                when (operation) {
+                    VpnUserOperation.CONNECT -> ACTION_START
+                    VpnUserOperation.CANCEL, VpnUserOperation.STOP -> ACTION_STOP
+                    VpnUserOperation.RETRY -> ACTION_RETRY
+                    VpnUserOperation.IGNORE -> ACTION_STOP
+                },
+            ),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         val open = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val stop = PendingIntent.getService(
-            this, 1,
-            Intent(this, IceFlowVpnService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_IMMUTABLE,
-        )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(open)
-            .addAction(0, getString(R.string.notification_disconnect), stop)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        if (primary != VpnUserOperation.IGNORE) {
+            val label = when (primary) {
+                VpnUserOperation.CONNECT -> getString(R.string.notification_connect)
+                VpnUserOperation.CANCEL -> getString(R.string.notification_cancel)
+                VpnUserOperation.RETRY -> getString(R.string.notification_retry)
+                VpnUserOperation.STOP -> getString(R.string.notification_disconnect)
+                VpnUserOperation.IGNORE -> ""
+            }
+            builder.addAction(0, label, pendingAction(primary, 1))
+        }
+        if (secondary != null) builder.addAction(0, getString(R.string.notification_disconnect), pendingAction(secondary, 2))
+        return builder.build()
     }
 
     private fun startForegroundCompat(notification: Notification) {

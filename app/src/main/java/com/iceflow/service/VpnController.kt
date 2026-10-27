@@ -90,6 +90,24 @@ object VpnController {
 
     fun canStartConnection(): Boolean = restoreCoordinator.canStartConnection()
 
+    fun dispatchEntryAction(
+        context: Context,
+        entryPoint: VpnEntryPoint,
+        secondary: Boolean = false,
+        connect: () -> Unit = { start(context) },
+    ): VpnUserOperation {
+        val currentState = state.value
+        val operation = if (secondary) VpnEntryPolicy.secondary(currentState, entryPoint) ?: VpnUserOperation.IGNORE
+        else VpnEntryPolicy.primary(currentState, entryPoint)
+        when (operation) {
+            VpnUserOperation.CONNECT -> connect()
+            VpnUserOperation.CANCEL, VpnUserOperation.STOP -> stop(context)
+            VpnUserOperation.RETRY -> retry(context)
+            VpnUserOperation.IGNORE -> Unit
+        }
+        return operation
+    }
+
     suspend fun <T> duringBackupRestore(
         timeoutMs: Long = 10_000,
         requestStop: () -> Long,

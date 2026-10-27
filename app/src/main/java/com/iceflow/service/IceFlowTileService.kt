@@ -118,8 +118,9 @@ class IceFlowTileService : TileService() {
         super.onClick()
         // 用 displayState 而不是真实状态：乐观窗口内磁贴已经显示「连接中」，
         // 此时再点一次应该理解为「取消连接」，而不是再发一次启动指令。
-        when (displayState(VpnController.state.value)) {
-            is VpnState.Connected, VpnState.Connecting -> {
+        val currentState = displayState(VpnController.state.value)
+        when (VpnEntryPolicy.primary(currentState, VpnEntryPoint.TILE)) {
+            VpnUserOperation.CANCEL, VpnUserOperation.STOP -> {
                 // 收回乐观显示：真实状态已经接管，避免兜底任务又把磁贴改回「连接中」。
                 optimisticUntil = 0L
                 optimisticJob?.cancel()
@@ -127,13 +128,13 @@ class IceFlowTileService : TileService() {
                 render(VpnState.Stopping)
                 VpnController.stop(this)
             }
-            VpnState.Stopping -> render(VpnState.Stopping)
-            VpnState.WaitingNetwork -> {
+            VpnUserOperation.IGNORE -> render(VpnState.Stopping)
+            VpnUserOperation.RETRY -> {
                 // 等待网络恢复时，点击磁贴立即重试一次
                 render(VpnState.Connecting)
                 runCatching { VpnController.retry(this) }.onFailure { render(VpnController.state.value) }
             }
-            else -> {
+            VpnUserOperation.CONNECT -> {
                 if (VpnService.prepare(this) != null) {
                     render(VpnController.state.value)
                     openApp()
@@ -204,7 +205,11 @@ class IceFlowTileService : TileService() {
         val shortNode = nodeName?.let { if (it.length > 12) it.take(11) + "…" else it }
         tile.label = shortNode ?: getString(R.string.app_name)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tile.subtitle = if (shortNode != null) status else ""
+            tile.subtitle = when {
+                state == VpnState.WaitingNetwork -> "$status · 点按重试，打开应用可停止"
+                shortNode != null -> status
+                else -> ""
+            }
         }
         tile.updateTile()
     }
