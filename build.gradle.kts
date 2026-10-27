@@ -4,4 +4,21 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
     alias(libs.plugins.kotlin.compose) apply false
     alias(libs.plugins.kotlin.serialization) apply false
+    alias(libs.plugins.detekt) apply false
+}
+
+// Detekt 配置
+subprojects {
+    apply(plugin = "io.gitlab.arturbosch.detekt")
+
+    tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+        jvmTarget = "17"
+        config.setFrom(rootProject.file("detekt.yml"))
+        buildUponDefaultConfig = true
+        reports {
+            html.required.set(true)
+            xml.required.set(false)
+            txt.required.set(false)
+        }
+    }
 }
