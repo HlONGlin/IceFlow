@@ -82,9 +82,8 @@ class IceFlowVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private var statsJob: Job? = null
     private var retryJob: Job? = null
-    private var generation = 0L
-    private var retryAttempt = 0
-    private var desiredRunning = false
+    private val desiredController = DesiredRunningController()
+    private val desiredRunning: Boolean get() = desiredController.desiredRunning
     private var activeServerId: String? = null
     // 缓存当前连接的 tunnel 配置，用于复用 xray 时保持一致
     private var activeTunnelPort: Int = 0
@@ -175,7 +174,7 @@ class IceFlowVpnService : VpnService() {
         commands.close()
         scope.cancel()
         synchronized(operationLock) {
-            desiredRunning = false
+            desiredController.userStop()
             val release = releaseResources(closeTun = true, stopXray = true)
             if (release.succeeded && VpnController.state.value !is VpnState.Error) {
                 VpnController.setState(VpnState.Idle)
@@ -194,11 +193,12 @@ class IceFlowVpnService : VpnService() {
             is Command.Stop -> stopVpn(command.startId)
             Command.Start -> {
                 if (desiredRunning && VpnController.state.value is VpnState.Connected) return
-                desiredRunning = true
-                resetRetry()
+                desiredController.userConnect()
+                retryJob?.cancel()
+                retryJob = null
                 startVpn()
             }
-            Command.Switch -> if (desiredRunning) {
+            Command.Switch -> if (desiredController.shouldReconnectForConfigurationChange(VpnController.state.value)) {
                 resetRetry()
                 val container = (application as IceFlowApp).container
                 val newProfile = container.servers.selected
@@ -207,16 +207,16 @@ class IceFlowVpnService : VpnService() {
                 releaseResources(closeTun = false, stopXray = !sameNode)
                 startVpn()
             }
-            Command.RetryNow -> if (desiredRunning) {
+            Command.RetryNow -> if (desiredController.manualRetry(VpnController.state.value)) {
                 // 用户手动重试：立即尝试，不再等待退避计时器
                 retryJob?.cancel()
-                resetRetry()
+                retryJob = null
                 val container = (application as IceFlowApp).container
                 val sameNode = container.servers.selected?.id == activeServerId
                 releaseResources(closeTun = false, stopXray = !sameNode)
                 startVpn()
             }
-            is Command.Retry -> if (desiredRunning && command.generation == generation) {
+            is Command.Retry -> if (desiredController.acceptsRetryToken(command.generation)) {
                 // 自动重试时尝试复用 xray-core（节点未变的情况）
                 val container = (application as IceFlowApp).container
                 val sameNode = container.servers.selected?.id == activeServerId
@@ -255,29 +255,39 @@ class IceFlowVpnService : VpnService() {
     }
 
     private fun resetRetry() {
-        generation++
+        desiredController.invalidateRetries()
         retryJob?.cancel()
         retryJob = null
-        retryAttempt = 0
     }
 
     private fun scheduleRetry(delayMs: Long? = null) {
         if (!desiredRunning || destroyed) return
-        if (delayMs == null && retryAttempt >= 5) {
-            VpnController.setState(VpnState.Error("连接恢复失败，请检查节点或网络后重试"))
-            updateNotification("连接恢复失败，VPN 仍接管流量")
+        if (delayMs == null && desiredController.retryExhausted(5)) {
+            desiredController.terminateWithCleanup(
+                cleanup = {
+                    retryJob?.cancel()
+                    retryJob = null
+                    releaseResources(closeTun = true, stopXray = true)
+                },
+                publishError = { release ->
+                    val cleanupDetail = release.failures.takeIf { it.isNotEmpty() }
+                        ?.joinToString(prefix = "；资源清理失败：") ?: ""
+                    VpnController.setState(VpnState.Error("连接恢复失败，请检查节点或网络后重试$cleanupDetail"))
+                    updateNotification("连接恢复失败，VPN 仍接管流量")
+                },
+            )
             return
         }
         // 优化重试策略：200ms / 500ms / 1s / 2s / 3s，总计不超过 7 秒
         // 早期失败往往是瞬时问题（网络切换、DNS 波动），快速重试可以大幅降低感知耗时
-        val waitMs = delayMs ?: when (retryAttempt++) {
+        val waitMs = delayMs ?: when (desiredController.nextRetryDelayIndex()) {
             0 -> 200L   // 第一次重试立即进行
             1 -> 500L   // 第二次稍作等待
             2 -> 1000L  // 第三次 1 秒
             3 -> 2000L  // 第四次 2 秒
             else -> 3000L // 最后一次 3 秒
         }
-        val expectedGeneration = ++generation
+        val expectedGeneration = desiredController.issueRetryToken()
         retryJob?.cancel()
         // 底层网络还没回来时，明确告诉界面"在等网络"，而不是显示"正在连接"。
         if (networks.isEmpty()) {
@@ -443,7 +453,7 @@ class IceFlowVpnService : VpnService() {
     }
 
     private fun stopVpn(startId: Int? = null) {
-        desiredRunning = false
+        desiredController.userStop()
         resetRetry()
         VpnController.setState(VpnState.Stopping)
         updateNotification("正在断开…")
@@ -455,9 +465,11 @@ class IceFlowVpnService : VpnService() {
     }
 
     private fun fail(message: String) {
-        desiredRunning = false
         resetRetry()
-        val release = releaseResources(closeTun = true, stopXray = true)
+        val release = desiredController.terminateWithCleanup(
+            cleanup = { releaseResources(closeTun = true, stopXray = true) },
+            publishError = {},
+        )
         val detail = release.failures.takeIf { it.isNotEmpty() }?.joinToString(prefix = "; cleanup failed: ") ?: ""
         VpnController.setState(VpnState.Error(message + detail))
         AppLog.write(this, "ERROR", "VPN 失败: $message")
@@ -529,7 +541,7 @@ class IceFlowVpnService : VpnService() {
                 )
                 persistTraffic()
                 val session = VpnController.state.value as? VpnState.Connected
-                if (session != null && System.currentTimeMillis() - session.since >= 30_000) retryAttempt = 0
+                if (session != null && System.currentTimeMillis() - session.since >= 30_000) desiredController.markConnected()
             }
         }
     }
