@@ -6,6 +6,9 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import java.io.InputStream
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 class ConnectionProbeTest {
 
@@ -69,6 +72,16 @@ class ConnectionProbeTest {
             bytes.copyInto(target, start, offset, offset + count)
             offset += count
             return count
+        }
+    }
+
+    @Test fun tlsProbePinsSniAndTls12ForApi28Compatibility() {
+        val socket = (SSLSocketFactory.getDefault().createSocket() as SSLSocket)
+        socket.use {
+            ConnectionProbe.configureTlsSocket(it, "api.ipify.org")
+            org.junit.Assert.assertArrayEquals(arrayOf("TLSv1.2"), it.enabledProtocols)
+            val name = it.sslParameters.serverNames.single() as SNIHostName
+            org.junit.Assert.assertEquals("api.ipify.org", name.asciiName)
         }
     }
 

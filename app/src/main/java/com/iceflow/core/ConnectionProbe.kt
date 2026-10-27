@@ -8,6 +8,7 @@ import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import javax.net.ssl.SSLParameters
+import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
 
@@ -25,7 +26,7 @@ object ConnectionProbe {
                 .createSocket(socket, "api.ipify.org", 443, true) as SSLSocket
             tls.use { secure ->
                 secure.soTimeout = 5000
-                secure.sslParameters = SSLParameters().apply { endpointIdentificationAlgorithm = "HTTPS" }
+                configureTlsSocket(secure, "api.ipify.org")
                 secure.startHandshake()
                 val request = "GET / HTTP/1.1\r\nHost: api.ipify.org\r\nAccept: text/plain\r\nConnection: close\r\n\r\n"
                 secure.outputStream.write(request.toByteArray(Charsets.US_ASCII))
@@ -46,6 +47,15 @@ object ConnectionProbe {
                 value
             }
         }
+    }
+
+    /** API 28 Conscrypt may offer draft TLS 1.3; api.ipify.org interoperates with TLS 1.2. */
+    internal fun configureTlsSocket(secure: SSLSocket, host: String) {
+        secure.sslParameters = SSLParameters().apply {
+            endpointIdentificationAlgorithm = "HTTPS"
+            serverNames = listOf(SNIHostName(host))
+        }
+        secure.enabledProtocols = arrayOf("TLSv1.2")
     }
 
     internal fun negotiateSocks5(input: java.io.InputStream, output: java.io.OutputStream, username: String, password: String, host: String, port: Int) {
