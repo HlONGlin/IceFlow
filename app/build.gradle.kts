@@ -84,16 +84,21 @@ android {
 val verifyReleaseNativeLibraries by tasks.registering {
     doLast {
         val aar = file("libs/xray.aar")
-        check(aar.isFile) { "Build xray-wrapper before creating a release APK." }
+        check(aar.isFile) { "Missing app/libs/xray.aar; run xray-wrapper/build-aar.ps1 before building or testing." }
         ZipFile(aar).use { archive ->
             listOf("arm64-v8a", "armeabi-v7a", "x86_64").forEach { abi ->
-                check(file("src/main/jniLibs/$abi/libiceflow_core.so").isFile) { "Rust core missing for $abi" }
-                check(archive.getEntry("jni/$abi/libgojni.so") != null) { "Xray core missing for $abi" }
+                check(file("src/main/jniLibs/$abi/libiceflow_core.so").isFile) {
+                    "Missing app/src/main/jniLibs/$abi/libiceflow_core.so; run rust-core/build-android.ps1."
+                }
+                check(archive.getEntry("jni/$abi/libgojni.so") != null) {
+                    "Missing jni/$abi/libgojni.so in app/libs/xray.aar; run xray-wrapper/build-aar.ps1."
+                }
             }
         }
     }
 }
-tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(verifyReleaseNativeLibraries) }
+tasks.matching { it.name in setOf("preReleaseBuild", "preDebugBuild", "testDebugUnitTest") }
+    .configureEach { dependsOn(verifyReleaseNativeLibraries) }
 
 kotlin {
     compilerOptions {
