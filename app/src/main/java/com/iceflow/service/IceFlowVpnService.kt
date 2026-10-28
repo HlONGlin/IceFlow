@@ -20,9 +20,6 @@ import com.iceflow.IceFlowApp
 import com.iceflow.MainActivity
 import com.iceflow.R
 import com.iceflow.core.CoreVariantBridge
-import com.iceflow.core.RustBridge
-import com.iceflow.core.XrayBridge
-import com.iceflow.data.XrayConfigBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,8 +41,8 @@ import java.net.ServerSocket
 /**
  * VPN 前台服务。
  *
- * 启动顺序：xray-core (SOCKS5 入站) → 建立 TUN → Rust tun2proxy 将 TUN 流量转发到 SOCKS5。
- * 本应用自身被排除在 VPN 之外，因此 xray-core 的出站连接直接走物理网络，不会回环。
+ * 核心启动与 TUN 交接委托给 flavor bridge；dual 保持 Xray → 建立 TUN → Rust 的顺序。
+ * 服务持有并关闭原始 TUN fd，bridge 仅借用；本应用出站排除规则保持不变。
  */
 class IceFlowVpnService : VpnService() {
 
@@ -116,7 +113,7 @@ class IceFlowVpnService : VpnService() {
             val container = (application as IceFlowApp).container
             combine(container.settings.settings, container.servers.store) { settings, store ->
                 settings to runCatching {
-                    store.selected?.let { XrayConfigBuilder.build(it, settings, includeInbound = false, store = store) }
+                    store.selected?.let { CoreVariantBridge.buildConfig(it, settings, includeInbound = false, store = store) }
                 }.fold({ it }, { "invalid:${it.message}" })
             }
                 .distinctUntilChanged { old, new -> old.first.hasSameConnection(new.first) && old.second == new.second }
@@ -335,13 +332,11 @@ class IceFlowVpnService : VpnService() {
             val appProxyMode = if (settings.appRoutingEnabled) settings.appProxyMode else settings.proxyAppsOnly
             AppLog.write(this, "INFO", "代理方案：Xray 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=$appProxyMode")
             if (settings.bypassApps.isNotEmpty()) AppLog.write(this, "INFO", "应用策略包数量：${settings.bypassApps.size}")
-            XrayBridge.setAssetDir(filesDir.absolutePath)
-            // 域匹配器缓存：避免每次连接节点时重新解析 geosite 数据
-            XrayBridge.setMphCacheDir(filesDir.absolutePath)
+            CoreVariantBridge.prepareAssets(filesDir.absolutePath)
             mark("validate+readSettings")
 
             // 快速重连优化：如果 xray 已在运行且节点未变，复用之前的配置
-            val xrayAlreadyRunning = XrayBridge.isRunning() && profile.id == activeServerId
+            val xrayAlreadyRunning = CoreVariantBridge.isCoreRunning() && profile.id == activeServerId
             val tunnelPort: Int
             val tunnelUser: String
             val tunnelPass: String
@@ -365,7 +360,7 @@ class IceFlowVpnService : VpnService() {
             val tunnelAuth = tunnelUser to tunnelPass
 
             failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
-            val cfg = XrayConfigBuilder.build(
+            val cfg = CoreVariantBridge.buildConfig(
                 profile, settings,
                 store = container.servers.store.value,
                 tunnelPort = tunnelPort,
@@ -375,7 +370,7 @@ class IceFlowVpnService : VpnService() {
 
             if (!xrayAlreadyRunning) {
                 failureType = VpnErrorType.CORE_START_FAILED
-                XrayBridge.start(cfg)
+                CoreVariantBridge.start(cfg)
                 mark("xray.start")
                 // 保存配置供后续复用
                 activeTunnelPort = tunnelPort
@@ -419,19 +414,12 @@ class IceFlowVpnService : VpnService() {
             tun = pfd
             previousTun?.close()
 
-            val dnsMode = when {
-                !settings.dnsProxyEnabled -> RustBridge.DNS_DIRECT
-                settings.fakeDns -> RustBridge.DNS_VIRTUAL
-                else -> RustBridge.DNS_OVER_TCP
-            }
-            val code = RustBridge.startTun(
+            CoreVariantBridge.attachTun(
                 fd = pfd.fd,
                 mtu = MTU,
                 proxyUrl = "socks5://$tunnelUser:$tunnelPass@127.0.0.1:$tunnelPort",
-                dnsMode = dnsMode,
-                dnsAddr = settings.remoteDns,
+                settings = settings,
             )
-            check(code == 0) { RustBridge.describe(code) }
             mark("rust.startTun")
 
             if (destroyed) { releaseResources(closeTun = true, stopXray = true); return }
@@ -520,13 +508,13 @@ class IceFlowVpnService : VpnService() {
         runCatching { persistTraffic(force = true) }
             .onFailure { failures += "Persist traffic: ${it.message}"; Log.w(TAG, "persist traffic: $it") }
         if (!stopXray) {
-            runCatching { RustBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
+            runCatching { CoreVariantBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
         } else {
             activeServerId = null
             activeTunnelPort = 0
             activeTunnelUser = ""
             activeTunnelPass = ""
-            runCatching { RustBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
+            runCatching { CoreVariantBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
             val stopFailureName = CoreVariantBridge.stopFailureName
             runCatching { CoreVariantBridge.stop() }.onFailure {
                 failures += "$stopFailureName stop: ${it.message}"
@@ -543,20 +531,20 @@ class IceFlowVpnService : VpnService() {
         return result
     }
     private suspend fun statsLoop() {
-        val initial = RustBridge.stats()
+        val initial = CoreVariantBridge.stats()
         val sampler = TrafficSampler(initial[0], initial[1], SystemClock.elapsedRealtime())
         while (true) {
             delay(1000)
             synchronized(operationLock) {
-                if (!RustBridge.isRunning() || !XrayBridge.isRunning()) {
+                if (!CoreVariantBridge.isHealthy()) {
                     commands.trySend(Command.CoreFailed)
                     return
                 }
-                val stats = RustBridge.stats()
+                val stats = CoreVariantBridge.stats()
 
                 // 查询 xray 详细统计
                 val xrayStats = runCatching {
-                    com.iceflow.data.XrayStats.parse(XrayBridge.queryStats())
+                    CoreVariantBridge.queryStats()
                 }.getOrNull()
 
                 val byOutbound = xrayStats?.let { xs ->
@@ -584,7 +572,7 @@ class IceFlowVpnService : VpnService() {
         val id = activeServerId ?: return
         if (!force && SystemClock.elapsedRealtime() - persistedAt < 30_000) return
         runCatching {
-            val stats = RustBridge.stats()
+            val stats = CoreVariantBridge.stats()
             val up = (stats[0] - persistedUp).coerceAtLeast(0)
             val down = (stats[1] - persistedDown).coerceAtLeast(0)
             if (up > 0 || down > 0) (application as IceFlowApp).container.servers.addTraffic(id, up, down)
