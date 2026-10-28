@@ -147,11 +147,6 @@ internal object MihomoConfigBuilder {
             if (p.allowInsecure || p.sni.isNotEmpty() || p.alpn.isNotEmpty()) fail("tls", "该协议的通用 TLS 字段消费入口待核定")
             generated.remove("skip-cert-verify")
         }
-        if (p.protocol == Protocol.SOCKS) {
-            // Preserve the existing dual name-cert-verify output. No new SNI behavior is invented.
-            generated.remove("sni")
-            if (p.sni.isNotEmpty()) fail("sni", "SOCKS5 SNI 与 name-cert-verify 语义不一致，待批量处置")
-        }
         return JsonObject(generated)
     }
 
@@ -161,6 +156,9 @@ internal object MihomoConfigBuilder {
             if (p.headerType !in setOf("", "none")) fail("headerType", "原始 Clash 与通用头伪装字段并存，消费路径待核定")
             return // Raw JSON is authoritative, as in dual; mirrored fields are import/edit projections.
         }
+        // G04: reject before the shared builder substitutes certificate verification for SNI.
+        if (p.protocol == Protocol.SOCKS && p.sni.isNotEmpty())
+            fail("sni", "单核内核不支持该字段；name-cert-verify 不是 SNI，禁止顶替")
         if (p.protocol !in setOf(Protocol.VMESS, Protocol.VLESS, Protocol.TUIC) && p.uuid.isNotEmpty()) fail("uuid", "该协议无 UUID 消费入口")
         if (p.protocol !in setOf(Protocol.VMESS, Protocol.SHADOWSOCKS, Protocol.SHADOWSOCKSR) && p.security !in setOf("", "auto")) fail("security", "该协议无 cipher 消费入口")
         if (p.protocol != Protocol.VMESS && p.alterId != 0) fail("alterId", "该协议无 alterId 消费入口")
