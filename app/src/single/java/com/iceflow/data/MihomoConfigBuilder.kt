@@ -276,14 +276,9 @@ internal object MihomoConfigBuilder {
         // WS client-fingerprint is consumed by transport/vmess/websocket.go:365-375.
         if (net == "ws" && p.protocol == Protocol.TROJAN && n["reality-opts"] != null)
             fail("reality-opts", "Trojan WS 分支不消费 Reality，待批量处置")
-        if (p.protocol in setOf(Protocol.VMESS, Protocol.VLESS, Protocol.HTTP, Protocol.SOCKS) && n["tls"] != JsonPrimitive(true) && listOf("servername", "sni", "reality-opts", "ech-opts", "certificate", "private-key", "fingerprint", "name-cert-verify", "shadow-tls-opts", "restls-opts", "jls-opts", "tlsmirror-opts").any { n[it] != null })
-            fail("tls", "TLS 关闭时附加 TLS 字段没有消费入口")
-        if (p.protocol in setOf(Protocol.VMESS, Protocol.VLESS) && n["tls"] != JsonPrimitive(true) && (n["alpn"] != null || (net != "ws" && n["client-fingerprint"] != null) || n["skip-cert-verify"] == JsonPrimitive(true)))
-            fail("tls", "TLS 缺省关闭时附加字段没有消费入口")
         checkConditionalConsumers(n, p)
-        if (n["reality-opts"] != null && n["alpn"] != null) fail("alpn", "Reality 客户端固定 h2/http1.1，与用户指定列表语义待核定")
-        if (n["reality-opts"] != null && n["skip-cert-verify"] == JsonPrimitive(true)) fail("allowInsecure", "Reality 独立证书校验逻辑不消费此开关，待处置")
-        if (n["tls"] == JsonPrimitive(false) && ((p.protocol !in setOf(Protocol.HTTP, Protocol.SOCKS) && n["alpn"] != null) || (net != "ws" && n["client-fingerprint"] != null) || n["skip-cert-verify"] == JsonPrimitive(true))) fail("tls", "关闭 TLS 时附加 TLS 字段无消费入口")
+        // Dual omits ALPN and allowInsecure from Reality TLS settings; the adapter's
+        // Reality path also ignores these same fields. Preserve that shared behavior.
         if (kind == "http" && n["udp"] != null) fail("udp", "HTTP outbound 无 UDP；未向无消费入口输出该字段")
     }
 
