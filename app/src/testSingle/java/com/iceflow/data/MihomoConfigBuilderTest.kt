@@ -101,7 +101,14 @@ class MihomoConfigBuilderTest {
     @Test fun unsupportedAlterIdRejected() { rejected("alterId") { out(base.copy(protocol = Protocol.VMESS, alterId = 1)) } }
     @Test fun nonVlessXhttpRejected() { rejected("network") { out(base.copy(protocol = Protocol.VMESS, network = "xhttp")) } }
     @Test fun tcpHttpHeaderRejected() { rejected("headerType") { out(base.copy(headerType = "http")) } }
-    @Test fun unusedWsHeadersRejected() { rejected("ws-headers") { out(raw(extra = """, "ws-headers":{"Host":"x"}""")) } }
+    @Test fun vlessHostWsHeadersConverted() {
+        val node = out(raw(extra = """, "network":"ws", "ws-headers":{"Host":"x"}"""))
+        assertEquals("x", node.getValue("ws-opts").jsonObject.getValue("headers").jsonObject.text("Host"))
+        assertFalse(node.containsKey("ws-headers"))
+    }
+    @Test fun vlessCustomWsHeadersRejected() {
+        rejected("ws-headers") { out(raw(extra = """, "network":"ws", "ws-headers":{"Host":"x","X-Custom":"y"}""")) }
+    }
     @Test fun fixedWsAlpnRejected() { rejected("alpn") { out(base.copy(network = "ws", tls = "tls", alpn = "h2")) } }
     @Test fun wsRealityRejected() { rejected("reality-opts") { out(base.copy(network = "ws", tls = "reality", publicKey = "key")) } }
     @Test fun inactiveNestedTransportRejected() { rejected("ws-opts") { out(raw(extra = """, "ws-opts":{"path":"/x"}""")) } }
@@ -115,12 +122,20 @@ class MihomoConfigBuilderTest {
         rejected("plugin-opts") { out(p) }
     }
     @Test fun nestedTypeMismatchRejected() { rejected("max-connections") { out(raw(extra = """, "network":"grpc", "grpc-opts":{"max-connections":"many"}""")) } }
-    @Test fun unmappedProtocolOptionRejected() { rejected("protocolOptions") { out(base.copy(protocol = Protocol.HTTP, uuid = "", protocolOptions = mapOf("sni" to "x"))) } }
-    @Test fun duplicateBandwidthAliasesRejected() {
-        rejected("up") { out(base.copy(protocol = Protocol.HYSTERIA, uuid = "", password = "p", protocolOptions = mapOf("up" to "10", "upmbps" to "20", "down" to "10"))) }
+    @Test fun ignoredProtocolOptionMatchesDual() {
+        val p = base.copy(protocol = Protocol.HTTP, uuid = "", protocolOptions = mapOf("sni" to "x"))
+        assertEquals(ExtendedConfigBuilder.build(p)["alpn"], out(p)["alpn"])
+        assertFalse(out(p).containsKey("protocolOptions"))
     }
-    @Test fun wgPrefixLossRejected() {
-        rejected("address") { out(base.copy(protocol = Protocol.WIREGUARD, uuid = "", publicKey = "key", protocolOptions = mapOf("private-key" to "key", "address" to "10.0.0.1/24"))) }
+    @Test fun duplicateBandwidthAliasesFollowDualPrecedence() {
+        val n = out(base.copy(protocol = Protocol.HYSTERIA, uuid = "", password = "p",
+            protocolOptions = mapOf("up" to "10", "upmbps" to "20", "down" to "10")))
+        assertEquals("10", n.text("up")); assertEquals("10", n.text("down"))
+    }
+    @Test fun wgAddressPrefixMatchesDual() {
+        val n = out(base.copy(protocol = Protocol.WIREGUARD, uuid = "", publicKey = "key",
+            protocolOptions = mapOf("private-key" to "key", "address" to "10.0.0.1/24")))
+        assertEquals("10.0.0.1", n.text("ip"))
     }
     @Test fun mieruMtuUsesOfficialClientShim() {
         val node = out(base.copy(protocol = Protocol.MIERU, uuid = "", username = "u", password = "p", protocolOptions = mapOf("mtu" to "1400")))
@@ -207,12 +222,17 @@ class MihomoConfigBuilderTest {
         val p = base.copy(protocol = Protocol.WIREGUARD, uuid = "", publicKey = "key", protocolOptions = mapOf("private-key" to "key", "address" to "10.0.0.1", "reserved" to "1,2,3"))
         assertEquals(JsonArray(listOf(1, 2, 3).map(::JsonPrimitive)), out(p)["reserved"])
     }
-    @Test fun wgAllowedIpsSinglePeerRejected() {
+    @Test fun wgAllowedIpsSinglePeerConverted() {
         val p = base.copy(protocol = Protocol.WIREGUARD, uuid = "", publicKey = "key", protocolOptions = mapOf("private-key" to "key", "address" to "10.0.0.1", "allowed-ips" to "10.0.0.0/8"))
-        rejected("allowed-ips") { out(p) }
+        val peer = out(p).getValue("peers").jsonArray.single().jsonObject
+        assertEquals("key", peer.text("public-key"))
+        assertEquals("10.0.0.0/8", peer.getValue("allowed-ips").jsonArray.single().jsonPrimitive.content)
     }
-    @Test fun tuicV5IgnoredFlagsRejected() {
-        rejected("fast-open") { out(base.copy(protocol = Protocol.TUIC, password = "secret", protocolOptions = mapOf("fast-open" to "true"))) }
+    @Test fun tuicFastOpenFollowsDualOutput() {
+        val n = out(base.copy(protocol = Protocol.TUIC, password = "secret",
+            protocolOptions = mapOf("fast-open" to "true", "request-timeout" to "5000")))
+        assertEquals(JsonPrimitive(true), n["fast-open"])
+        assertEquals(5000, n.getValue("request-timeout").jsonPrimitive.int)
     }
     @Test fun tuicV4TokenAndFastOpenMapped() {
         val n = out(base.copy(protocol = Protocol.TUIC, uuid = "", password = "token", protocolOptions = mapOf("fast-open" to "true", "request-timeout" to "5000")))
@@ -226,12 +246,23 @@ class MihomoConfigBuilderTest {
         val p = base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p", protocolOptions = mapOf("clientFingerprint" to "chrome", "idleSessionTimeout" to "30", "ech-opts" to """{"enable":true,"config":"AA=="}"""))
         assertEquals("chrome", out(p).text("client-fingerprint")); assertEquals(30, out(p).getValue("idle-session-timeout").jsonPrimitive.int)
     }
-    @Test fun conflictingAnyTlsFingerprintRejected() {
-        rejected("fingerprint") { out(base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p", fingerprint = "chrome", protocolOptions = mapOf("fp" to "firefox"))) }
+    @Test fun anyTlsFingerprintFollowsDualPrecedence() {
+        val n = out(base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p", fingerprint = "chrome",
+            protocolOptions = mapOf("fp" to "firefox")))
+        assertEquals("chrome", n.text("client-fingerprint"))
     }
     @Test fun socksSniGapRejected() { rejected("sni") { out(base.copy(protocol = Protocol.SOCKS, uuid = "", tls = "tls", sni = "custom.example")) } }
-    @Test fun trojanGrpcUserAlpnRejected() { rejected("alpn") { out(base.copy(protocol = Protocol.TROJAN, uuid = "", password = "p", tls = "tls", network = "grpc", alpn = "h2")) } }
-    @Test fun wsFingerprintGapRejected() { rejected("client-fingerprint") { out(base.copy(tls = "tls", network = "ws", fingerprint = "chrome")) } }
+    @Test fun trojanGrpcFixedAlpnIsEquivalent() {
+        val n = out(base.copy(protocol = Protocol.TROJAN, uuid = "", password = "p", tls = "tls", network = "grpc", alpn = "h2"))
+        assertEquals(listOf("h2"), n.getValue("alpn").jsonArray.map { it.jsonPrimitive.content })
+    }
+    @Test fun trojanGrpcDifferentAlpnRejected() {
+        rejected("alpn") { out(base.copy(protocol = Protocol.TROJAN, uuid = "", password = "p", tls = "tls", network = "grpc", alpn = "h3")) }
+    }
+    @Test fun wsFingerprintIsConsumed() {
+        val n = out(base.copy(tls = "tls", network = "ws", fingerprint = "chrome"))
+        assertEquals("chrome", n.text("client-fingerprint"))
+    }
     @Test fun dnsDirectDomainPolicyConverted() {
         val rules = listOf(RoutingRule(name = "r", domains = listOf("full:a.example", "domain:b.example", "geosite:cn")))
         val p = config(s = AppSettings(routingRules = rules)).getValue("dns").jsonObject.getValue("nameserver-policy").jsonObject
@@ -241,23 +272,26 @@ class MihomoConfigBuilderTest {
     @Test fun echDisabledPayloadRejected() { rejected("ech-opts") { out(raw(extra = """, "tls":true,"ech-opts":{"enable":false,"config":"AA=="}""")) } }
     @Test fun echFixedConfigAndQueryConflictRejected() { rejected("ech-opts") { out(raw(extra = """, "tls":true,"ech-opts":{"enable":true,"config":"AA==","query-server-name":"x"}""")) } }
     @Test fun gRpcPathNotSilentlyDropped() { rejected("path/host") { out(base.copy(network = "grpc", path = "/unused")) } }
-    @Test fun packetEncodingConflictRejected() { rejected("packet-encoding") { out(raw(extra = """, "packet-encoding":"xudp","packet-addr":true""")) } }
+    @Test fun packetEncodingConflictFollowsDualPrecedence() {
+        val n = out(raw(extra = """, "packet-encoding":"xudp","packet-addr":true"""))
+        assertEquals("xudp", n.text("packet-encoding")); assertEquals(JsonPrimitive(true), n["packet-addr"])
+    }
     @Test fun ignoredFlowNotAccepted() { rejected("flow") { out(base.copy(flow = "vision-typo")) } }
-    @Test fun rawHy1AuthConflictRejected() {
+    @Test fun rawHy1AuthConflictFollowsDualPrecedence() {
         val p = base.copy(protocol = Protocol.HYSTERIA, uuid = "", clashConfig = Json.parseToJsonElement("""{"name":"h","type":"hysteria","server":"e","port":443,"auth":"AA==","auth-str":"a","up":"10","down":"20"}""").jsonObject)
-        rejected("auth") { out(p) }
+        val n = out(p); assertEquals("AA==", n.text("auth")); assertEquals("a", n.text("auth-str"))
     }
-    @Test fun rawHy2InactiveObfsSizeRejected() {
+    @Test fun rawHy2InactiveObfsSizeFollowsDualPrecedence() {
         val p = base.copy(protocol = Protocol.HYSTERIA2, uuid = "", clashConfig = Json.parseToJsonElement("""{"name":"h","type":"hysteria2","server":"e","port":443,"password":"p","obfs":"salamander","obfs-password":"p","obfs-min-packet-size":100}""").jsonObject)
-        rejected("obfs") { out(p) }
+        assertEquals(JsonPrimitive(100), out(p)["obfs-min-packet-size"])
     }
-    @Test fun sudokuNestedAndFlatMaskConflictRejected() {
+    @Test fun sudokuNestedAndFlatMaskConflictFollowsDualPrecedence() {
         val p = base.copy(protocol = Protocol.SUDOKU, uuid = "", clashConfig = Json.parseToJsonElement("""{"name":"s","type":"sudoku","server":"e","port":443,"key":"p","http-mask-mode":"legacy","httpmask":{"mode":"stream"}}""").jsonObject)
-        rejected("httpmask") { out(p) }
+        val n = out(p); assertEquals("legacy", n.text("http-mask-mode")); assertTrue(n.containsKey("httpmask"))
     }
-    @Test fun rawWgPeersAndTopKeyConflictRejected() {
+    @Test fun rawWgPeersAndTopKeyConflictFollowsDualPrecedence() {
         val p = base.copy(protocol = Protocol.WIREGUARD, uuid = "", clashConfig = Json.parseToJsonElement("""{"name":"w","type":"wireguard","server":"e","port":443,"public-key":"top","peers":[{"server":"p","port":443,"public-key":"peer","allowed-ips":["0.0.0.0/0"]}]}""").jsonObject)
-        rejected("peers") { out(p) }
+        assertEquals("peer", out(p).getValue("peers").jsonArray.single().jsonObject.text("public-key"))
     }
     @Test fun xhttpDisabledDownloadTlsFieldsRejected() {
         rejected("download-settings.tls") { out(raw(extra = """, "network":"xhttp","xhttp-opts":{"download-settings":{"tls":false,"alpn":["h2"]}}""")) }
@@ -266,9 +300,9 @@ class MihomoConfigBuilderTest {
         // Configuration-only evidence: wrapper parse currently rejects cfg.Listeners (audit G10).
         assertTrue(config().getValue("listeners").jsonArray.isNotEmpty())
     }
-    @Test fun basicOptionsNotForwardedRejected() {
+    @Test fun basicOptionsNotForwardedMatchesDual() {
         val p = base.copy(protocol = Protocol.HYSTERIA2, uuid = "", clashConfig = Json.parseToJsonElement("""{"name":"h","type":"hysteria2","server":"e","port":443,"password":"p","mptcp":true}""").jsonObject)
-        rejected("tfo/mptcp") { out(p) }
+        assertEquals(JsonPrimitive(true), out(p)["mptcp"])
     }
     @Test fun omittedTlsDoesNotEnableTlsFields() { rejected("tls") { out(raw(extra = """, "alpn":["h2"]""")) } }
     @Test fun httpSocksAlpnParityAlsoWithoutTls() {
