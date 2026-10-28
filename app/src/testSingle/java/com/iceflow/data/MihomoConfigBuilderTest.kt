@@ -122,9 +122,11 @@ class MihomoConfigBuilderTest {
     @Test fun wgPrefixLossRejected() {
         rejected("address") { out(base.copy(protocol = Protocol.WIREGUARD, uuid = "", publicKey = "key", protocolOptions = mapOf("private-key" to "key", "address" to "10.0.0.1/24"))) }
     }
-    @Test fun mieruMtuRejected() {
-        rejected("mtu") { out(base.copy(protocol = Protocol.MIERU, uuid = "", username = "u", password = "p", protocolOptions = mapOf("mtu" to "1400"))) }
+    @Test fun mieruMtuUsesOfficialClientShim() {
+        val node = out(base.copy(protocol = Protocol.MIERU, uuid = "", username = "u", password = "p", protocolOptions = mapOf("mtu" to "1400")))
+        assertEquals(JsonPrimitive(1400), node["mtu"])
     }
+    @Test fun mieruInvalidMtuRejected() { rejected("configuration") { config(base.copy(protocol = Protocol.MIERU, uuid = "", username = "u", password = "p", protocolOptions = mapOf("mtu" to "1279"))) } }
     @Test fun authAndUdpListenersIndependent() {
         val list = config(s = AppSettings(socksUsername = "public", socksPassword = "pw", socksUdp = false), port = 12345, auth = "private" to "tp").getValue("listeners").jsonArray
         assertEquals(2, list.size)
