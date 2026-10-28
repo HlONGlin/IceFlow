@@ -1,9 +1,12 @@
 package com.iceflow.service
 
+import com.iceflow.core.CoreVariantBridge
 import com.iceflow.data.model.AppLanguage
+import com.iceflow.BuildConfig
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -12,7 +15,10 @@ class VpnErrorCatalogTest {
     fun everyFailureTypeHasClearSimplifiedChineseMessageAndNextAction() {
         val expected = mapOf(
             VpnErrorType.VPN_AUTHORIZATION_DENIED to ("VPN 授权未完成。" to ("点击连接并在系统提示中允许 VPN 授权。" to VpnErrorAction.REAUTHORIZE)),
-            VpnErrorType.CORE_START_FAILED to ("VPN 核心启动失败。" to ("检查所选节点和核心组件后，点击连接重试。" to VpnErrorAction.CONNECT)),
+            VpnErrorType.CORE_START_FAILED to ((CoreVariantBridge.failureMessage(
+                VpnErrorType.CORE_START_FAILED,
+                AppLanguage.SIMPLIFIED_CHINESE,
+            ) ?: "VPN 核心启动失败。") to ("检查所选节点和核心组件后，点击连接重试。" to VpnErrorAction.CONNECT)),
             VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION to ("节点或订阅配置无效。" to ("检查节点参数或刷新订阅，修正后再点击连接。" to VpnErrorAction.CHECK_NODE)),
             VpnErrorType.NETWORK_UNAVAILABLE to ("当前网络不可用，暂时无法建立连接。" to ("恢复 Wi-Fi 或移动网络后，点击连接重试。" to VpnErrorAction.CONNECT)),
             VpnErrorType.RETRIES_EXHAUSTED to ("多次尝试后仍未连接。" to ("检查网络和所选节点，然后点击连接重试。" to VpnErrorAction.CONNECT)),
@@ -56,5 +62,19 @@ class VpnErrorCatalogTest {
         assertEquals(VpnErrorAction.CONNECT, actions[VpnErrorType.RETRIES_EXHAUSTED])
         assertEquals(VpnErrorAction.OPEN_LOGS, actions[VpnErrorType.RESOURCE_CLEANUP_FAILED])
         assertNotEquals(actions[VpnErrorType.VPN_AUTHORIZATION_DENIED], actions[VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION])
+    }
+
+    @Test
+    fun coreVariantProvidesTheExpectedReadinessAndVisibleFailure() {
+        assertEquals(BuildConfig.CORE_VARIANT, CoreVariantBridge.variantName)
+        if (BuildConfig.CORE_VARIANT == "single") {
+            assertFalse(CoreVariantBridge.isReady)
+            assertEquals("单核未就绪", VpnErrorCatalog.presentation(
+                VpnErrorType.CORE_START_FAILED,
+                AppLanguage.SIMPLIFIED_CHINESE,
+            ).message)
+        } else {
+            assertNull(CoreVariantBridge.failureMessage(VpnErrorType.CORE_START_FAILED, AppLanguage.SIMPLIFIED_CHINESE))
+        }
     }
 }

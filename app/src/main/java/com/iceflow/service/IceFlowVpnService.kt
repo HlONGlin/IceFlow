@@ -19,6 +19,7 @@ import androidx.core.app.ServiceCompat
 import com.iceflow.IceFlowApp
 import com.iceflow.MainActivity
 import com.iceflow.R
+import com.iceflow.core.CoreVariantBridge
 import com.iceflow.core.RustBridge
 import com.iceflow.core.XrayBridge
 import com.iceflow.data.XrayConfigBuilder
@@ -323,7 +324,7 @@ class IceFlowVpnService : VpnService() {
         val container = (application as IceFlowApp).container
         val profile = container.servers.selected ?: return fail(VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION)
         val settings = container.settings.settings.value
-        if (!XrayBridge.isAvailable || !RustBridge.isAvailable) return fail(VpnErrorType.CORE_START_FAILED)
+        if (!CoreVariantBridge.isReady) return fail(VpnErrorType.CORE_START_FAILED)
 
         var failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
         try {
@@ -526,7 +527,7 @@ class IceFlowVpnService : VpnService() {
             activeTunnelUser = ""
             activeTunnelPass = ""
             runCatching { RustBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
-            runCatching { XrayBridge.stop() }.onFailure { failures += "Xray stop: ${it.message}"; Log.w(TAG, "xray stop: $it") }
+            runCatching { CoreVariantBridge.stop() }.onFailure { failures += "Core stop: ${it.message}"; Log.w(TAG, "core stop: $it") }
         }
         if (closeTun) {
             runCatching { tun?.close() }.onFailure { failures += "TUN close: ${it.message}" }

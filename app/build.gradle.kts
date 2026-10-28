@@ -12,6 +12,18 @@ android {
     namespace = "com.iceflow"
     compileSdk = 36
 
+    flavorDimensions += "core"
+    productFlavors {
+        create("dual") {
+            dimension = "core"
+            buildConfigField("String", "CORE_VARIANT", "\"dual\"")
+        }
+        create("single") {
+            dimension = "core"
+            buildConfigField("String", "CORE_VARIANT", "\"single\"")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.iceflow"
         minSdk = 26
@@ -107,9 +119,9 @@ kotlin {
 }
 
 dependencies {
-    // 原生产物：xray.aar 由 xray-wrapper 生成；不存在时应用仍可编译，运行时会提示缺失
+    // Xray is only part of the dual core variant. Bridges remain reflection based.
     // 只引入 aar；gomobile 同时生成的 xray-sources.jar 仅含源码，不应进入 classpath
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+    add("dualImplementation", fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
