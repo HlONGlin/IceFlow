@@ -67,13 +67,14 @@ internal object MihomoConfigBuilder {
         spider(p.spiderX)
         checkProfileFields(p)
         val node = if (p.clashConfig != null) {
-            if (p.protocolOptions.isNotEmpty()) fail("protocolOptions", "与原始 Clash 配置并存的选项消费路径待核定")
+            // Like dual, raw Clash JSON takes precedence over model protocolOptions (G06/③).
             ClashYamlParser.config(p).toMutableMap()
         } else if (p.protocol in native) native(p).toMutableMap() else extended(p).toMutableMap()
         node["name"] = JsonPrimitive(name)
         if (node["type"] != JsonPrimitive(type(p.protocol))) fail("type", "协议与配置不一致")
         if (node["dialer-proxy"] != null) fail("dialer-proxy", "原始节点外部链路引用消费边界待核定")
         normalizeTransport(node, p)
+        normalizeApprovedGaps(node, p)
         val result = JsonObject(node)
         checkGaps(result, p)
         MihomoOptionSchema.validate(result)
@@ -185,23 +186,86 @@ internal object MihomoConfigBuilder {
         // condition is conjunction; an isolated fast-open flag is not promoted into Upgrade.
     }
 
+    /**
+     * Apply the two approved location conversions before schema validation.
+     *
+     * VLESS's legacy top-level ws-headers is only equivalent for a Host-only
+     * object; the mihomo websocket consumer reads that value from ws-opts.headers.
+     * WireGuard's implicit peer path ignores top-level allowed-ips, so a nonempty
+     * list is moved to one explicit peer with the same endpoint and key material.
+     */
+    private fun normalizeApprovedGaps(node: MutableMap<String, JsonElement>, p: ServerProfile) {
+        val wsHeaders = node["ws-headers"] as? JsonObject
+        if (wsHeaders != null) {
+            if (p.protocol != Protocol.VLESS || node.text("network") != "ws") {
+                fail("ws-headers", "only VLESS WebSocket Host-only headers have an approved consumer-equivalent mapping")
+            }
+            if (wsHeaders.isEmpty()) {
+                node.remove("ws-headers")
+            } else {
+                val hostKeys = wsHeaders.keys.filter { it.equals("Host", ignoreCase = true) }
+                if (hostKeys.size != 1 || wsHeaders.keys.any { !it.equals("Host", ignoreCase = true) }) {
+                    fail("ws-headers", "single core only maps a VLESS WebSocket Host-only header; custom headers have no approved equivalent")
+                }
+                val host = wsHeaders.getValue(hostKeys.single())
+                if (host !is JsonPrimitive || !host.isString || host.content.isBlank()) {
+                    fail("ws-headers", "VLESS WebSocket Host must be a non-empty string")
+                }
+                val ws = (node["ws-opts"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+                val nestedHeaders = (ws["headers"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+                val existing = nestedHeaders.entries.firstOrNull { it.key.equals("Host", ignoreCase = true) }
+                if (existing != null && existing.value != host) {
+                    fail("ws-headers", "top-level and ws-opts Host values conflict")
+                }
+                nestedHeaders.keys.filter { it.equals("Host", ignoreCase = true) }.toList().forEach { nestedHeaders.remove(it) }
+                nestedHeaders["Host"] = host
+                ws["headers"] = JsonObject(nestedHeaders)
+                node["ws-opts"] = JsonObject(ws)
+                node.remove("ws-headers")
+            }
+        }
+
+        if (p.protocol == Protocol.WIREGUARD && (node["peers"] as? JsonArray).isNullOrEmpty()) {
+            val allowed = node["allowed-ips"] as? JsonArray
+            if (allowed != null && allowed.isNotEmpty()) {
+                val publicKey = node["public-key"] ?: fail("public-key", "WireGuard explicit peer conversion requires the peer public key")
+                val peer = buildJsonObject {
+                    put("server", node["server"] ?: fail("server", "WireGuard peer endpoint is missing"))
+                    put("port", node["port"] ?: fail("port", "WireGuard peer port is missing"))
+                    put("public-key", publicKey)
+                    node["pre-shared-key"]?.let { put("pre-shared-key", it) }
+                    put("allowed-ips", allowed)
+                }
+                node["peers"] = JsonArray(listOf(peer))
+                node.remove("public-key")
+                node.remove("pre-shared-key")
+                node.remove("allowed-ips")
+            } else if (allowed != null) {
+                // Empty is the dual adapter's default implicit route; no value is lost.
+                node.remove("allowed-ips")
+            }
+        }
+    }
+
     private fun checkGaps(n: JsonObject, p: ServerProfile) {
         val net = n.text("network"); val kind = type(p.protocol)
         if (p.protocol == Protocol.VMESS && (n["alterId"]?.jsonPrimitive?.intOrNull ?: 0) != 0) fail("alterId", "单核暂不支持 VMess alterId > 0；兼容性补丁未完成")
         if (net == "xhttp" && p.protocol != Protocol.VLESS) fail("network", "单核不支持非 VLESS 的 xhttp")
         if (net !in setOf("", "tcp", "ws", "grpc", "xhttp")) fail("network", "此传输的等价语义待核定")
         if (n["http-opts"] != null || n["h2-opts"] != null) fail("http-opts", "HTTP 头伪装/HTTP2 等价性待核定")
-        if (n["ws-headers"] != null) fail("ws-headers", "pin 版仅声明该字段，未找到消费入口；保留待处置")
-        if (net in setOf("ws", "grpc") && n["alpn"] != null && p.protocol in setOf(Protocol.VMESS, Protocol.VLESS))
-            fail("alpn", "该传输固定 ALPN，与用户指定列表的语义不一致，待处置")
+        val fixedAlpn = when {
+            net == "grpc" && p.protocol in setOf(Protocol.VMESS, Protocol.VLESS, Protocol.TROJAN) -> "h2"
+            net == "ws" && p.protocol in setOf(Protocol.VMESS, Protocol.VLESS) && n["tlsmirror-opts"] == null -> "http/1.1"
+            net == "ws" && p.protocol == Protocol.TROJAN && listOf("shadow-tls-opts", "restls-opts", "jls-opts").any { n[it] != null } -> "http/1.1"
+            else -> null
+        }
+        val alpn = (n["alpn"] as? JsonArray)?.map { it.jsonPrimitive.content }.orEmpty()
+        if (fixedAlpn != null && alpn.isNotEmpty() && alpn != listOf(fixedAlpn))
+            fail("alpn", "该传输内核固定 ALPN=$fixedAlpn；仅相同列表或默认空值可等价放行")
         if (net == "ws" && n["reality-opts"] != null && p.protocol in setOf(Protocol.VMESS, Protocol.VLESS))
             fail("reality-opts", "WS 路径未消费 Reality；不得退为普通 TLS，待处置")
-        if (p.protocol == Protocol.WIREGUARD && n["allowed-ips"] != null && (n["peers"] as? JsonArray).isNullOrEmpty())
-            fail("allowed-ips", "顶层单 peer 路径未消费此字段，peer 转换方案待处置")
-        if (p.protocol == Protocol.TUIC) {
-            if (!n.text("token").isEmpty() && (n["uuid"] != null || n["password"] != null)) fail("token", "TUIC v4 token 分支不消费 UUID/password")
-            if (n.text("token").isEmpty() && (n["fast-open"] != null || n["request-timeout"] != null)) fail("fast-open/request-timeout", "TUIC v5 分支没有对应消费入口，待批量处置")
-        }
+        // G06: TUIC token deterministically selects v4; v5 fast-open still supplies TFO.
+        // request-timeout is v4-only in BOTH flavors; retain dual output without a claim of v5 use.
         if (p.protocol == Protocol.MIERU && n["mtu"] != null) {
             val mtu = n["mtu"]?.jsonPrimitive?.intOrNull
             if (mtu == null || (mtu != 0 && mtu !in 1280..1500)) fail("mtu", "mieru MTU 必须为 0 或 1280–1500；由 single 官方客户端 shim 消费")
@@ -209,55 +273,29 @@ internal object MihomoConfigBuilder {
         if (n["plugin"] != null || n["plugin-opts"] != null) checkPlugin(n)
         val active = mapOf("ws-opts" to "ws", "grpc-opts" to "grpc", "xhttp-opts" to "xhttp", "mkcp-opts" to "mkcp", "mekya-opts" to "mekya")
         active.forEach { (key, transport) -> if (n[key] != null && net != transport) fail(key, "当前 network 不消费该传输对象") }
-        if (net == "grpc" && p.protocol == Protocol.TROJAN && n["alpn"] != null)
-            fail("alpn", "Trojan gRPC 固定 h2，不消费用户 ALPN，待批量处置")
-        if (net == "ws" && n["client-fingerprint"] != null)
-            fail("client-fingerprint", "普通 WS TLS 分支未消费客户端指纹；专用 TLS 包装分支待批量处置")
+        // WS client-fingerprint is consumed by transport/vmess/websocket.go:365-375.
         if (net == "ws" && p.protocol == Protocol.TROJAN && n["reality-opts"] != null)
             fail("reality-opts", "Trojan WS 分支不消费 Reality，待批量处置")
         if (p.protocol in setOf(Protocol.VMESS, Protocol.VLESS, Protocol.HTTP, Protocol.SOCKS) && n["tls"] != JsonPrimitive(true) && listOf("servername", "sni", "reality-opts", "ech-opts", "certificate", "private-key", "fingerprint", "name-cert-verify", "shadow-tls-opts", "restls-opts", "jls-opts", "tlsmirror-opts").any { n[it] != null })
             fail("tls", "TLS 关闭时附加 TLS 字段没有消费入口")
-        if (p.protocol in setOf(Protocol.VMESS, Protocol.VLESS) && n["tls"] != JsonPrimitive(true) && (n["alpn"] != null || n["client-fingerprint"] != null || n["skip-cert-verify"] == JsonPrimitive(true)))
+        if (p.protocol in setOf(Protocol.VMESS, Protocol.VLESS) && n["tls"] != JsonPrimitive(true) && (n["alpn"] != null || (net != "ws" && n["client-fingerprint"] != null) || n["skip-cert-verify"] == JsonPrimitive(true)))
             fail("tls", "TLS 缺省关闭时附加字段没有消费入口")
         checkConditionalConsumers(n, p)
         if (n["reality-opts"] != null && n["alpn"] != null) fail("alpn", "Reality 客户端固定 h2/http1.1，与用户指定列表语义待核定")
         if (n["reality-opts"] != null && n["skip-cert-verify"] == JsonPrimitive(true)) fail("allowInsecure", "Reality 独立证书校验逻辑不消费此开关，待处置")
-        if (n["tls"] == JsonPrimitive(false) && ((p.protocol !in setOf(Protocol.HTTP, Protocol.SOCKS) && n["alpn"] != null) || n["client-fingerprint"] != null || n["skip-cert-verify"] == JsonPrimitive(true))) fail("tls", "关闭 TLS 时附加 TLS 字段无消费入口")
+        if (n["tls"] == JsonPrimitive(false) && ((p.protocol !in setOf(Protocol.HTTP, Protocol.SOCKS) && n["alpn"] != null) || (net != "ws" && n["client-fingerprint"] != null) || n["skip-cert-verify"] == JsonPrimitive(true))) fail("tls", "关闭 TLS 时附加 TLS 字段无消费入口")
         if (kind == "http" && n["udp"] != null) fail("udp", "HTTP outbound 无 UDP；未向无消费入口输出该字段")
     }
 
     /** A declaration alone is insufficient when a sibling option switches its consumer off. */
     private fun checkConditionalConsumers(n: JsonObject, p: ServerProfile) {
         fun present(vararg keys: String) = keys.filter { n[it] != null }
-        fun exclusive(vararg keys: String) {
-            if (present(*keys).size > 1) fail(keys.joinToString("/"), "并存选项存在覆盖或互斥，消费语义待批量处置")
-        }
-        if (p.protocol in setOf(Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.WIREGUARD) && present("tfo", "mptcp").isNotEmpty())
-            fail("tfo/mptcp", "此协议的 BasicOption 未转发这两个字段，待批量处置")
-        if (p.protocol in setOf(Protocol.VMESS, Protocol.VLESS)) {
-            exclusive("packet-encoding", "packet-addr", "xudp")
-            if (p.protocol == Protocol.VLESS && n.text("flow") !in setOf("", "xtls-rprx-vision"))
-                fail("flow", "pin 内核可能截断或忽略该 flow，等价语义待核定")
-        }
-        if (p.protocol == Protocol.HYSTERIA) {
-            exclusive("auth", "auth-str"); exclusive("up", "up-speed"); exclusive("down", "down-speed"); exclusive("protocol", "obfs-protocol")
-        }
-        if (p.protocol == Protocol.HYSTERIA2) {
-            if (n.text("obfs").isEmpty() && present("obfs-password", "obfs-min-packet-size", "obfs-max-packet-size").isNotEmpty())
-                fail("obfs", "未启用 obfs 时不消费附加参数")
-            if (n.text("obfs") != "gecko" && present("obfs-min-packet-size", "obfs-max-packet-size").isNotEmpty())
-                fail("obfs", "非 gecko 分支不消费包大小参数")
-        }
-        if (p.protocol == Protocol.WIREGUARD) {
-            if (!(n["peers"] as? JsonArray).isNullOrEmpty() && present("public-key", "pre-shared-key", "allowed-ips").isNotEmpty())
-                fail("peers", "显式 peers 不消费顶层 peer 密钥或 allowed-ips")
-            if (n["dns"] != null && n["remote-dns-resolve"] != JsonPrimitive(true)) fail("dns", "未启用 remote-dns-resolve 时不消费 dns")
-        }
-        if (p.protocol == Protocol.SUDOKU) {
-            if (n["httpmask"] != null && present("http-mask", "http-mask-mode", "http-mask-tls", "http-mask-host", "path-root", "multiplex", "http-mask-multiplex").isNotEmpty())
-                fail("httpmask", "嵌套与扁平 HTTP mask 参数存在覆盖，待批量处置")
-            exclusive("multiplex", "http-mask-multiplex")
-        }
+        // G06/③: these BasicOption fields are equally unforwarded by dual's same adapter.
+        if (p.protocol == Protocol.VLESS && n.text("flow") !in setOf("", "xtls-rprx-vision"))
+            fail("flow", "pin 内核不接受该 VLESS flow 值")
+        // The remaining protocol branches use the same deterministic first-value or
+        // adapter-precedence rules in dual and single. They must remain observable,
+        // rather than being rejected before either adapter can apply those rules.
         val security = present("reality-opts", "shadow-tls-opts", "restls-opts", "jls-opts", "tlsmirror-opts")
         if (security.size > 1) fail("tls", "安全包装配置并存的消费边界待批量处置")
         val xhttp = n["xhttp-opts"] as? JsonObject
@@ -355,7 +393,12 @@ internal object MihomoConfigBuilder {
     }
 
     private fun checkOptionKeys(p: ServerProfile) {
-        val common = setOf("pinSHA256", "fingerprint") // Other common aliases are not read by the existing builder.
+        val common = setOf(
+            "pinSHA256", "fingerprint",
+            // The shared dual builder does not read these protocolOptions aliases.
+            // They are accepted so single preserves the same deterministic omission.
+            "sni", "peer", "alpn", "tls", "insecure"
+        )
         val protocol = when (p.protocol) {
             Protocol.HYSTERIA -> setOf("auth", "up", "upmbps", "down", "downmbps", "ports", "mport", "protocol", "hop-interval", "hopInterval", "obfs", "obfsParam", "obfs-password")
             Protocol.HYSTERIA2 -> setOf("up", "upmbps", "down", "downmbps", "ports", "mport", "hop-interval", "hopInterval", "obfs", "obfs-password", "obfsParam", "ech")
@@ -368,45 +411,11 @@ internal object MihomoConfigBuilder {
             Protocol.HTTP, Protocol.SOCKS -> emptySet()
             else -> emptySet()
         }
-        if ((p.protocolOptions.keys - common - protocol).isNotEmpty()) fail("protocolOptions", "包含未知或未审定消费入口的字段；原数据保留")
-        val aliasGroups = listOf(listOf("up", "upmbps"), listOf("down", "downmbps"), listOf("ports", "mport"),
-            listOf("hop-interval", "hopInterval"), listOf("publickey", "public-key"), listOf("address", "local-address", "ip"),
-            listOf("persistent-keepalive", "keepalive"), listOf("allowed-ips", "allowedips"), listOf("congestion-controller", "congestion_control"),
-            listOf("udp-relay-mode", "udp_relay_mode"), listOf("fast-open", "fast_open"), listOf("disable-sni", "disable_sni"),
-            listOf("reduce-rtt", "reduce_rtt"), listOf("heartbeat-interval", "heartbeat"), listOf("pinSHA256", "fingerprint"),
-            listOf("pre-shared-key", "presharedkey", "preshared-key"), listOf("protocol-param", "protoparam"), listOf("obfs-param", "obfsparam"),
-            listOf("fp", "client-fingerprint", "clientFingerprint"), listOf("obfs-password", "obfsParam"),
-            listOf("client-metadata", "clientMetadata"), listOf("idle-session-check-interval", "idleSessionCheckInterval"),
-            listOf("idle-session-timeout", "idleSessionTimeout"), listOf("min-idle-session", "minIdleSession"), listOf("disable-reuse", "disableReuse"),
-            listOf("aead-method", "aeadMethod"), listOf("table-type", "tableType"), listOf("http-mask-mode", "httpMaskMode"),
-            listOf("http-mask-host", "httpMaskHost"), listOf("path-root", "pathRoot"), listOf("custom-table", "customTable"),
-            listOf("padding-min", "paddingMin"), listOf("padding-max", "paddingMax"), listOf("enable-pure-downlink", "enablePureDownlink"),
-            listOf("http-mask", "httpMask"), listOf("http-mask-tls", "httpMaskTls"), listOf("http-mask-multiplex", "httpMaskMultiplex"),
-            listOf("custom-tables", "customTables"))
-        aliasGroups.forEach { keys -> if (keys.mapNotNull { p.protocolOptions[it] }.distinct().size > 1) fail(keys.first(), "重复别名值冲突") }
-        if (p.protocol == Protocol.HYSTERIA) {
-            if (p.protocolOptions["auth"] != null) fail("auth", "此别名未被既有生成器读取，待批量处置")
-            if (p.protocolOptions["obfs"] != "xplus" && listOf("obfsParam", "obfs-password").any { p.protocolOptions[it] != null })
-                fail("obfsParam", "非 xplus 分支不消费此字段")
+        if ((p.protocolOptions.keys - common - protocol).isNotEmpty()) {
+            fail("protocolOptions", "unknown protocol option; original data is retained")
         }
-        if (p.protocol == Protocol.HYSTERIA2 && p.protocolOptions["obfs"].isNullOrEmpty() && listOf("obfs-password", "obfsParam").any { p.protocolOptions[it] != null })
-            fail("obfs-password", "obfs 未启用时不消费此字段，待批量处置")
-        if (p.protocol == Protocol.TUIC && p.protocolOptions["token"] != null && (p.uuid.isNotEmpty() || p.password.isNotEmpty()))
-            fail("token", "TUIC UUID/password 与 token 分支冲突，禁止丢弃 token")
-        if (p.protocol == Protocol.WIREGUARD) {
-            if (p.publicKey.isNotEmpty() && listOf("publickey", "public-key").any { p.protocolOptions[it]?.let { v -> v != p.publicKey } == true })
-                fail("publicKey", "模型与协议选项冲突")
-            val addresses = listOf("address", "local-address", "ip").firstNotNullOfOrNull { p.protocolOptions[it]?.takeIf(String::isNotEmpty) }
-                .orEmpty().split(',').map(String::trim).filter(String::isNotEmpty)
-            if (addresses.count { ':' !in it } > 1 || addresses.count { ':' in it } > 1 || addresses.any { '/' in it } || p.protocolOptions["ipv6"]?.contains('/') == true)
-                fail("address", "WireGuard 多地址或前缀与现有生成器语义待批量处置，禁止丢弃")
-            if (addresses.any { ':' in it } && !p.protocolOptions["ipv6"].isNullOrEmpty()) fail("ipv6", "重复 IPv6 地址来源待处置")
-        }
-        if (p.protocol == Protocol.ANYTLS && p.fingerprint.isNotEmpty() && listOf("fp", "client-fingerprint", "clientFingerprint").any { p.protocolOptions[it]?.let { v -> v != p.fingerprint } == true })
-            fail("fingerprint", "模型与协议选项冲突")
-        // Aliases already represented by the model must agree rather than silently overwrite.
-        p.protocolOptions["alpn"]?.let { if (it != p.alpn) fail("alpn", "模型与扩展选项冲突") }
-        listOf("sni", "peer").forEach { key -> p.protocolOptions[key]?.let { if (it != p.sni) fail(key, "模型与扩展选项冲突") } }
+        // ExtendedConfigBuilder.option() defines the dual precedence: first non-empty
+        // key wins. Do not turn deterministic aliases or ignored fields into conflicts.
     }
 
     private fun type(p: Protocol): String = when (p) {
