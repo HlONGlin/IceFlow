@@ -201,8 +201,15 @@ Mihomo 具备 SOCKS/mixed 入站和认证能力，但单核需要把本地监听
 
 - **pin 源码证据**：Mihomo v1.19.32 的 `adapter/outbound/reality.go:13-18` 中 `RealityOptions` 只有 `PublicKey`（`public-key`）、`ShortID`（`short-id`）和 `SupportX25519MLKEM768`（`support-x25519mlkem768`）；`Parse` 在 `reality.go:20-44` 转为 TLS 配置，没有 spiderX 字段。`component/tls/reality.go:31-36` 的运行时配置同样没有 spiderX；`realityClientFallback`（`:134-163`）在 `:151` 固定构造对 `https://` + `serverName` 的 GET，没有可配置的回落路径。
 - **全库检索证据**：阶段 2 前置核对对 pin 模块目录下 972 个 `*.go` 文件递归执行不区分大小写的 `spider` 文本检索，命中为 0。不能仅输出一个上游不消费的 JSON 字段冒充保留。原模型 `ServerProfile.spiderX` 和 dual 的 `realitySettings.spiderX` 保持不变。
-- **single 校验口径**：实现前必须核对 pin 版 Xray 的 `spiderX=""`、`spiderX="/"` 实际语义，并记录源码行号。仅当某值经源码证明与 Mihomo 的固定根路径 GET 回落行为等价时，才可作为“等价近似”放行；落点表须明确近似边界和依据。其余任何非空 spiderX 必须在映射层显式拒绝，归入既有 `CONFIGURATION_OR_SUBSCRIPTION`，提示必须点名 spiderX 与“单核内核不支持该字段”，原 `ServerProfile` 数据不改；放行、拒绝均需单测。未经证实的值不作等价推断。
+- **single 最终校验口径**：spiderX 为 `""` 或不带任何查询参数的 `"/"` 时，以“仅初始路径近似”放行。pin 版 Xray `infra/conf/transport_internet.go:961-989` 把空值归一为 /；`transport/internet/reality/reality.go:196-217` 以该根路径作为新缓存的种子并构造首个 GET，与 Mihomo 固定 GET 的初始根路径目标一致。近似不覆盖 Xray 的路径缓存、响应链接采集（:243-258）、SpiderY 参数、延时与 padding；不得表述为“已保留 spiderX 语义”。带任何查询参数或非根路径一律显式拒绝，归入 `CONFIGURATION_OR_SUBSCRIPTION`，错误点名 spiderX 和“单核内核不支持该字段”，不改原数据；空值、根路径、带参拒绝和非根路径拒绝分别加单测。
 - **范围边界**：本阶段不修改 Mihomo 上游，不在 wrapper 自造 spider 实现。将来的真正等价支持属于另行立项的“需内核补丁”工作。本次仅单列 spiderX 限制，同行其余 TLS/Reality 字段的逐字段保留要求不变。
+
+### 6.10 HTTP/SOCKS5 ALPN（双核既有问题，非迁移差异）
+
+- **dual 路径核对**：dual CoreVariantBridge 委托 XrayConfigBuilder.build；`XrayConfigBuilder.kt:64-69` 对 HTTP/SOCKS5 手工节点使用 ExtendedConfigBuilder，其 `:21` 输出 alpn，原始 Clash 配置走原样 options 路径。`xray-wrapper/libxray/extended.go:41-45,60-78` 最终统一调用 pin 版 adapter.ParseProxy，HTTP/SOCKS5 没有额外 ALPN 适配；:82-87 的专用适配仅针对 mieru。
+- **无消费入口证据**：Mihomo v1.19.32 `adapter/outbound/http.go:28-43`、`socks5.go:30-44` 及继承的 `base.go:193-207` 无 ALPN 字段，NewHttp（:147-168）和 NewSocks5（:173-189）的 TLS 构造没有用户配置的 NextProtos 输入。因此 dual 输出的 HTTP/SOCKS5 alpn 同样未消费。
+- **single 口径**：与 dual 保持相同行为，照常输出 alpn，不因该字段拒绝节点，不声称它被消费。落点表消费入口明确填写“无（双核既有问题，见登记）”。本登记不适用于 VMess/VLESS/Trojan 等正常消费 ALPN 的协议。
+- **范围**：真正增加 HTTP/SOCKS5 ALPN 消费入口属于另行立项的内核补丁；本阶段不修改 dual 或上游。
 
 ## 7. 阶段 0 验证基线
 
