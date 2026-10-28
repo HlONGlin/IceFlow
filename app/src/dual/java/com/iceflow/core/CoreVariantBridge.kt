@@ -7,6 +7,7 @@ import com.iceflow.service.VpnErrorType
 internal object CoreVariantBridge {
     val variantName: String get() = BuildConfig.CORE_VARIANT
     val isReady: Boolean get() = XrayBridge.isAvailable && RustBridge.isAvailable
+    val stopFailureName: String get() = "Xray"
 
     fun stop() = XrayBridge.stop()
 

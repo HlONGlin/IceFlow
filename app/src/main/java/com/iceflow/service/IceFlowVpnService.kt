@@ -527,7 +527,11 @@ class IceFlowVpnService : VpnService() {
             activeTunnelUser = ""
             activeTunnelPass = ""
             runCatching { RustBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
-            runCatching { CoreVariantBridge.stop() }.onFailure { failures += "Core stop: ${it.message}"; Log.w(TAG, "core stop: $it") }
+            val stopFailureName = CoreVariantBridge.stopFailureName
+            runCatching { CoreVariantBridge.stop() }.onFailure {
+                failures += "$stopFailureName stop: ${it.message}"
+                Log.w(TAG, "${stopFailureName.lowercase()} stop: $it")
+            }
         }
         if (closeTun) {
             runCatching { tun?.close() }.onFailure { failures += "TUN close: ${it.message}" }
