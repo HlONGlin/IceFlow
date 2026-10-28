@@ -10,7 +10,7 @@ internal class MihomoMappingException(val field: String, reason: String) :
     val errorType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
 }
 
-/** Pure single-only mapper. Deliberately not wired to CoreVariantBridge in step 2. */
+/** Pure single-only mapper; runtime bridge validates the resulting app configuration. */
 internal object MihomoConfigBuilder {
     const val PROXY = "proxy"
     private val native = setOf(Protocol.VMESS, Protocol.VLESS, Protocol.TROJAN, Protocol.SHADOWSOCKS)
@@ -39,6 +39,8 @@ internal object MihomoConfigBuilder {
                     put("inet6-address", JsonArray(if (settings.ipv6Enabled) listOf(JsonPrimitive("fdfe:dcba:9876::1/126")) else emptyList()))
                 }
                 put("proxies", JsonArray(proxies))
+                // Wrapper-only metadata: session persistence belongs to the selected node.
+                put("iceflow-selected-outbound", names[chain.indexOfFirst { it.id == profile.id }])
                 put("rules", JsonArray(rules(settings).map(::JsonPrimitive)))
                 put("dns", dns(settings))
                 if (includeInbound) put("listeners", JsonArray(listeners(settings, tunnelPort, tunnelAuth)))
@@ -200,7 +202,10 @@ internal object MihomoConfigBuilder {
             if (!n.text("token").isEmpty() && (n["uuid"] != null || n["password"] != null)) fail("token", "TUIC v4 token 分支不消费 UUID/password")
             if (n.text("token").isEmpty() && (n["fast-open"] != null || n["request-timeout"] != null)) fail("fast-open/request-timeout", "TUIC v5 分支没有对应消费入口，待批量处置")
         }
-        if (p.protocol == Protocol.MIERU && n["mtu"] != null) fail("mtu", "mieru MTU 需要官方客户端 shim 补丁，当前未实现")
+        if (p.protocol == Protocol.MIERU && n["mtu"] != null) {
+            val mtu = n["mtu"]?.jsonPrimitive?.intOrNull
+            if (mtu == null || (mtu != 0 && mtu !in 1280..1500)) fail("mtu", "mieru MTU 必须为 0 或 1280–1500；由 single 官方客户端 shim 消费")
+        }
         if (n["plugin"] != null || n["plugin-opts"] != null) checkPlugin(n)
         val active = mapOf("ws-opts" to "ws", "grpc-opts" to "grpc", "xhttp-opts" to "xhttp", "mkcp-opts" to "mkcp", "mekya-opts" to "mekya")
         active.forEach { (key, transport) -> if (n[key] != null && net != transport) fail(key, "当前 network 不消费该传输对象") }

@@ -978,7 +978,7 @@ ExtendedConfigBuilder 保持原状；single 只复用有已知消费入口的输
 - ExtendedConfigBuilder.kt:130：list("custom-tables", option("custom-tables", "customTables"))；落点 B.extended/checkOptionKeys，输出消费见上表。
 - ExtendedConfigBuilder.kt:131：option("httpmask").takeIf(String::isNotEmpty)?.let { put("httpmask", Json.parseToJsonElement(it)) }；落点 B.extended/checkOptionKeys，输出消费见上表。
 
-## 5. 一次性缺口清单（等待批量处置，不自行改判）
+## 5. 一次性缺口清单（第 2 步审计快照；第 3 步处置见 SINGLE_BRIDGE_STEP3.md）
 
 每项保持 FEATURE_MAP 既有分类；“疑似/待等价证明”不是自动改判成无等价。当前 mapper 对未批准字段/组合先抛出 MihomoMappingException（CONFIGURATION_OR_SUBSCRIPTION），不返回含无消费字段的配置，不改 ServerProfile；错误接入UI属于第3步，本步未接 bridge，不能声称设备已显示这些错误。
 
@@ -987,9 +987,9 @@ ExtendedConfigBuilder 保持原状；single 只复用有已知消费入口的输
 | G01 | TCP HTTP header：transport/vmess/http.go:54-96 以带payload的HTTP请求封装；Xray tcpSettings.header.request语义不能仅凭字段同名证明相同。VMess/VLESS有HTTPOpts，Trojan无通用入口 | headerType!=none、http-opts/h2-opts拒绝；按协议补等价夹具或单独批准限制。FEATURE_MAP6.3分类不变 | tcpHttpHeaderRejected |
 | G02 | 条件 TLS：VMess/VLESS WS固定ALPN http/1.1（vmess.go:205-239、vless.go:185-220）；三协议gRPC固定h2（vmess.go:628、vless.go:593、trojan.go:377）。普通WS TLS不传client-fingerprint，专用ShadowTLS/Restls/JLS等路径不同 | 用户ALPN在上述分支拒绝；WS客户端指纹暂保守拒绝并登记专用TLS路径需细分；并非上游所有ALPN/指纹都无入口 | fixedWsAlpnRejected / trojanGrpcUserAlpnRejected / wsFingerprintGapRejected |
 | G03 | Reality：WS三协议普通路径无Reality传递；transport/vmess/tls.go:115-116 Reality分支不接收用户ALPN与skip-cert-verify；component/tls/reality.go:38-48独立校验 | WS+Reality、Reality+用户ALPN/allowInsecure=true拒绝；其余Reality字段有入口，spider按已批准近似 | wsRealityRejected / realityKeysAndVisionPreserved |
-| G04 | SOCKS5通用sni：dual在ExtendedConfigBuilder.kt:136写name-cert-verify；socks5.go:180固定ServerName=server，:183只是证书名校验 | 非空模型sni暂拒绝，不能声称等价SNI已保留；raw name-cert-verify有明确消费，可直映 | socksSniGapRejected |
+| G04 | SOCKS5通用sni：dual在ExtendedConfigBuilder.kt:136写name-cert-verify；socks5.go:180固定ServerName=server，:183只是证书名校验 | G04 撤销顶替：在调用共享 builder 前拒绝非空模型 sni，不生成 name-cert-verify 冒充 SNI；raw name-cert-verify 独立直映 | socksSniGapRejected |
 | G05 | VLESS ws-headers仅声明vless.go:83，无读取；WireGuard顶层allowed-ips声明wireguard.go:99，单peer分支:760-773按地址族固定0/0，仅peers[i].allowed-ips在:731-732消费 | 两者拒绝。WG可讨论将顶层allowed-ips转换为显式peer，但不自行改变。注意：reserved确有:367-383消费，本清查已纠正，不列缺口 | unusedWsHeadersRejected / wgAllowedIpsSinglePeerRejected / wgReservedHasConsumer |
-| G06 | 扩展字段/分支：ExtendedConfigBuilder未读取protocolOptions中的sni/peer/alpn/tls/insecure等别名、Hy1 auth；WG address会取每族首地址并移除prefix(:80-84)；TUIC token分支不消费UUID/password，request-timeout只进v4(:276)，fast-open有TFO元数据(:248)与v4握手(:278)，v5不应声称同一fast-open语义 | 未读别名、冲突来源、多地址/前缀、TUIC分支歧义显式拒绝；Hy1/Hy2/TUIC/WG 的 BasicOption tfo/mptcp 无转发入口亦拒绝；Hy1/Hy2/TUIC/WG 的 BasicOption tfo/mptcp 无转发入口亦拒绝；单值已读别名正常转换。真转换方案需批量批准 | unmappedProtocolOptionRejected / duplicateBandwidthAliasesRejected / wgPrefixLossRejected / tuicV5IgnoredFlagsRejected |
+| G06 | 扩展字段/分支：ExtendedConfigBuilder未读取protocolOptions中的sni/peer/alpn/tls/insecure等别名、Hy1 auth；WG address会取每族首地址并移除prefix(:80-84)；TUIC token分支不消费UUID/password，request-timeout只进v4(:276)，fast-open有TFO元数据(:248)与v4握手(:278)，v5不应声称同一fast-open语义 | 未读别名、冲突来源、多地址/前缀、TUIC分支歧义显式拒绝；Hy1/Hy2/TUIC/WG 的 BasicOption tfo/mptcp 无转发入口亦拒绝；单值已读别名正常转换。真转换方案需批量批准 | unmappedProtocolOptionRejected / duplicateBandwidthAliasesRejected / wgPrefixLossRejected / tuicV5IgnoredFlagsRejected |
 | G07 | raw Clash动态边界：其他SS插件obfs/gost/shadowtls/restls/jls/kcptun有各自动态map；原始network h2/mkcp/mekya存在上游实现，但不在当前通用传输等价审核；未知键与未知枚举无法证明消费。嵌套ECH关闭或固定config时query字段、Realm/TrojanSS关闭、TLSMirror无key时其余字段不消费 | 已确认v2ray-plugin websocket逐字段保留；其他插件/未审定transport/未知键拒绝，不把原始JSON抹掉。条件关掉却有payload则拒绝 | pluginUnknownOptionRejected / unknownNestedOptionRejected / echDisabledPayloadRejected / echFixedConfigAndQueryConflictRejected |
 | G08 | 路由/DNS语义：裸域名、ext:外部geo资源、含逗号/括号的逻辑payload转义；Xray DNS域条件支持keyword/regexp，而nameserver-policy是domain trie/geosite（config.go:1339-1410） | 裸域/ext/未审定逻辑转义、无法表达DNS policy域条件拒绝；已有前缀与源/目标/端口组合继续实现。Xray regex→Go RE2差异尚需等价夹具 | unprefixedDomainIsPending / externalGeoRuleIsRejected / ruleFieldsOrWithinAndAcross |
 | G09 | sniffed protocols规则无等价PROTOCOL解析分支（rules/parser.go:17-98）；bittorrent与destOverride旧不一致已在FEATURE_MAP6.1 | protocol条件显式拒绝；本步未修改嗅探与destOverride。后续shim/内核补丁单列 | protocolRuleIsRejectedRatherThanDropped |
@@ -1037,3 +1037,7 @@ FEATURE_MAP 分类不变。协议14项全部有endpoint生成测试，raw字段�
 - 本步仅生成与拒绝测试，不把生成成功当协议建连成功。HTTP Upgrade真实服务端、协议矩阵、DNS/IPv6/分应用、forced-private、流量聚合、mieru MTU/protobuf、双向覆盖与数据保留均未在本步设备验证；按原后续步骤执行。
 - Main/dual/Go wrapper未改；不存在新增CORE_VARIANT分支；签名文件、密码与上游源码未触碰。
 - 新鲜测试命令与分flavor/模块计数见 SINGLE_MAPPING_VALIDATION.md；报告与日志保存在 test-reports/phase2-step2-batch-20261028，不批量提交含设备历史的整个目录。
+
+## 8. 第 3 步更新（不改冻结分类）
+
+G02/G03/G05/G06 保持逐项显式拒绝，G04 已撤销通用 sni→证书名顶替；设计与命运表见 SINGLE_BRIDGE_STEP3.md。G10 只放行 App 精确双 SOCKS 入站形态，绑定失败向调用者传播。G11 新增 single shim：mieru mtu 在 mihomo-wrapper/libmihomo/mieru.go 的 configureMieruWithDialer→官方 appctl.URLToClientProfile→ClientConfig 消费；MihomoOptionSchema 中的 mtu 是 shim 扩展，非上游消费入口。MihomoConfigBuilder.outbound/checkGaps 对 0 或1280..1500 放行，非法值拒绝；测试 mieruMtuUsesOfficialClientShim/mieruInvalidMtuRejected 和 Go TestMieruMtuProfileAndCleanup/TestMieruMtuInvalidAndForcedDialerRetained。每节点流量见 traffic.go，按节点代理 I/O 累计，StatsJSON 选定显式 iceflow-selected-outbound 节点，QueryStats 输出各节点；不把链路标签相加，不计 DIRECT/REJECT。G12 forced-private 的回环代理夹具已进入 TestForcedDialerPrivateAddressFixture；该单测不替代第4步真实网络矩阵。

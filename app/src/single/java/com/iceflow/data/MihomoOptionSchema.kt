@@ -249,6 +249,7 @@ internal object MihomoOptionSchema {
             "kcp" to "MKCPOptions", // adapter/outbound/vmess.go:127
         ),
         "MieruOption" to mapOf(
+            "mtu" to "int", // single wrapper mieru.go official ClientProfile shim, not upstream option
             "name" to "string", // adapter/outbound/mieru.go:32
             "server" to "string", // adapter/outbound/mieru.go:33
             "port" to "int", // adapter/outbound/mieru.go:34

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/metacubex/mihomo/component/proxydialer"
 	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/metacubex/mihomo/hub/executor"
@@ -34,6 +35,9 @@ type engine struct {
 	tun                tunSession
 	cfg                *config.Config
 	lastError          string
+	listeners          []C.InboundListener
+	book               trafficBook
+	selectedTag        string
 	baseUp, baseDown   int64
 	finalUp, finalDown int64
 	openTun            func(LC.Tun, int) (tunSession, error)
@@ -42,7 +46,11 @@ type engine struct {
 	totals             func() (int64, int64)
 }
 
-var current = &engine{openTun: openTun, apply: applyConfig, shutdown: shutdown, totals: statistic.DefaultManager.Total}
+var current = &engine{openTun: openTun, apply: applyConfig, shutdown: shutdown}
+
+func init() {
+	current.totals = func() (int64, int64) { return current.book.selected(current.selectedTag) }
+}
 
 // SetHomeDir must run before any parse/start. Paths are not logged by the wrapper.
 func SetHomeDir(dir string) error {
@@ -78,6 +86,9 @@ func parse(text string) (*config.Config, error) {
 	if requested.Tun.FileDescriptor != 0 || requested.Tun.AutoRoute || requested.Tun.AutoDetect || requested.Tun.AutoRedirect {
 		return nil, errors.New("CONFIGURATION_OR_SUBSCRIPTION: TUN fd and routes belong to VpnService")
 	}
+	if err := validateAppListeners(text); err != nil {
+		return nil, fmt.Errorf("CONFIGURATION_OR_SUBSCRIPTION: %w", err)
+	}
 	raw, err := config.UnmarshalRawConfig([]byte(text))
 	if err != nil {
 		return nil, fmt.Errorf("CONFIGURATION_OR_SUBSCRIPTION: %w", err)
@@ -94,14 +105,158 @@ func parse(text string) (*config.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CONFIGURATION_OR_SUBSCRIPTION: %w", err)
 	}
-	if len(cfg.Providers) != 1 || len(cfg.RuleProviders) > 0 || len(cfg.Listeners) > 0 || len(cfg.Tunnels) > 0 || cfg.General.Port != 0 || cfg.General.MixedPort != 0 || cfg.General.RedirPort != 0 || cfg.General.TProxyPort != 0 || cfg.General.ShadowSocksConfig != "" || cfg.General.VmessConfig != "" || cfg.General.TuicServer.Enable {
+	if len(cfg.Providers) != 1 || len(cfg.RuleProviders) > 0 || len(cfg.Tunnels) > 0 || cfg.General.Port != 0 || cfg.General.MixedPort != 0 || cfg.General.RedirPort != 0 || cfg.General.TProxyPort != 0 || cfg.General.ShadowSocksConfig != "" || cfg.General.VmessConfig != "" || cfg.General.TuicServer.Enable {
 		return nil, errors.New("CONFIGURATION_OR_SUBSCRIPTION: unsupported provider or listener")
+	}
+	// MTU is an app shim extension; never claim upstream MieruOption consumes it.
+	for _, options := range raw.Proxy {
+		if options["type"] != "mieru" {
+			continue
+		}
+		name, _ := options["name"].(string)
+		var dialer C.Dialer
+		if upstream, ok := options["dialer-proxy"].(string); ok && upstream != "" {
+			dialer = proxydialer.NewByName(upstream, tunnel.Tunnel)
+		}
+		patched, patchErr := configureMieruWithDialer(cfg.Proxies[name], options, dialer)
+		if patchErr != nil {
+			for _, p := range cfg.Proxies {
+				_ = p.Close()
+			}
+			return nil, fmt.Errorf("CONFIGURATION_OR_SUBSCRIPTION: mieru mtu: %w", patchErr)
+		}
+		cfg.Proxies[name] = patched
 	}
 	return cfg, nil
 }
 
 // Validate does not start listeners or take ownership of any descriptor.
-func Validate(text string) error { _, err := parse(text); return err }
+func Validate(text string) error {
+	cfg, err := parse(text)
+	if cfg != nil {
+		for _, p := range cfg.Proxies {
+			_ = p.Close()
+		}
+	}
+	return err
+}
+
+// Prepare is the service pre-TUN phase. No descriptor is borrowed until AttachTun.
+func Prepare(text string) error {
+	current.mu.Lock()
+	defer current.mu.Unlock()
+	return current.prepare(text)
+}
+func (e *engine) prepare(text string) error {
+	if e.cfg != nil {
+		return errors.New("CORE_START_FAILED: core is already running")
+	}
+	cfg, err := parse(text)
+	if err != nil {
+		return e.failed(err, nil)
+	}
+	e.book = trafficBook{}
+	var metadata struct {
+		Selected string `json:"iceflow-selected-outbound"`
+	}
+	_ = json.Unmarshal([]byte(text), &metadata)
+	e.selectedTag = metadata.Selected
+	if e.selectedTag == "" {
+		e.selectedTag = "proxy"
+	}
+	for name, p := range cfg.Proxies {
+		if p.Type() <= C.Dns || (name != "proxy" && !strings.HasPrefix(name, "chain-")) {
+			continue
+		}
+		counter := &nodeTraffic{}
+		e.book[name] = counter
+		cfg.Proxies[name] = countedProxy(p, counter)
+	}
+	if metadata.Selected != "" && e.book[e.selectedTag] == nil {
+		for _, p := range cfg.Proxies {
+			_ = p.Close()
+		}
+		return e.failed(errors.New("CONFIGURATION_OR_SUBSCRIPTION: invalid selected outbound"), nil)
+	}
+	e.baseUp, e.baseDown = e.totals()
+	e.finalUp, e.finalDown = 0, 0
+	// Upstream PatchInboundListeners swallows bind errors. Own these validated listeners.
+	listeners := cfg.Listeners
+	cfg.Listeners = nil
+	if err = e.apply(cfg); err != nil {
+		cleanup := e.shutdown()
+		for _, p := range cfg.Proxies {
+			cleanup = errors.Join(cleanup, p.Close())
+		}
+		return e.failed(fmt.Errorf("CORE_START_FAILED: apply config: %w", err), cleanup)
+	}
+	e.cfg = cfg
+	for _, in := range listeners {
+		e.listeners = append(e.listeners, in) // include partially opened TCP/UDP listener in cleanup
+		if err = in.Listen(tunnel.Tunnel); err != nil {
+			primary := fmt.Errorf("CORE_START_FAILED: app SOCKS listener: %w", err)
+			cleanup := e.stopLocked()
+			return e.failed(primary, cleanup)
+		}
+	}
+	e.lastError = ""
+	return nil
+}
+
+// AttachTun borrows original; openTun duplicates it and closes only the duplicate.
+func AttachTun(fd, mtu int) error {
+	current.mu.Lock()
+	defer current.mu.Unlock()
+	return current.attach(fd, mtu)
+}
+func (e *engine) attach(fd, mtu int) error {
+	if e.cfg == nil {
+		return e.failed(errors.New("CORE_START_FAILED: prepare core before TUN handoff"), nil)
+	}
+	if e.tun != nil {
+		return e.failed(errors.New("CORE_START_FAILED: TUN already attached"), nil)
+	}
+	if fd <= 0 {
+		return e.failed(errors.New("CORE_START_FAILED: invalid borrowed TUN fd"), nil)
+	}
+	options := e.cfg.General.Tun
+	if mtu != int(options.MTU) && options.MTU != 0 {
+		return e.failed(errors.New("CONFIGURATION_OR_SUBSCRIPTION: service TUN MTU mismatch"), nil)
+	}
+	options.MTU = uint32(mtu)
+	session, err := e.openTun(options, fd)
+	if err != nil {
+		primary := fmt.Errorf("CORE_START_FAILED: start TUN: %w", err)
+		cleanup := e.stopLocked()
+		return e.failed(primary, cleanup)
+	}
+	e.tun = session
+	// The service resets its persisted deltas after each successful handoff, including reuse.
+	e.baseUp, e.baseDown = e.totals()
+	e.finalUp, e.finalDown = 0, 0
+	e.lastError = ""
+	return nil
+}
+
+// StopTun leaves configuration/listeners alive for the existing service fast reconnect.
+func StopTun() error { current.mu.Lock(); defer current.mu.Unlock(); return current.stopTun() }
+func (e *engine) stopTun() error {
+	if e.tun == nil {
+		return nil
+	}
+	err := e.tun.Close()
+	e.tun = nil
+	if err != nil {
+		return e.failed(fmt.Errorf("RESOURCE_CLEANUP_FAILED: stop TUN: %w", err), nil)
+	}
+	return nil
+}
+func CoreRunning() bool {
+	current.mu.Lock()
+	defer current.mu.Unlock()
+	return current.cfg != nil && tunnel.Status() == tunnel.Running
+}
+func QueryStats() string { current.mu.Lock(); defer current.mu.Unlock(); return current.book.text() }
 
 // Start borrows the service's original fd. openTun duplicates it and owns ONLY that duplicate.
 // Parse/apply/TUN failures propagate with their primary classification, then cleanup is appended.
@@ -110,34 +265,17 @@ func Start(text string, fd int) error { return current.start(text, fd) }
 func (e *engine) start(text string, fd int) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if e.cfg != nil {
-		return errors.New("CORE_START_FAILED: core is already running")
-	}
 	if fd <= 0 {
 		return e.failed(errors.New("CORE_START_FAILED: invalid borrowed TUN fd"), nil)
 	}
-	cfg, err := parse(text)
-	if err != nil {
-		return e.failed(err, nil)
+	if err := e.prepare(text); err != nil {
+		return err
 	}
-	e.baseUp, e.baseDown = e.totals()
-	e.finalUp = 0
-	e.finalDown = 0
-	if err = e.apply(cfg); err != nil {
-		return e.failed(fmt.Errorf("CORE_START_FAILED: apply config: %w", err), e.shutdown())
-	}
-	session, err := e.openTun(cfg.General.Tun, fd)
-	if err != nil {
-		return e.failed(fmt.Errorf("CORE_START_FAILED: start TUN: %w", err), e.shutdown())
-	}
-	e.cfg = cfg
-	e.tun = session
-	e.lastError = ""
-	return nil
+	return e.attach(fd, 1500)
 }
 func (e *engine) failed(primary, cleanup error) error {
 	if cleanup != nil {
-		primary = fmt.Errorf("%w; cleanup: %v", primary, cleanup)
+		primary = fmt.Errorf("%w; cleanup: %s", primary, strings.TrimPrefix(cleanup.Error(), "RESOURCE_CLEANUP_FAILED: "))
 	}
 	e.lastError = primary.Error()
 	return primary
@@ -148,6 +286,9 @@ func Stop() error { return current.stop() }
 func (e *engine) stop() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	return e.stopLocked()
+}
+func (e *engine) stopLocked() error {
 	if e.cfg == nil && e.tun == nil {
 		return nil
 	}
@@ -159,6 +300,10 @@ func (e *engine) stop() error {
 		errs = append(errs, e.tun.Close())
 		e.tun = nil
 	}
+	for _, in := range e.listeners {
+		errs = append(errs, in.Close())
+	}
+	e.listeners = nil
 	errs = append(errs, e.shutdown())
 	e.cfg = nil
 	err := errors.Join(errs...)
