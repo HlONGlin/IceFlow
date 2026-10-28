@@ -53,7 +53,7 @@
 | gRPC multi | Xray/Clash 可携带相关字段 | 需转换；行为需矩阵验证 | Mihomo 源码有 max/min streams/connections/ping 字段，当前 `ServerProfile` 仅有 serviceName，见风险 2 |
 | HTTP Upgrade | Xray `network=httpupgrade` / `httpupgradeSettings` | 需转换（VMess/VLESS/Trojan）；其他协议无通用等价 | VMess/VLESS/Trojan 映射为 Mihomo `network: ws` + `ws-opts.v2ray-http-upgrade: true`；共享 transport 和 fast-open 语义见风险 6.7。Shadowsocks 只在 Clash `v2ray-plugin` websocket 配置中有独立落点，不是通用 network 映射。其余当前 outbound 未由该 `ws-opts` 分支覆盖，不能套用此转换。 |
 | xhttp | Xray builder 对 native outbound 生成 `xhttpSettings` | VLESS 原生支持；非 VLESS 无等价 | 非 VLESS+xhttp 是明确迁移阻断项，见风险 5 |
-| TLS/Reality | Xray `tlsSettings`/`realitySettings` | 原生支持，需转换 | SNI、ALPN、fingerprint、public key、short ID、spiderX、allow-insecure 必须逐字段保留 |
+| TLS/Reality | Xray `tlsSettings`/`realitySettings` | 原生支持，需转换；spiderX 单列限制 | SNI、ALPN、fingerprint、public key、short ID、allow-insecure 必须逐字段保留。spiderX 在 pin 版 Mihomo v1.19.32 无消费入口，single 按风险 6.9 的显式校验口径处理，不得静默丢弃 |
 
 ## 2. 导入、编辑与持久化
 
@@ -196,6 +196,13 @@ Mihomo 具备 SOCKS/mixed 入站和认证能力，但单核需要把本地监听
 - Mihomo TUN fd 接管必须先证明 Android `VpnService` 的 fd 生命周期、DNS、IPv6、应用路由和 stop/重连都稳定；否则按任务要求暂停并请示是否保留 Rust 流量层。
 - Xray 的 MPH cache、`ruleTag` 和 Xray geo asset 是当前实现细节，不是用户可见等价功能。单核可以改用 Mihomo geodata/规则缓存，但不能以移除缓存为由改变规则结果；容量和内存限制留到阶段 4。
 - Clash `proxy-groups`/`proxy-providers` 当前导入器有意不作为节点或远程配置执行。阶段 0 不扩大现有行为；单核必须至少保持当前导入结果和原始 options 保留行为。
+
+### 6.9 Reality spiderX（阶段 2 前置核对后经确认修订）
+
+- **pin 源码证据**：Mihomo v1.19.32 的 `adapter/outbound/reality.go:13-18` 中 `RealityOptions` 只有 `PublicKey`（`public-key`）、`ShortID`（`short-id`）和 `SupportX25519MLKEM768`（`support-x25519mlkem768`）；`Parse` 在 `reality.go:20-44` 转为 TLS 配置，没有 spiderX 字段。`component/tls/reality.go:31-36` 的运行时配置同样没有 spiderX；`realityClientFallback`（`:134-163`）在 `:151` 固定构造对 `https://` + `serverName` 的 GET，没有可配置的回落路径。
+- **全库检索证据**：阶段 2 前置核对对 pin 模块目录下 972 个 `*.go` 文件递归执行不区分大小写的 `spider` 文本检索，命中为 0。不能仅输出一个上游不消费的 JSON 字段冒充保留。原模型 `ServerProfile.spiderX` 和 dual 的 `realitySettings.spiderX` 保持不变。
+- **single 校验口径**：实现前必须核对 pin 版 Xray 的 `spiderX=""`、`spiderX="/"` 实际语义，并记录源码行号。仅当某值经源码证明与 Mihomo 的固定根路径 GET 回落行为等价时，才可作为“等价近似”放行；落点表须明确近似边界和依据。其余任何非空 spiderX 必须在映射层显式拒绝，归入既有 `CONFIGURATION_OR_SUBSCRIPTION`，提示必须点名 spiderX 与“单核内核不支持该字段”，原 `ServerProfile` 数据不改；放行、拒绝均需单测。未经证实的值不作等价推断。
+- **范围边界**：本阶段不修改 Mihomo 上游，不在 wrapper 自造 spider 实现。将来的真正等价支持属于另行立项的“需内核补丁”工作。本次仅单列 spiderX 限制，同行其余 TLS/Reality 字段的逐字段保留要求不变。
 
 ## 7. 阶段 0 验证基线
 
