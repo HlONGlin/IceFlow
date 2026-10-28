@@ -23,7 +23,7 @@
 
 | 当前功能 | 当前双核实现 | Mihomo 落点 | 单核迁移要求 |
 | --- | --- | --- | --- |
-| VMess | `XrayConfigBuilder` 原生 `vmess` outbound；支持 UUID、`alterId`、cipher、flow 相关通用字段和 TLS/Reality/传输字段 | 原生支持 | 新生成器把 `ServerProfile` 转为 Mihomo VMess 配置；`alterId > 0` 另见风险 4 |
+| VMess | `XrayConfigBuilder` 原生 `vmess` outbound；支持 UUID、`alterId`、cipher 和 TLS/Reality/传输字段 | 原生支持 | 新生成器把 `ServerProfile` 转为 Mihomo VMess 配置；`alterId > 0` 另见风险 4 |
 | VLESS | Xray 原生 `vless` outbound；支持 flow、TLS、Reality 和现有传输字段 | 原生支持 | 配置转换；VLESS+xhttp 是固定版本中唯一已确认的 xhttp 原生路径，另见风险 5 |
 | Trojan | Xray 原生 `trojan` outbound；支持密码、TLS 和现有传输字段 | 原生支持 | 配置转换；gRPC/WS 字段和 TCP HTTP 头需单独验证 |
 | Shadowsocks | Xray 原生 `shadowsocks` outbound；固定为普通 TCP、无 TLS 传输层 | 原生支持 | 配置转换；SS 插件/HTTP Upgrade 不是当前 Xray 原生字段的直接等价物 |
