@@ -47,3 +47,8 @@ build.log
 
 # 截图（应放在 screenshots/ 或 preview/ 目录）
 /*.png
+
+# Single flavor native artifacts
+app/libs/single/*.aar
+app/libs/single/*.jar
+mihomo-wrapper/build/

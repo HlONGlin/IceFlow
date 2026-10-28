@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.zip.ZipFile
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -171,12 +172,38 @@ listOf("dual", "single").forEach { flavor ->
                     "$flavor APK ABI sets are $actualAbiSets, expected $expectedAbiSets"
                 }
             } else {
-                apks.forEach { apk ->
-                    ZipFile(apk).use { archive ->
-                        val leakedLibraries = listOf("libgojni.so", "libiceflow_core.so")
-                            .flatMap { library -> nativeAbis(archive, "lib", library).map { abi -> "lib/$abi/$library" } }
-                        check(leakedLibraries.isEmpty()) {
-                            "$flavor APK contains dual-core libraries: $leakedLibraries"
+                // Both AARs use libgojni.so: identify provenance by exact SHA-256, not basename.
+                val mihomo = file("libs/single/mihomo.aar")
+                val xray = file("libs/xray.aar")
+                check(mihomo.isFile && xray.isFile) { "Build both audited core AARs before verification" }
+                fun digest(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
+                    .digest(bytes).joinToString("") { "%02x".format(it) }
+                ZipFile(mihomo).use { singleAar ->
+                    check(nativeAbis(singleAar, "jni", "libgojni.so") == releaseAbis.toSet())
+                    ZipFile(xray).use { dualAar ->
+                        apks.forEach { apk ->
+                            val expected = if (apk.name.contains("universal", ignoreCase = true)) releaseAbis.toSet()
+                                else releaseAbis.filter { apk.name.contains(it) }.toSet()
+                            check(expected.isNotEmpty()) { "Unknown ABI for " + apk.name }
+                            ZipFile(apk).use { archive ->
+                                check(nativeAbis(archive, "lib", "libgojni.so") == expected)
+                                check(nativeAbis(archive, "lib", "libiceflow_core.so").isEmpty()) {
+                                    apk.name + " leaks the dual Rust library"
+                                }
+                                expected.forEach { abi ->
+                                    fun bytes(zip: ZipFile, name: String): ByteArray {
+                                        val entry = checkNotNull(zip.getEntry(name)) { "Missing " + name }
+                                        return zip.getInputStream(entry).use { it.readBytes() }.also { check(it.isNotEmpty()) }
+                                    }
+                                    val source = digest(bytes(singleAar, "jni/$abi/libgojni.so"))
+                                    val packaged = digest(bytes(archive, "lib/$abi/libgojni.so"))
+                                    val dual = digest(bytes(dualAar, "jni/$abi/libgojni.so"))
+                                    check(packaged == source && packaged != dual) {
+                                        apk.name + " " + abi + " libgojni.so does not match the single mihomo AAR"
+                                    }
+                                    logger.lifecycle(apk.name + " " + abi + " mihomo SHA-256=" + packaged + "; Rust absent")
+                                }
+                            }
                         }
                     }
                 }
@@ -197,6 +224,7 @@ dependencies {
     // Xray is only part of the dual core variant. Bridges remain reflection based.
     // 只引入 aar；gomobile 同时生成的 xray-sources.jar 仅含源码，不应进入 classpath
     add("dualImplementation", fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+    add("singleImplementation", files("libs/single/mihomo.aar"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
