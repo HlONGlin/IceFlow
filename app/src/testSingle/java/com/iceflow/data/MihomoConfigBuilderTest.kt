@@ -259,6 +259,19 @@ class MihomoConfigBuilderTest {
     @Test fun trojanGrpcDifferentAlpnRejected() {
         rejected("alpn") { out(base.copy(protocol = Protocol.TROJAN, uuid = "", password = "p", tls = "tls", network = "grpc", alpn = "h3")) }
     }
+    @Test fun realityAlpnAndAllowInsecureKeepDualIgnoredBehavior() {
+        val n = out(base.copy(tls = "reality", publicKey = "key", alpn = "h3", allowInsecure = true))
+        assertEquals(listOf("h3"), n.getValue("alpn").jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(JsonPrimitive(true), n["skip-cert-verify"])
+    }
+    @Test fun tlsDisabledAlpnKeepsDualIgnoredBehavior() {
+        val n = out(base.copy(tls = "none", alpn = "h3"))
+        assertEquals(listOf("h3"), n.getValue("alpn").jsonArray.map { it.jsonPrimitive.content })
+    }
+    @Test fun tlsDisabledClientFingerprintKeepsDualIgnoredBehavior() {
+        val n = out(base.copy(protocol = Protocol.VMESS, tls = "none", fingerprint = "chrome"))
+        assertEquals("chrome", n.text("client-fingerprint"))
+    }
     @Test fun wsFingerprintIsConsumed() {
         val n = out(base.copy(tls = "tls", network = "ws", fingerprint = "chrome"))
         assertEquals("chrome", n.text("client-fingerprint"))
@@ -304,7 +317,10 @@ class MihomoConfigBuilderTest {
         val p = base.copy(protocol = Protocol.HYSTERIA2, uuid = "", clashConfig = Json.parseToJsonElement("""{"name":"h","type":"hysteria2","server":"e","port":443,"password":"p","mptcp":true}""").jsonObject)
         assertEquals(JsonPrimitive(true), out(p)["mptcp"])
     }
-    @Test fun omittedTlsDoesNotEnableTlsFields() { rejected("tls") { out(raw(extra = """, "alpn":["h2"]""")) } }
+    @Test fun omittedTlsAlpnRetainsDualOutput() {
+        val node = out(raw(extra = """, "alpn":["h2"]"""))
+        assertEquals(listOf("h2"), node.getValue("alpn").jsonArray.map { it.jsonPrimitive.content })
+    }
     @Test fun httpSocksAlpnParityAlsoWithoutTls() {
         for (protocol in listOf(Protocol.HTTP, Protocol.SOCKS)) {
             val p = base.copy(protocol = protocol, uuid = "", alpn = "h2", tls = "none")
