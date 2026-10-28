@@ -7,10 +7,10 @@
 | 缺口 | 本步命运 | 依据/实现 |
 | --- | --- | --- |
 | G04 | 撤销 SNI/name-cert-verify 顶替；模型 SOCKS sni 在调用共享 builder 前明确拒绝，raw name-cert-verify 独立直映 | c57e929；MihomoConfigBuilder.checkProfileFields；socks5.go:180,183 的 SNI/证书校验分工不等价 |
-| G02 | 固定 WS/gRPC ALPN、普通 WS client-fingerprint 缺口继续明确 CONFIGURATION_OR_SUBSCRIPTION 拒绝；其他已审定 TLS 分支保留 | SINGLE_MAPPING_AUDIT 第5节的 pin 消费证据、既有拒绝单测 |
+| G02 | WS/gRPC 固定 ALPN 仅在非默认值与内核固定值不同时拒绝；普通 TLS WS client-fingerprint 正常映射；dual 同样忽略的 no-TLS/Reality 字段保持同输出并登记 | SINGLE_MAPPING_AUDIT 第5节 pin 消费证据；G02 正/反单测 |
 | G03 | WS Reality、Reality 用户 ALPN/allowInsecure=true 继续明确拒绝；spiderX 仅保留批准的初始根路径近似 | 不改 Reality 上游/dual，也不宣称生命周期等价 |
-| G05 | 无消费的 VLESS ws-headers、WG 顶层单 peer allowed-ips 继续拒绝；reserved 保留 | 不擅自转换为 peer；既有单测与 pin 证据保留 |
-| G06 | 未读别名、冲突来源、WG 多地址/前缀丢失、TUIC 版本分支、无转发 tfo/mptcp 继续明确拒绝 | 不静默丢字段、不修改 shared ExtendedConfigBuilder |
+| G05 | VLESS WS Host-only ws-headers 转到嵌套 Host；其他自定义头拒绝；WG 顶层非空 allowed-ips 转成单个显式 peer，空值保留 dual 默认 | G05 转换/拒绝单测与 pin peer 消费证据 |
+| G06 | dual 能确定解析的别名、覆盖和 raw 配置按相同优先级保留；未知键仍拒绝，未声称被内核消费 | G06 命运表、正向优先级单测与 pin adapter 证据 |
 | G11 | 开工前补专门设计，再实现统计与 mieru MTU shim | SINGLE_BRIDGE_STEP3.md，设计先行 c57e929；实现 6cf7eae |
 
 冻结 FEATURE_MAP 类别没有改判。处置为明确限制或 shim 实现，不把配置生成成功当成运行时等价。

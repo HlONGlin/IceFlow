@@ -211,6 +211,10 @@ Mihomo 具备 SOCKS/mixed 入站和认证能力，但单核需要把本地监听
 - **single 口径**：与 dual 保持相同行为，照常输出 alpn，不因该字段拒绝节点，不声称它被消费。落点表消费入口明确填写“无（双核既有问题，见登记）”。本登记不适用于 VMess/VLESS/Trojan 等正常消费 ALPN 的协议。
 - **范围**：真正增加 HTTP/SOCKS5 ALPN 消费入口属于另行立项的内核补丁；本阶段不修改 dual 或上游。
 
+## 6.9a spiderX 与逐字段保留清单的边界补充
+
+FEATURE_MAP 1.2 的逐字段保留清单不包含 spiderX：SNI、ALPN、fingerprint、public key、short ID、allow-insecure 继续按各自消费证据处理；spiderX 单独按 6.9 的“仅初始根路径近似/其余显式拒绝”处理。pin 版 Mihomo 无 spiderX 消费入口，任何非默认值不得静默丢弃。
+
 ## 7. 阶段 0 验证基线
 
 测试在 ASCII 路径 `E:\IceFlow-core-variants` 的 detached worktree 执行。因为主仓库路径含中文，Gradle 测试 worker 按项目既有说明使用该路径；被 Git 忽略的 `app/libs/xray.aar` 和 3 个 ABI 的 `libiceflow_core.so` 只从主工作区复制到该测试 worktree，未修改源文件或签名文件。

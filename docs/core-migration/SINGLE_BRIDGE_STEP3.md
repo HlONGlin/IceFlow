@@ -3,10 +3,10 @@
 ## Step 2 disposition, before runtime changes
 
 - G04: withdraw the SNI/name-cert-verify substitution. Model SOCKS sni is explicitly rejected before calling ExtendedConfigBuilder; single must not advertise certificate-name verification as SNI preservation. Raw name-cert-verify retains its independently audited consumer. No dual change.
-- G02: fixed WS/gRPC ALPN and ordinary WS fingerprint gaps remain explicit CONFIGURATION_OR_SUBSCRIPTION rejections. Other audited TLS branches retain mapping. No automatic replacement with fixed values.
+- G02: fixed WS/gRPC ALPN values are accepted only when they equal the pin's fixed value; differing non-empty values remain CONFIGURATION_OR_SUBSCRIPTION. Ordinary TLS WS client-fingerprint is mapped through the verified websocket consumer; no-TLS/Reality shared omissions preserve dual output without claiming consumption.
 - G03: WS Reality, Reality user ALPN and Reality allowInsecure=true remain explicit configuration errors; approved spiderX initial-root approximation remains limited to the documented initial path.
-- G05: unconsumed VLESS ws-headers and WireGuard top-level allowed-ips remain rejected; reserved retains its proven consumer. No unapproved peer rewrite.
-- G06: unread aliases, conflicting sources, WG multi-address/prefix loss and TUIC version ambiguities remain explicit configuration errors. BasicOption tfo/mptcp without forwarding remain rejected. No field is silently discarded.
+- G05: VLESS WS Host-only ws-headers are converted to ws-opts.headers.Host; custom headers remain explicit errors. Non-empty WireGuard top-level allowed-ips are converted to one explicit peer, while empty values retain the dual implicit default; reserved retains its proven consumer.
+- G06: dual-deterministic aliases, overrides, and raw Clash precedence are preserved in single; unknown keys remain explicit errors. No field is silently discarded.
 
 These are explicit restrictions, not claims of feature equivalence or changes to FEATURE_MAP categories. The detailed pinned source evidence remains in SINGLE_MAPPING_AUDIT section 5.
 
