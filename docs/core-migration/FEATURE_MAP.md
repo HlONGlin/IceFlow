@@ -51,7 +51,7 @@
 | WebSocket | Xray 原生 | 原生支持，需转换 | Host/path/early-data 等嵌套字段必须完整映射，Clash 原始字段优先保留 |
 | gRPC 单流 | Xray `grpcSettings` | 原生支持，需转换 | 至少保留 service name；Mihomo 有 `grpc-opts` 入口 |
 | gRPC multi | Xray/Clash 可携带相关字段 | 需转换；行为需矩阵验证 | Mihomo 源码有 max/min streams/connections/ping 字段，当前 `ServerProfile` 仅有 serviceName，见风险 2 |
-| HTTP Upgrade | Xray `httpupgradeSettings` | 无等价（固定版本未确认通用入口） | 不得改成普通 TCP 后继续连接，见风险 5 的同类阻断策略 |
+| HTTP Upgrade | Xray `network=httpupgrade` / `httpupgradeSettings` | 需转换（VMess/VLESS/Trojan）；其他协议无通用等价 | VMess/VLESS/Trojan 映射为 Mihomo `network: ws` + `ws-opts.v2ray-http-upgrade: true`；共享 transport 和 fast-open 语义见风险 6.7。Shadowsocks 只在 Clash `v2ray-plugin` websocket 配置中有独立落点，不是通用 network 映射。其余当前 outbound 未由该 `ws-opts` 分支覆盖，不能套用此转换。 |
 | xhttp | Xray builder 对 native outbound 生成 `xhttpSettings` | VLESS 原生支持；非 VLESS 无等价 | 非 VLESS+xhttp 是明确迁移阻断项，见风险 5 |
 | TLS/Reality | Xray `tlsSettings`/`realitySettings` | 原生支持，需转换 | SNI、ALPN、fingerprint、public key、short ID、spiderX、allow-insecure 必须逐字段保留 |
 
@@ -183,7 +183,15 @@ Mihomo 具备 SOCKS/mixed 入站和认证能力，但单核需要把本地监听
 - **风险**：只把 `mtu` 作为 Mihomo 字段传入会被忽略，导致特定网络下分片、握手或 UDP 行为变化。
 - **方案**：把官方客户端逻辑移植到单核 shim/adapter：MTU 0/1280–1500 校验、TCP/UDP、port range、复用/握手/traffic pattern、前置 dialer、packet dialer 和 Stop 生命周期全部覆盖；对无效 MTU 保持当前失败分类。以 mieru 官方 API 为源，不在 Kotlin 侧重写协议。
 
-### 6.7 其他迁移阻断项
+### 6.7 HTTP Upgrade 的映射范围与 fast-open 语义
+
+- **pin 证据**：仓库 `xray-wrapper/go.mod:7` 固定 Mihomo `v1.19.32`。该版本的 `adapter/outbound/vmess.go:170-185` 定义 WS 两个选项并传入共享配置；`vless.go:155-166,225` 和 `trojan.go:78-90,147` 同样在 `network == "ws"` 分支构造该配置并调用共享 transport。因此 VMess/VLESS/Trojan 的 WS outbound 确实共用 HTTP Upgrade 实现。
+- **Shadowsocks 边界**：`adapter/outbound/shadowsocks.go:63-77,332-348` 仅在 `v2ray-plugin` 的 websocket obfs 选项里接收并转发两个标志；它不是 `ServerProfile.network=httpupgrade` 的通用映射。其他协议没有由上述标准 WS outbound 分支覆盖的等价入口，应按协议单独判为无等价，不能因为配置字段存在就推定支持。
+- **协议行为**：`transport/vmess/websocket.go:401-424` 构造 Upgrade 请求；启用 `V2rayHttpUpgrade` 时省略 `Sec-WebSocket-Key`/WebSocket challenge，`websocket.go:461-489` 在校验 101 响应后返回原始 buffered connection，而不是 WebSocket frame connection。这是当前 `httpupgradeSettings` 的转换候选：`network: ws` + `ws-opts.v2ray-http-upgrade: true`，并继续映射 path/Host/TLS。
+- **fast-open 行为**：只有 `V2rayHttpUpgrade` 与 `V2rayHttpUpgradeFastOpen` 同时开启才走 `websocket.go:446-458` 的 `NewEarlyConn`。它先写 Upgrade 请求并返回连接，把 101/Upgrade 响应读取和校验延迟到第一次 `Read`；`common/net/earlyconn.go:18-38,63-65` 证明读时仍执行校验。因此 fast-open 是延迟握手响应消费/校验，不是跳过握手或无条件接受连接。
+- **方案与门槛**：单核生成器仅把当前 Xray `network=httpupgrade` 转成上述 VMess/VLESS/Trojan WS 配置；Clash 中已有的 `ws-opts` 两标志按原值保留，Shadowsocks 只从原始 `v2ray-plugin` 配置映射。给三种 outbound 分别添加配置快照，并用服务端/协议集成回归验证 flag 关闭、开启及 fast-open 开启时握手、path、Host、TLS、首读错误和数据传输。缺乏实际服务端验证的组合不得标记为运行时已验证；不支持的协议必须可见报错，不能静默降为 TCP 或普通 WebSocket。
+
+### 6.8 其他迁移阻断项
 
 - Mihomo TUN fd 接管必须先证明 Android `VpnService` 的 fd 生命周期、DNS、IPv6、应用路由和 stop/重连都稳定；否则按任务要求暂停并请示是否保留 Rust 流量层。
 - Xray 的 MPH cache、`ruleTag` 和 Xray geo asset 是当前实现细节，不是用户可见等价功能。单核可以改用 Mihomo geodata/规则缓存，但不能以移除缓存为由改变规则结果；容量和内存限制留到阶段 4。
