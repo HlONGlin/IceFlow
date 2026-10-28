@@ -2,6 +2,7 @@ package com.iceflow.core
 
 import com.iceflow.BuildConfig
 import com.iceflow.data.XrayStats
+import com.iceflow.data.MihomoConfigBuilder
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
@@ -10,12 +11,13 @@ import com.iceflow.service.VpnErrorType
 
 internal object CoreVariantBridge {
     val variantName: String get() = BuildConfig.CORE_VARIANT
-    val isReady: Boolean get() = false
+    private val runtime = MihomoRuntime()
+    val isReady: Boolean get() = runtime.isReady
     val stopFailureName: String get() = "Core"
 
-    fun stop() = Unit
+    fun stop() = runtime.stop()
 
-    fun prepareAssets(dir: String): Unit = unavailable()
+    fun prepareAssets(dir: String) = runtime.prepareAssets(dir)
 
     fun buildConfig(
         profile: ServerProfile,
@@ -24,41 +26,39 @@ internal object CoreVariantBridge {
         store: ServerStore? = null,
         tunnelPort: Int? = null,
         tunnelAuth: Pair<String, String>? = null,
-    ): String = unavailable()
+    ): String = MihomoConfigBuilder.build(profile, settings, includeInbound, store, tunnelPort, tunnelAuth)
+        .also { if (includeInbound) runtime.validateConfig(it) } // service still classifies CONFIGURATION here
 
-    fun isCoreRunning(): Boolean = false
+    fun isCoreRunning(): Boolean = runtime.isCoreRunning()
 
-    fun start(config: String): Unit = unavailable()
+    fun start(config: String) = runtime.start(config)
 
     /**
      * The service owns/establishes/closes the original TUN ParcelFileDescriptor.
-     * The placeholder never adopts or closes [fd], including failure paths.
-     * A future mihomo implementation must duplicate any fd it adopts and close its own duplicate
-     * on failed start and stop; terminal service cleanup closes the original, as in dual.
+     * Mihomo duplicates [fd] and closes only its duplicate on failed attach, stopTun and stop.
+     * The service alone closes the original, including terminal failure/onDestroy fallback.
      */
-    fun attachTun(fd: Int, mtu: Int, proxyUrl: String, settings: AppSettings): Unit = unavailable()
+    fun attachTun(fd: Int, mtu: Int, proxyUrl: String, settings: AppSettings) = runtime.attachTun(fd, mtu)
 
-    fun stopTun() = Unit
+    fun stopTun() = runtime.stopTun()
 
-    fun isHealthy(): Boolean = false
+    fun isHealthy(): Boolean = runtime.isHealthy()
 
-    /** Future core must normalize to cumulative session [uplink bytes, downlink bytes]. */
-    fun stats(): LongArray = unavailable()
+    /** Selected node cumulative session [uplink bytes, downlink bytes], not chain sum/rates. */
+    fun stats(): LongArray = runtime.stats()
 
-    /** Future core must normalize tag counters to this shape; no fabricated zero counters. */
-    fun queryStats(): XrayStats = unavailable()
-
-    private fun unavailable(): Nothing = throw IllegalStateException("Single-core build is not ready.")
+    /** Per-node cumulative counters, excluding direct/block; reads never accumulate again. */
+    fun queryStats(): XrayStats = runtime.queryStats()
 
     fun failureMessage(type: VpnErrorType, language: AppLanguage): String? =
-        if (type != VpnErrorType.CORE_START_FAILED) null else when (language) {
+        if (type != VpnErrorType.CORE_START_FAILED || isReady) null else when (language) {
             AppLanguage.SIMPLIFIED_CHINESE -> "单核未就绪"
             AppLanguage.TRADITIONAL_CHINESE -> "單核尚未就緒"
             AppLanguage.ENGLISH -> "Single-core build is not ready."
         }
 
     fun shortLabel(type: VpnErrorType, language: AppLanguage): String? =
-        if (type != VpnErrorType.CORE_START_FAILED) null else when (language) {
+        if (type != VpnErrorType.CORE_START_FAILED || isReady) null else when (language) {
             AppLanguage.SIMPLIFIED_CHINESE -> "单核未就绪"
             AppLanguage.TRADITIONAL_CHINESE -> "單核未就緒"
             AppLanguage.ENGLISH -> "Single core not ready"
