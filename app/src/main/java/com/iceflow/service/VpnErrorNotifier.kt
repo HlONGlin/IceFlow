@@ -1,5 +1,6 @@
 package com.iceflow.service
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -11,6 +12,7 @@ import com.iceflow.R
 object VpnErrorNotifier {
     private const val NOTIFICATION_ID = 2
 
+    @SuppressLint("MissingPermission")
     fun show(context: Context, presentation: VpnErrorPresentation) {
         val connectAction = presentation.action == VpnErrorAction.CONNECT || presentation.action == VpnErrorAction.REAUTHORIZE
         val activityIntent = Intent(context, MainActivity::class.java)
