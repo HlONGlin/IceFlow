@@ -15,6 +15,7 @@ captures/
 
 # 原生产物（由脚本编译生成）
 app/src/main/jniLibs/
+app/src/dual/jniLibs/
 app/libs/*.aar
 app/libs/*.jar
 

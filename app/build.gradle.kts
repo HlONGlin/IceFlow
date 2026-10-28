@@ -24,6 +24,11 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("main").jniLibs.setSrcDirs(emptyList<String>())
+        getByName("dual").jniLibs.srcDir("src/dual/jniLibs")
+    }
+
     defaultConfig {
         applicationId = "com.iceflow"
         minSdk = 26
@@ -93,24 +98,94 @@ android {
     }
 }
 
-val verifyReleaseNativeLibraries by tasks.registering {
-    doLast {
-        val aar = file("libs/xray.aar")
-        check(aar.isFile) { "Missing app/libs/xray.aar; run xray-wrapper/build-aar.ps1 before building or testing." }
-        ZipFile(aar).use { archive ->
-            listOf("arm64-v8a", "armeabi-v7a", "x86_64").forEach { abi ->
-                check(file("src/main/jniLibs/$abi/libiceflow_core.so").isFile) {
-                    "Missing app/src/main/jniLibs/$abi/libiceflow_core.so; run rust-core/build-android.ps1."
+val nativeAbis = { archive: ZipFile, root: String, library: String ->
+    val result = mutableSetOf<String>()
+    val entries = archive.entries()
+    while (entries.hasMoreElements()) {
+        val name = entries.nextElement().name
+        val prefix = "$root/"
+        if (name.startsWith(prefix) && name.endsWith("/$library")) {
+            result += name.removePrefix(prefix).substringBefore('/')
+        }
+    }
+    result
+}
+
+val releaseAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+listOf("dual", "single").forEach { flavor ->
+    val flavorTitle = flavor.replaceFirstChar { it.uppercase() }
+    val verifyTask = tasks.register("verify${flavorTitle}ReleaseNativeLibraries") {
+        doLast {
+            val apkDirectory = layout.buildDirectory.dir("outputs/apk/$flavor/release").get().asFile
+            val apks = apkDirectory.listFiles()
+                ?.filter { it.isFile && it.extension.equals("apk", ignoreCase = true) }
+                ?.sortedBy { it.name }
+                .orEmpty()
+            check(apks.size == 4) {
+                "Expected three ABI APKs and one universal APK for $flavor, found ${apks.size} in $apkDirectory"
+            }
+
+            if (flavor == "dual") {
+                val aar = file("libs/xray.aar")
+                check(aar.isFile) { "Missing app/libs/xray.aar; run xray-wrapper/build-aar.ps1." }
+                ZipFile(aar).use { archive ->
+                    val goAbis = nativeAbis(archive, "jni", "libgojni.so")
+                    check(goAbis == releaseAbis.toSet()) {
+                        "xray.aar libgojni.so ABIs are $goAbis, expected $releaseAbis"
+                    }
+                    releaseAbis.forEach { abi ->
+                        check(archive.getEntry("jni/$abi/libgojni.so")?.size?.let { it > 0 } == true) {
+                            "Missing or empty jni/$abi/libgojni.so in app/libs/xray.aar"
+                        }
+                    }
                 }
-                check(archive.getEntry("jni/$abi/libgojni.so") != null) {
-                    "Missing jni/$abi/libgojni.so in app/libs/xray.aar; run xray-wrapper/build-aar.ps1."
+
+                val actualAbiSets = apks.map { apk ->
+                    val expected = if (apk.name.contains("universal", ignoreCase = true)) {
+                        releaseAbis.toSet()
+                    } else {
+                        releaseAbis.filter { apk.name.contains(it) }.toSet()
+                    }
+                    check(expected.isNotEmpty()) { "Cannot determine ABI split from ${apk.name}" }
+                    ZipFile(apk).use { archive ->
+                        val goAbis = nativeAbis(archive, "lib", "libgojni.so")
+                        val rustAbis = nativeAbis(archive, "lib", "libiceflow_core.so")
+                        check(goAbis == expected) {
+                            "${apk.name} libgojni.so ABIs are $goAbis, expected $expected"
+                        }
+                        check(rustAbis == expected) {
+                            "${apk.name} libiceflow_core.so ABIs are $rustAbis, expected $expected"
+                        }
+                        expected.forEach { abi ->
+                            listOf("libgojni.so", "libiceflow_core.so").forEach { library ->
+                                check(archive.getEntry("lib/$abi/$library")?.size?.let { it > 0 } == true) {
+                                    "Missing or empty lib/$abi/$library in ${apk.name}"
+                                }
+                            }
+                        }
+                    }
+                    expected
+                }.toSet()
+                val expectedAbiSets = releaseAbis.map { setOf(it) }.toSet() + setOf(releaseAbis.toSet())
+                check(actualAbiSets == expectedAbiSets) {
+                    "$flavor APK ABI sets are $actualAbiSets, expected $expectedAbiSets"
+                }
+            } else {
+                apks.forEach { apk ->
+                    ZipFile(apk).use { archive ->
+                        val leakedLibraries = listOf("libgojni.so", "libiceflow_core.so")
+                            .flatMap { library -> nativeAbis(archive, "lib", library).map { abi -> "lib/$abi/$library" } }
+                        check(leakedLibraries.isEmpty()) {
+                            "$flavor APK contains dual-core libraries: $leakedLibraries"
+                        }
+                    }
                 }
             }
         }
     }
+    tasks.matching { it.name == "assemble${flavorTitle}Release" }
+        .configureEach { finalizedBy(verifyTask) }
 }
-tasks.matching { it.name in setOf("preReleaseBuild", "preDebugBuild", "testDebugUnitTest") }
-    .configureEach { dependsOn(verifyReleaseNativeLibraries) }
 
 kotlin {
     compilerOptions {
