@@ -268,7 +268,7 @@ class MihomoConfigBuilderTest {
     }
     @Test fun anyTlsGenericSecurityAliasDoesNotBlockMihomo() {
         val n = out(base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p",
-            protocolOptions = mapOf("security" to "tls", "allowInsecure" to "1")))
+            protocolOptions = mapOf("security" to "tls", "type" to "tcp", "headerType" to "none", "insecure" to "1")))
         assertEquals("anytls", n.text("type"))
         assertEquals(JsonPrimitive(true), n["skip-cert-verify"])
         assertFalse(n.containsKey("security"))

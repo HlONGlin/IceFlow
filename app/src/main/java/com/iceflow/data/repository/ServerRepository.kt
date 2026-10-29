@@ -248,8 +248,37 @@ class ServerRepository(private val file: File) {
             unreadable = true
             recoveryMessage = "节点文件及恢复副本读取失败，已保护原文件，请从备份恢复"
         }
-        val store = primary ?: recovered ?: ServerStore()
-        return if (store.selectedGroupId == null && store.localGroups.isNotEmpty()) store.copy(selectedGroupId = store.localGroups.first().id) else store
+        val decoded = primary ?: recovered ?: ServerStore()
+        val migrated = migrateLegacyAnyTls(decoded)
+        if (primary != null && migrated != decoded) {
+            // Commit the compatibility migration while the source file is known to be valid.
+            // A failed migration write must not prevent the app from opening the old data.
+            runCatching {
+                val content = json.encodeToString(ServerStore.serializer(), migrated)
+                writeAtomic(backup, content)
+                writeAtomic(file, content)
+            }
+        }
+        return if (migrated.selectedGroupId == null && migrated.localGroups.isNotEmpty()) migrated.copy(selectedGroupId = migrated.localGroups.first().id) else migrated
+    }
+
+    private fun migrateLegacyAnyTls(store: ServerStore): ServerStore {
+        var changed = false
+        val servers = store.servers.map { server ->
+            if (server.protocol != com.iceflow.data.model.Protocol.ANYTLS) return@map server
+            val options = server.protocolOptions.toMutableMap()
+            val legacyAllowInsecure = listOf("insecure", "allowInsecure", "skip-cert-verify")
+                .any { options[it]?.lowercase() in setOf("1", "true") }
+            listOf("security", "tls", "type", "headerType", "insecure", "allowInsecure", "skip-cert-verify")
+                .forEach(options::remove)
+            val migrated = server.copy(
+                allowInsecure = server.allowInsecure || legacyAllowInsecure,
+                protocolOptions = options,
+            )
+            if (migrated != server) changed = true
+            migrated
+        }
+        return if (changed) store.copy(servers = servers) else store
     }
 
     fun replace(store: ServerStore) {

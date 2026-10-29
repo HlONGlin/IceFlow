@@ -394,6 +394,9 @@ internal object MihomoConfigBuilder {
             // They are accepted so single preserves the same deterministic omission.
             "sni", "peer", "alpn", "tls", "security", "insecure", "allowInsecure", "skip-cert-verify"
         )
+        // Older AnyTLS imports persisted generic model fields in protocolOptions.
+        // They are migrated on load and explicitly ignored here for direct callers.
+        val legacyAnyTls = if (p.protocol == Protocol.ANYTLS) setOf("type", "headerType") else emptySet()
         val protocol = when (p.protocol) {
             Protocol.HYSTERIA -> setOf("auth", "up", "upmbps", "down", "downmbps", "ports", "mport", "protocol", "hop-interval", "hopInterval", "obfs", "obfsParam", "obfs-password")
             Protocol.HYSTERIA2 -> setOf("up", "upmbps", "down", "downmbps", "ports", "mport", "hop-interval", "hopInterval", "obfs", "obfs-password", "obfsParam", "ech")
@@ -406,7 +409,7 @@ internal object MihomoConfigBuilder {
             Protocol.HTTP, Protocol.SOCKS -> emptySet()
             else -> emptySet()
         }
-        if ((p.protocolOptions.keys - common - protocol).isNotEmpty()) {
+        if ((p.protocolOptions.keys - common - legacyAnyTls - protocol).isNotEmpty()) {
             fail("protocolOptions", "unknown protocol option; original data is retained")
         }
         // ExtendedConfigBuilder.option() defines the dual precedence: first non-empty

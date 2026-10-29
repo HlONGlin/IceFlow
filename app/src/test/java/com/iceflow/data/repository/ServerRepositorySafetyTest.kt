@@ -5,6 +5,7 @@ import com.iceflow.data.model.LocalGroup
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import java.io.File
+import kotlinx.serialization.json.Json
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -13,6 +14,33 @@ import org.junit.rules.TemporaryFolder
 class ServerRepositorySafetyTest {
     @get:Rule val temp = TemporaryFolder()
     private fun node(name: String) = ServerProfile(name = name, protocol = Protocol.SOCKS, address = "localhost", port = 1080)
+
+    @Test fun legacyAnyTlsOptionsAreMigratedAndPersisted() {
+        val file = File(temp.root, "servers.json")
+        val legacy = ServerProfile(
+            name = "AnyTLS",
+            protocol = Protocol.ANYTLS,
+            address = "example.com",
+            port = 443,
+            password = "secret",
+            protocolOptions = mapOf(
+                "security" to "tls",
+                "type" to "tcp",
+                "headerType" to "none",
+                "insecure" to "1",
+            ),
+        )
+        file.writeText(Json { encodeDefaults = true }.encodeToString(ServerStore.serializer(), ServerStore(servers = listOf(legacy))))
+
+        val repository = ServerRepository(file)
+        val migrated = repository.store.value.servers.single()
+        assertTrue(migrated.allowInsecure)
+        assertTrue(migrated.protocolOptions.isEmpty())
+
+        val persisted = Json.decodeFromString<ServerStore>(file.readText()).servers.single()
+        assertTrue(persisted.allowInsecure)
+        assertTrue(persisted.protocolOptions.isEmpty())
+    }
 
     @Test fun damagedPrimaryRecoversPreviousCommittedDataAndCanSaveAgain() {
         val file = File(temp.root, "servers.json")
