@@ -53,6 +53,9 @@ jobs:
         working-directory: xray-wrapper
         run: go test ./...
 
+      - name: Build mihomo AAR
+        run: bash mihomo-wrapper/build-aar.sh
+
       - name: Build xray-core AAR
         run: bash xray-wrapper/build-aar.sh
 
