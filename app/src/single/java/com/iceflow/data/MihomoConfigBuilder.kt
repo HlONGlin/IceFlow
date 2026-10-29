@@ -392,7 +392,7 @@ internal object MihomoConfigBuilder {
             "pinSHA256", "fingerprint",
             // The shared dual builder does not read these protocolOptions aliases.
             // They are accepted so single preserves the same deterministic omission.
-            "sni", "peer", "alpn", "tls", "insecure"
+            "sni", "peer", "alpn", "tls", "security", "insecure", "allowInsecure", "skip-cert-verify"
         )
         val protocol = when (p.protocol) {
             Protocol.HYSTERIA -> setOf("auth", "up", "upmbps", "down", "downmbps", "ports", "mport", "protocol", "hop-interval", "hopInterval", "obfs", "obfsParam", "obfs-password")

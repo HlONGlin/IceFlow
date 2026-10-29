@@ -266,6 +266,14 @@ class MihomoConfigBuilderTest {
             protocolOptions = mapOf("fp" to "firefox")))
         assertEquals("chrome", n.text("client-fingerprint"))
     }
+    @Test fun anyTlsGenericSecurityAliasDoesNotBlockMihomo() {
+        val n = out(base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p",
+            protocolOptions = mapOf("security" to "tls", "allowInsecure" to "1")))
+        assertEquals("anytls", n.text("type"))
+        assertEquals(JsonPrimitive(true), n["skip-cert-verify"])
+        assertFalse(n.containsKey("security"))
+        assertFalse(n.containsKey("allowInsecure"))
+    }
     @Test fun socksSniGapRejected() { rejected("sni") { out(base.copy(protocol = Protocol.SOCKS, uuid = "", tls = "tls", sni = "custom.example")) } }
     @Test fun trojanGrpcFixedAlpnIsEquivalent() {
         val n = out(base.copy(protocol = Protocol.TROJAN, uuid = "", password = "p", tls = "tls", network = "grpc", alpn = "h2"))

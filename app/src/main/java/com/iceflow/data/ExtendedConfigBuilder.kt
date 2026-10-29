@@ -18,7 +18,8 @@ internal object ExtendedConfigBuilder {
         put("name", "iceflow-proxy"); put("server", p.address)
         if (p.protocol != Protocol.MIERU || option("port-range").isEmpty()) put("port", p.port)
         put("udp", p.protocol != Protocol.HTTP)
-        text("sni", p.sni); put("skip-cert-verify", p.allowInsecure); list("alpn", p.alpn)
+        val allowInsecure = p.allowInsecure || option("insecure", "allowInsecure", "skip-cert-verify").lowercase() in setOf("1", "true")
+        text("sni", p.sni); put("skip-cert-verify", allowInsecure); list("alpn", p.alpn)
         text("fingerprint", option("pinSHA256", "fingerprint"))
         when (p.protocol) {
             Protocol.MIERU -> {

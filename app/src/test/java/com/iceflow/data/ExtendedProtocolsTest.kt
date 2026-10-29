@@ -68,6 +68,19 @@ class ExtendedProtocolsTest {
         assertEquals(true, anytls["skip-cert-verify"]?.jsonPrimitive?.boolean)
     }
 
+    @Test fun anyTlsGenericSecurityAliasesAreConsumed() {
+        listOf(
+            "security=tls&allowInsecure=1" to true,
+            "security=tls&skip-cert-verify=true" to true,
+            "security=tls&tls=true" to false,
+        ).forEach { (suffix, insecure) ->
+            val parsed = requireNotNull(ShareLinkParser.parse("anytls://pass@host:443?$suffix"))
+            assertEquals("tls", parsed.tls)
+            assertEquals(insecure, parsed.allowInsecure)
+            assertTrue(parsed.protocolOptions.keys.none { it in setOf("security", "tls", "allowInsecure", "skip-cert-verify") })
+        }
+    }
+
     @Test fun acceptsHttpAndSocksDefaultPortsAndBase64Auth() {
         assertEquals(80, ShareLinkParser.parse("http://host")?.port)
         assertEquals(443, ShareLinkParser.parse("https://host")?.port)

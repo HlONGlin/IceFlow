@@ -51,6 +51,14 @@ internal object ExtendedShareLinks {
             else -> Protocol.SOCKS
         }
         val options = query(body.substringBefore('#').substringAfter('?', "")).toMutableMap()
+        if (protocol == Protocol.ANYTLS) {
+            // AnyTLS is intrinsically TLS. A number of share-link producers still
+            // emit generic security=tls/tls=true fields; they describe the model
+            // field below and must not survive as unknown mihomo options.
+            val security = options["security"]?.trim()?.lowercase()
+            require(security.isNullOrEmpty() || security == "tls") { "AnyTLS only supports TLS" }
+            listOf("security", "tls").forEach(options::remove)
+        }
         val main = body.substringBefore('#').substringBefore('?').trimEnd('/')
         val rawAuth = if ('@' in main) main.substringBeforeLast('@') else ""
         val authority = main.substringAfterLast('@')
@@ -79,6 +87,8 @@ internal object ExtendedShareLinks {
                 .also { anyTlsFingerprintKeys.forEach { key -> options.remove(key) } }
         } else ""
         require(protocol !in setOf(Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS) || password.isNotEmpty())
+        val allowInsecure = listOf("insecure", "allowInsecure", "skip-cert-verify").any { options[it] in listOf("1", "true") }
+        if (protocol == Protocol.ANYTLS) listOf("allowInsecure", "skip-cert-verify").forEach(options::remove)
         return ServerProfile(
             name = decode(body.substringAfter('#', "")).ifEmpty { "$address:$port" }, protocol = protocol, address = address, port = port,
             username = username, password = password, uuid = uuid,
@@ -86,7 +96,7 @@ internal object ExtendedShareLinks {
             sni = options["sni"].orEmpty().ifEmpty { options["peer"].orEmpty() }, alpn = options["alpn"].orEmpty(),
             fingerprint = fingerprint,
             publicKey = options["publickey"].orEmpty().ifEmpty { options["public-key"].orEmpty() },
-            allowInsecure = listOf("insecure", "allowInsecure", "skip-cert-verify").any { options[it] in listOf("1", "true") },
+            allowInsecure = allowInsecure,
             protocolOptions = options,
         )
     }
@@ -136,6 +146,8 @@ internal object ExtendedShareLinks {
                 anyTlsFingerprintKeys.firstNotNullOfOrNull { q[it]?.takeIf(String::isNotEmpty) }.orEmpty()
             }
             anyTlsFingerprintKeys.forEach { q.remove(it) }
+            q.remove("security")
+            q.remove("tls")
             add("fp", fingerprint)
         }
         q.remove("peer"); q.remove("allowInsecure"); q.remove("skip-cert-verify")
