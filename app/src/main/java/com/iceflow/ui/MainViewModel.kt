@@ -401,6 +401,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (_testing.value || _nodeTest.value.testing) return
         val nodes = store.value.servers.toList()
         if (nodes.isEmpty()) { _messages.tryEmit(s("node.test.empty")); return }
+        val session = vpnState.value as? VpnState.Connected
+        if (CoreVariantBridge.variantName == "single" && session != null && !NodeTestingPolicy.canTestAllWithConnectedSingleCore(session, nodes)) {
+            _messages.tryEmit(s("node.test.singleConnected"))
+            return
+        }
         _testing.value = true
         _bulkTest.value = BulkTestState(testing = true, nodes = nodes)
         viewModelScope.launch {
@@ -419,6 +424,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun testOne(server: ServerProfile) {
         if (_nodeTest.value.testing || _testing.value) return
+        val session = vpnState.value as? VpnState.Connected
+        if (CoreVariantBridge.variantName == "single" && session != null && !NodeTestingPolicy.matchesConnectedServer(session, server)) {
+            _messages.tryEmit(s("node.test.singleConnected"))
+            return
+        }
         _nodeTest.value = NodeTestState(server.id, server.name, testing = true)
         viewModelScope.launch {
             val latency = measure(server)
@@ -483,6 +493,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 优先用 xray 真实请求测速；未集成 xray 时退化为 TCP 握手耗时。 */
     private suspend fun measure(server: ServerProfile): Int = withContext(Dispatchers.IO) {
+        val session = vpnState.value as? VpnState.Connected
+        if (CoreVariantBridge.variantName == "single" && session != null && NodeTestingPolicy.matchesConnectedServer(session, server)) {
+            return@withContext runCatching {
+                ConnectionProbe.measure(session.socksPort, session.tunnelUser, session.tunnelPass, settings.value.testUrl, TIMEOUT_MS.toInt())
+            }.getOrDefault(-1)
+        }
         runCatching {
             CoreVariantBridge.measureDelay(server, settings.value, store.value, settings.value.testUrl, TIMEOUT_MS)
         }.getOrDefault(-1)

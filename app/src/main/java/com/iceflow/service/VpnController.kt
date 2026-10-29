@@ -65,6 +65,8 @@ sealed interface VpnState {
         /** 内部 TUN 入站的随机凭据，measureSocksDelay 需要用到 */
         val tunnelUser: String = "",
         val tunnelPass: String = "",
+        /** The profile backing this running session; older callers may omit it. */
+        val serverId: String? = null,
     ) : VpnState
     data object Stopping : VpnState
     data class Error(val presentation: VpnErrorPresentation) : VpnState
