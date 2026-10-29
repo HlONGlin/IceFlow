@@ -62,16 +62,19 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             version="${GITHUB_REF_NAME#v}"
           else
-            version="0.1.4.2"
+            version="0.1.4.3"
           fi
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
             echo "Unsupported app version: $version"
             exit 1
           fi
-          IFS=. read -r major minor patch revision <<< "$version"
-          revision="${revision:-0}"
+          version_code="$(sed -n 's/^iceflow.versionCode=//p' gradle.properties | head -n 1)"
+          if [[ ! "$version_code" =~ ^[0-9]+$ ]]; then
+            echo "Invalid iceflow.versionCode in gradle.properties: $version_code"
+            exit 1
+          fi
           echo "ICEFLOW_VERSION_NAME=$version" >> "$GITHUB_ENV"
-          echo "ICEFLOW_VERSION_CODE=$((major * 1000000 + minor * 10000 + patch * 100 + revision))" >> "$GITHUB_ENV"
+          echo "ICEFLOW_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
 
       - name: Dual unit tests
         run: ./gradlew testDualDebugUnitTest lintDualDebug
