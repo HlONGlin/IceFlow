@@ -1,6 +1,8 @@
 package com.iceflow.core
 
 import android.app.ActivityManager
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.ComponentName
@@ -20,6 +22,8 @@ import com.iceflow.data.model.*
 import com.iceflow.service.IceFlowVpnService
 import com.iceflow.service.VpnController
 import com.iceflow.service.VpnState
+import com.iceflow.service.VpnErrorType
+import com.iceflow.service.VpnErrorNotifier
 import java.io.Closeable
 import java.io.DataInputStream
 import java.net.InetAddress
@@ -86,7 +90,8 @@ class VpnLifecycleTest {
         assertTrue(upstream.destinations.any { it == "198.51.100.1:80" })
         val ipv6 = probeTun("2001:db8::1")
         assertTrue("IPv6 did not traverse the VPN: $ipv6; destinations=${upstream.destinations}; errors=${upstream.errors}", ipv6.contains("iceflow-tun-ok"))
-        assertTrue(VpnController.traffic.value.upTotal > 0 || RustBridge.stats()[0] > 0)
+        await { VpnController.traffic.value.upTotal > 0 && VpnController.traffic.value.downTotal > 0 }
+        assertTrue("Published traffic must include sampled history", VpnController.traffic.value.history.isNotEmpty())
     }
 
     @Test fun appAllowlistRoutesTheSelectedPackageThroughTun() {
@@ -95,6 +100,57 @@ class VpnLifecycleTest {
         val output = probeTun("198.51.100.1")
         assertTrue("The allowlisted test UID did not traverse TUN: $output", output.contains("iceflow-tun-ok"))
         assertTrue(upstream.destinations.any { it == "198.51.100.1:80" })
+    }
+
+    @Test fun connectedNotificationDisplaysNodeAndItsStopActionReleasesVpn() {
+        connect()
+        val manager = context.getSystemService(NotificationManager::class.java)
+        await { manager.activeNotifications.any { it.id == 1 } }
+        val notification = manager.activeNotifications.single { it.id == 1 }.notification
+        assertEquals(context.getString(com.iceflow.R.string.app_name), notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertTrue(notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString().contains("Lifecycle fixture"))
+        assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
+        val stop = notification.actions.single { it.title.toString() == context.getString(com.iceflow.R.string.notification_disconnect) }
+        stop.actionIntent.send()
+        await { VpnController.state.value == VpnState.Idle && !CoreVariantBridge.isCoreRunning() }
+        await { manager.activeNotifications.none { it.id == 1 } }
+        assertEquals(0L, VpnController.traffic.value.upTotal)
+        assertEquals(0L, VpnController.traffic.value.downTotal)
+    }
+
+    @Test fun missingNodePublishesActionableErrorNotificationWithoutConnectedNotification() {
+        container.servers.replace(ServerStore())
+        assertTrue(VpnController.start(context))
+        await { VpnController.state.value is VpnState.Error }
+        val error = (VpnController.state.value as VpnState.Error).presentation
+        assertEquals(VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION, error.type)
+        val manager = context.getSystemService(NotificationManager::class.java)
+        await { manager.activeNotifications.any { it.id == 2 } }
+        val notification = manager.activeNotifications.single { it.id == 2 }.notification
+        assertEquals(error.message, notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+        assertTrue(notification.extras.getCharSequence(Notification.EXTRA_BIG_TEXT).toString().contains(error.nextAction))
+        assertEquals(error.actionLabel, notification.actions.single().title.toString())
+        assertNotNull(notification.actions.single().actionIntent)
+        await { manager.activeNotifications.none { it.id == 1 } }
+        assertFalse(CoreVariantBridge.isCoreRunning())
+        VpnErrorNotifier.dismiss(context)
+    }
+
+    @Test fun quickSettingsTileStopsTheRunningVpn() {
+        val component = "${context.packageName}/com.iceflow.service.IceFlowTileService"
+        val wasAdded = shell("settings get secure sysui_qs_tiles").contains(component)
+        connect()
+        try {
+            shell("cmd statusbar add-tile $component")
+            shell("cmd statusbar expand-settings")
+            // TileService must be bound by SystemUI before click-tile can dispatch its callback.
+            await { shell("dumpsys activity services $component").contains("IceFlowTileService") }
+            shell("cmd statusbar click-tile $component")
+            await { VpnController.state.value == VpnState.Idle && !CoreVariantBridge.isCoreRunning() }
+        } finally {
+            shell("cmd statusbar collapse")
+            if (!wasAdded) shell("cmd statusbar remove-tile $component")
+        }
     }
 
     @Test fun physicalNetworkLossKeepsTunAndReconnectsWhenNetworkReturns() {
@@ -106,7 +162,7 @@ class VpnLifecycleTest {
         try {
             if (mobile) shell("svc data disable")
             if (wifi) shell("svc wifi disable")
-            await { VpnController.state.value == VpnState.Connecting && !RustBridge.isRunning() }
+            await { VpnController.state.value == VpnState.WaitingNetwork && !CoreVariantBridge.isHealthy() }
             assertTrue("TUN must remain established while offline", shell("ip addr").contains("172.19.0.1"))
             if (wifi) shell("svc wifi enable")
             if (mobile) shell("svc data enable")
@@ -131,8 +187,17 @@ class VpnLifecycleTest {
             socket.getOutputStream().write(byteArrayOf(5, 1, 0))
             val input = DataInputStream(socket.getInputStream())
             assertEquals(5, input.readUnsignedByte())
-            assertEquals("Public listener must reject unauthenticated clients", 255, input.readUnsignedByte())
+            val method = input.readUnsignedByte()
+            // Xray rejects the offered no-auth method; mihomo requests credentials instead.
+            assertTrue("Public listener must never select unauthenticated access", method == 255 || method == 2)
+            if (method == 2) {
+                socket.getOutputStream().write(byteArrayOf(1, 4, *"fail".toByteArray(), 4, *"nope".toByteArray()))
+                assertEquals(1, input.readUnsignedByte())
+                assertNotEquals("Public listener accepted incorrect credentials", 0, input.readUnsignedByte())
+            }
         }
+        assertTrue("Authenticated public SOCKS requests must reach the selected outbound",
+            ConnectionProbe.measure(publicPort, username = "user", password = "secret", url = "http://probe.invalid/generate_204") > 0)
         container.settings.update { it.copy(dnsProxyEnabled = false, ipv6Enabled = false) }
         val third = awaitConnectionAfter(second)
         assertTrue(ConnectionProbe.measure(third.socksPort, username = third.tunnelUser, password = third.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
@@ -142,19 +207,35 @@ class VpnLifecycleTest {
         assertEquals("Appearance changes must not restart VPN", stable, VpnController.state.value)
     }
 
+    @Test fun editingConnectedNodeEndpointReplacesTheCoreConfiguration() {
+        val first = connect()
+        SocksFixture().use { replacement ->
+            val selected = requireNotNull(container.servers.selected)
+            container.servers.updateServer(selected.copy(port = replacement.port))
+            val second = awaitConnectionAfter(first)
+            val previousRequests = upstream.destinations.size
+            assertTrue(ConnectionProbe.measure(second.socksPort, username = second.tunnelUser, password = second.tunnelPass,
+                url = "http://probe.invalid/generate_204") > 0)
+            assertTrue("Requests still use the old endpoint after the selected node was edited",
+                replacement.destinations.contains("probe.invalid:80"))
+            assertEquals("Old endpoint received a new request after the edit", previousRequests, upstream.destinations.size)
+            stopAndWait()
+        }
+    }
+
     @Test fun exitedCoreIsDetectedAndRecoveredAndUserStopCancelsRecovery() {
         val first = connect()
-        RustBridge.stopTun()
+        CoreVariantBridge.stopTun()
         val recovered = awaitConnectionAfter(first)
-        assertTrue(RustBridge.isRunning())
+        assertTrue(CoreVariantBridge.isHealthy())
         assertTrue(ConnectionProbe.measure(recovered.socksPort, username = recovered.tunnelUser, password = recovered.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
-        XrayBridge.stop()
+        CoreVariantBridge.stop()
         await { VpnController.state.value == VpnState.Connecting }
         stopAndWait()
         SystemClock.sleep(2500)
         assertEquals(VpnState.Idle, VpnController.state.value)
-        assertFalse(RustBridge.isRunning())
-        assertFalse(XrayBridge.isRunning())
+        assertFalse(CoreVariantBridge.isHealthy())
+        assertFalse(CoreVariantBridge.isCoreRunning())
     }
 
     @Test fun queuedSwitchFollowedByStopCannotRestartTheVpn() {
@@ -163,7 +244,7 @@ class VpnLifecycleTest {
         stopAndWait()
         SystemClock.sleep(1800)
         assertEquals(VpnState.Idle, VpnController.state.value)
-        assertFalse(RustBridge.isRunning())
+        assertFalse(CoreVariantBridge.isHealthy())
     }
 
     private fun connect(): VpnState.Connected {
@@ -184,7 +265,7 @@ class VpnLifecycleTest {
     private fun stopAndWait() {
         VpnController.stop(context)
         await {
-            VpnController.state.value == VpnState.Idle && !RustBridge.isRunning() &&
+            VpnController.state.value == VpnState.Idle && !CoreVariantBridge.isHealthy() && !CoreVariantBridge.isCoreRunning() &&
                 context.getSystemService(ActivityManager::class.java).getRunningServices(Int.MAX_VALUE)
                     .none { it.service.className == IceFlowVpnService::class.java.name }
         }

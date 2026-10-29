@@ -3,10 +3,9 @@ package com.iceflow.ui
 import android.app.Application
 import com.iceflow.BuildConfig
 import com.iceflow.IceFlowApp
-import com.iceflow.core.XrayBridge
 import com.iceflow.core.RustBridge
 import com.iceflow.core.ConnectionProbe
-import com.iceflow.data.XrayConfigBuilder
+import com.iceflow.core.CoreVariantBridge
 import com.iceflow.data.BackupCodec
 import com.iceflow.service.VpnState
 import com.iceflow.data.ShareLinkParser
@@ -35,8 +34,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
-import java.net.InetSocketAddress
-import java.net.Socket
 
 data class ConnectionTestState(val testing: Boolean = false, val latencyMs: Int? = null)
 data class NodeTestState(val serverId: String? = null, val name: String = "", val testing: Boolean = false, val latencyMs: Int? = null)
@@ -110,7 +107,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
     val appVersion: String = BuildConfig.VERSION_NAME
-    val xrayVersion: String? by lazy { XrayBridge.version() }
+    val xrayVersion: String? by lazy { CoreVariantBridge.coreVersionLabel }
     val coreVersion: String? by lazy { RustBridge.version() }
     private val _connectionTest = MutableStateFlow(ConnectionTestState())
     val connectionTest = _connectionTest.asStateFlow()
@@ -487,14 +484,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** 优先用 xray 真实请求测速；未集成 xray 时退化为 TCP 握手耗时。 */
     private suspend fun measure(server: ServerProfile): Int = withContext(Dispatchers.IO) {
         runCatching {
-            if (XrayBridge.isAvailable) {
-                val config = XrayConfigBuilder.build(server, settings.value, includeInbound = false, store = store.value)
-                XrayBridge.measureDelay(config, settings.value.testUrl, TIMEOUT_MS).toInt()
-            } else {
-                val start = System.nanoTime()
-                Socket().use { it.connect(InetSocketAddress(server.address, server.port), TIMEOUT_MS.toInt()) }
-                ((System.nanoTime() - start) / 1_000_000).toInt()
-            }
+            CoreVariantBridge.measureDelay(server, settings.value, store.value, settings.value.testUrl, TIMEOUT_MS)
         }.getOrDefault(-1)
     }
 

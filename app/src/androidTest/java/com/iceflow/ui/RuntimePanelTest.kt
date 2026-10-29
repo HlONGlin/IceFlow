@@ -19,6 +19,7 @@ import com.iceflow.service.TrafficSnapshot
 import com.iceflow.service.VpnState
 import com.iceflow.ui.theme.IceFlowTheme
 import com.iceflow.data.model.*
+import com.iceflow.i18n.stringsOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -29,19 +30,22 @@ import org.junit.runner.RunWith
 class RuntimePanelTest {
     @get:Rule val rule = createComposeRule()
 
-    @Test fun connectButtonBlocksRepeatActionsWhileConnecting() {
+    @Test fun connectButtonAllowsCancelWhileConnectingAndBlocksWhileStopping() {
         val state = mutableStateOf<VpnState>(VpnState.Idle)
         var clicks = 0
         rule.setContent { IceFlowTheme { ConnectOrb(state.value, { clicks++ }) } }
         rule.onNodeWithContentDescription("连接").performClick()
         assertEquals(1, clicks)
         rule.runOnIdle { state.value = VpnState.Connecting }
+        rule.onAllNodes(hasClickAction()).onFirst().assertIsEnabled().performClick()
+        assertEquals(2, clicks)
+        rule.runOnIdle { state.value = VpnState.Stopping }
         rule.onAllNodes(hasClickAction()).fetchSemanticsNodes().forEach { node ->
             assertTrue(node.config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled))
         }
         rule.runOnIdle { state.value = VpnState.Connected("Node", 1000) }
         rule.onNodeWithContentDescription("断开连接").performClick()
-        assertEquals(2, clicks)
+        assertEquals(3, clicks)
     }
 
     @Test fun groupNodePickersSaveAndDisableFrontAndLandingNodes() {
@@ -74,9 +78,12 @@ class RuntimePanelTest {
             }
         }
         rule.onNodeWithText("Hidden node name", substring = true).assertDoesNotExist()
+        rule.onNodeWithText("↑ 2.0 KB/s", useUnmergedTree = true).assertIsDisplayed()
+        rule.onNodeWithText("↓ 4.0 KB/s", useUnmergedTree = true).assertIsDisplayed()
         rule.onNodeWithText("已连接", substring = true).assertDoesNotExist()
         rule.onNodeWithText("点击测速").performClick()
-        rule.onNodeWithText("测速中…").assertIsDisplayed()
+        rule.onNodeWithText(stringsOf(AppLanguage.SIMPLIFIED_CHINESE).get("connect.testing")).assertIsDisplayed()
+        rule.onAllNodes(hasClickAction()).onFirst().assertIsNotEnabled()
         assertEquals(1, clicks)
         rule.runOnIdle { test.value = ConnectionTestState(latencyMs = 123) }
         rule.onNodeWithText("123 ms").assertIsDisplayed()

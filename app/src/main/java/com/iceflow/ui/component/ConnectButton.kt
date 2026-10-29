@@ -51,6 +51,14 @@ fun ConnectButton(
     val busy = state == VpnState.Connecting || state == VpnState.Stopping || state == VpnState.WaitingNetwork
     val connectedStateLabel = T("state.connected")
     val idleStateLabel = T("state.idle")
+    val currentStateLabel = when (state) {
+        is VpnState.Connected -> connectedStateLabel
+        VpnState.Connecting -> T("state.connecting")
+        VpnState.WaitingNetwork -> T("state.waitingNetwork")
+        VpnState.Stopping -> T("state.stopping")
+        is VpnState.Error -> state.presentation.message
+        VpnState.Idle -> idleStateLabel
+    }
 
     val label = when (state) {
         is VpnState.Connected -> T("connect.disconnect")
@@ -116,7 +124,7 @@ fun ConnectButton(
                 .size(size)
                 .scale(scale * if (busy) breathe else 1f)
                 .testTag("ConnectButton")
-                .semantics { stateDescription = if (connected) connectedStateLabel else idleStateLabel },
+                .semantics { stateDescription = currentStateLabel },
         ) {
             Box(
                 modifier = Modifier

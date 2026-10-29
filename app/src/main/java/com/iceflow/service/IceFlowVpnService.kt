@@ -87,6 +87,8 @@ class IceFlowVpnService : VpnService() {
     private var activeTunnelPort: Int = 0
     private var activeTunnelUser: String = ""
     private var activeTunnelPass: String = ""
+    // 当前运行中核心实际应用的配置；仅在配置一致时才允许复用，防止沿用旧配置
+    @Volatile private var activeCoreConfig: String? = null
     private var persistedUp = 0L
     private var persistedDown = 0L
     private var persistedAt = 0L
@@ -204,7 +206,7 @@ class IceFlowVpnService : VpnService() {
                 val container = (application as IceFlowApp).container
                 val newProfile = container.servers.selected
                 val sameNode = newProfile?.id == activeServerId
-                // 同节点快速重连：保留 xray-core 进程，只重启 tun2proxy
+                // 同节点快速重连：保留核心进程，只重启 TUN 转发
                 releaseResources(closeTun = false, stopXray = !sameNode)
                 startVpn()
             }
@@ -330,18 +332,18 @@ class IceFlowVpnService : VpnService() {
             container.routingResources.prepare()
             mark("routingResources.prepare")
             val appProxyMode = if (settings.appRoutingEnabled) settings.appProxyMode else settings.proxyAppsOnly
-            AppLog.write(this, "INFO", "代理方案：Xray 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=$appProxyMode")
+            AppLog.write(this, "INFO", "代理方案：${CoreVariantBridge.coreDisplayName} 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=$appProxyMode")
             if (settings.bypassApps.isNotEmpty()) AppLog.write(this, "INFO", "应用策略包数量：${settings.bypassApps.size}")
             CoreVariantBridge.prepareAssets(filesDir.absolutePath)
             mark("validate+readSettings")
 
-            // 快速重连优化：如果 xray 已在运行且节点未变，复用之前的配置
-            val xrayAlreadyRunning = CoreVariantBridge.isCoreRunning() && profile.id == activeServerId
+            // 快速重连优化：核心在运行、节点未变且配置一致时才复用
+            val coreAlreadyRunning = CoreVariantBridge.isCoreRunning() && profile.id == activeServerId
             val tunnelPort: Int
             val tunnelUser: String
             val tunnelPass: String
 
-            if (xrayAlreadyRunning && activeTunnelPort > 0) {
+            if (coreAlreadyRunning && activeTunnelPort > 0) {
                 // 复用已有配置
                 tunnelPort = activeTunnelPort
                 tunnelUser = activeTunnelUser
@@ -368,17 +370,25 @@ class IceFlowVpnService : VpnService() {
             )
             mark("buildConfig")
 
-            if (!xrayAlreadyRunning) {
+            if (!CoreReusePolicy.shouldReuse(coreAlreadyRunning, activeTunnelPort > 0, activeCoreConfig, cfg)) {
+                if (coreAlreadyRunning) {
+                    // 配置已变化（如公共 SOCKS 端口/认证），必须停止并按新配置重启核心
+                    AppLog.write(this, "INFO", "连接配置已变化，重启 ${CoreVariantBridge.coreDisplayName} 核心以应用新配置")
+                    runCatching { CoreVariantBridge.stop() }
+                        .onFailure { Log.w(TAG, "core stop on config change: $it") }
+                    CoreVariantBridge.stopTun()
+                }
                 failureType = VpnErrorType.CORE_START_FAILED
                 CoreVariantBridge.start(cfg)
-                mark("xray.start")
+                mark("core.start")
                 // 保存配置供后续复用
                 activeTunnelPort = tunnelPort
                 activeTunnelUser = tunnelUser
                 activeTunnelPass = tunnelPass
+                activeCoreConfig = cfg
             } else {
-                mark("xray.reuse (already running)")
-                AppLog.write(this, "INFO", "复用已运行的 xray-core 进程")
+                mark("core.reuse (already running)")
+                AppLog.write(this, "INFO", "复用已运行的 ${CoreVariantBridge.coreDisplayName} 进程")
             }
 
             failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
@@ -420,7 +430,7 @@ class IceFlowVpnService : VpnService() {
                 proxyUrl = "socks5://$tunnelUser:$tunnelPass@127.0.0.1:$tunnelPort",
                 settings = settings,
             )
-            mark("rust.startTun")
+            mark("tun.startTun")
 
             if (destroyed) { releaseResources(closeTun = true, stopXray = true); return }
             activeServerId = profile.id
@@ -508,13 +518,14 @@ class IceFlowVpnService : VpnService() {
         runCatching { persistTraffic(force = true) }
             .onFailure { failures += "Persist traffic: ${it.message}"; Log.w(TAG, "persist traffic: $it") }
         if (!stopXray) {
-            runCatching { CoreVariantBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
+            runCatching { CoreVariantBridge.stopTun() }.onFailure { failures += "${CoreVariantBridge.tunLabel} stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
         } else {
             activeServerId = null
             activeTunnelPort = 0
             activeTunnelUser = ""
             activeTunnelPass = ""
-            runCatching { CoreVariantBridge.stopTun() }.onFailure { failures += "Rust stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
+            activeCoreConfig = null
+            runCatching { CoreVariantBridge.stopTun() }.onFailure { failures += "${CoreVariantBridge.tunLabel} stopTun: ${it.message}"; Log.w(TAG, "stopTun: $it") }
             val stopFailureName = CoreVariantBridge.stopFailureName
             runCatching { CoreVariantBridge.stop() }.onFailure {
                 failures += "$stopFailureName stop: ${it.message}"
@@ -542,7 +553,7 @@ class IceFlowVpnService : VpnService() {
                 }
                 val stats = CoreVariantBridge.stats()
 
-                // 查询 xray 详细统计
+                // 查询核心详细统计
                 val xrayStats = runCatching {
                     CoreVariantBridge.queryStats()
                 }.getOrNull()

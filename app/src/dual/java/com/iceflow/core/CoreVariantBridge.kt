@@ -11,6 +11,11 @@ import com.iceflow.service.VpnErrorType
 
 internal object CoreVariantBridge {
     val variantName: String get() = BuildConfig.CORE_VARIANT
+    /** 用户可见的核心名称，与实际运行的核心保持一致。 */
+    val coreDisplayName: String get() = "xray-core"
+    val coreVersionLabel: String? get() = XrayBridge.version()
+    /** TUN 转发层标签，用于诊断日志。 */
+    val tunLabel: String get() = "Rust"
     val isReady: Boolean get() = XrayBridge.isAvailable && RustBridge.isAvailable
     val stopFailureName: String get() = "Xray"
 
@@ -71,6 +76,9 @@ internal object CoreVariantBridge {
 
     /** Cumulative counters by inbound/outbound tag; caller retains its existing runCatching. */
     fun queryStats(): XrayStats = XrayStats.parse(XrayBridge.queryStats())
+
+    fun measureDelay(profile: ServerProfile, settings: AppSettings, store: ServerStore?, url: String, timeoutMs: Long): Int =
+        XrayBridge.measureDelay(buildConfig(profile, settings, includeInbound = false, store = store), url, timeoutMs).coerceAtLeast(1).toInt()
 
     fun failureMessage(type: VpnErrorType, language: AppLanguage): String? = null
 

@@ -331,6 +331,8 @@ fun SettingsScreen(
     settings: AppSettings,
     xrayVersion: String?,
     coreVersion: String?,
+    coreVariant: String,
+    mihomoVersion: String?,
     appVersion: String,
     onUpdate: ((AppSettings) -> AppSettings) -> Unit,
     onOpenLogs: () -> Unit = {},
@@ -540,9 +542,14 @@ fun SettingsScreen(
                 Text(appVersion, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             RowDivider()
-            InfoRow("xray-core", xrayVersion ?: T("settings.notIntegrated"))
-            RowDivider()
-            InfoRow(T("settings.rustCore"), coreVersion ?: T("settings.notIntegrated"))
+            if (coreVariant == "single") {
+                // single 仅使用 mihomo 单核，不展示 xray-core 与 Rust 双核信息
+                InfoRow("mihomo", mihomoVersion ?: T("settings.notIntegrated"))
+            } else {
+                InfoRow("xray-core", xrayVersion ?: T("settings.notIntegrated"))
+                RowDivider()
+                InfoRow(T("settings.rustCore"), coreVersion ?: T("settings.notIntegrated"))
+            }
         }
     }
 

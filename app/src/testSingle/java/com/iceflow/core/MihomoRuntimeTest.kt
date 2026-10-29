@@ -22,6 +22,7 @@ class MihomoRuntimeTest {
         override fun healthy() = running && tun
         override fun stats() = rawStats
         override fun queryStats() = "outbound>>>proxy>>>traffic>>>uplink,12\noutbound>>>proxy>>>traffic>>>downlink,34"
+        override fun version() = "v1.19.32"
     }
     @Test fun unavailableCoreNeverAdvertisesReadinessOrHealth() {
         val n = Native().apply { ready = false }; val r = MihomoRuntime(n)

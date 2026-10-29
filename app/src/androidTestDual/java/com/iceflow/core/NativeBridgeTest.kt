@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 /**
- * 在真机/模拟器上验证原生层：libiceflow_core.so（Rust）与 libgojni.so（xray-core）。
+ * Dual-only native contracts: libiceflow_core.so (Rust) and libgojni.so (Xray).
  * 不建立 VPN、不连接任何外部服务器。
  */
 @RunWith(AndroidJUnit4::class)

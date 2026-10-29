@@ -17,6 +17,7 @@ internal interface MihomoNative {
     fun healthy(): Boolean
     fun stats(): String
     fun queryStats(): String
+    fun version(): String
 }
 
 internal object GomobileMihomo : MihomoNative {
@@ -32,6 +33,7 @@ internal object GomobileMihomo : MihomoNative {
     override fun healthy() = Libmihomo.isRunning()
     override fun stats() = Libmihomo.statsJSON()
     override fun queryStats() = Libmihomo.queryStats()
+    override fun version() = Libmihomo.version()
 }
 
 internal class MihomoRuntime(private val native: MihomoNative = GomobileMihomo) {
@@ -53,4 +55,5 @@ internal class MihomoRuntime(private val native: MihomoNative = GomobileMihomo) 
         return longArrayOf(up, down)
     }
     fun queryStats(): XrayStats = XrayStats.parse(native.queryStats())
+    fun version(): String? = if (isReady) runCatching { native.version() }.getOrNull() else null
 }

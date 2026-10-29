@@ -6,6 +6,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.EOFException
 import java.io.InputStream
+import java.net.ServerSocket
 import javax.net.ssl.SNIHostName
 import javax.net.ssl.SSLSocket
 import javax.net.ssl.SSLSocketFactory
@@ -82,6 +83,30 @@ class ConnectionProbeTest {
             org.junit.Assert.assertArrayEquals(arrayOf("TLSv1.2"), it.enabledProtocols)
             val name = it.sslParameters.serverNames.single() as SNIHostName
             org.junit.Assert.assertEquals("api.ipify.org", name.asciiName)
+        }
+    }
+
+    @Test fun httpProxyUsesBasicAuthAndConnectRequest() {
+        ServerSocket(0).use { server ->
+            val worker = Thread {
+                server.accept().use { socket ->
+                    val input = socket.getInputStream().bufferedReader(Charsets.US_ASCII)
+                    val request = buildString {
+                        while (true) {
+                            val line = input.readLine() ?: break
+                            append(line).append('\n')
+                            if (line.isEmpty()) break
+                        }
+                    }
+                    check(request.contains("GET http://example.com:80/204"))
+                    check(request.contains("Proxy-Authorization: Basic dTpw"))
+                    socket.getOutputStream().write("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n".toByteArray(Charsets.US_ASCII))
+                    socket.getOutputStream().flush()
+                }
+            }.also { it.start() }
+            val result = ConnectionProbe.measureHttpProxy(server.localPort, "u", "p", "http://example.com/204", 2000)
+            worker.join(2000)
+            org.junit.Assert.assertTrue(result >= 1)
         }
     }
 

@@ -266,6 +266,8 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
                             settings = settings,
                             xrayVersion = XrayBridge.version(),
                             coreVersion = if (com.iceflow.core.RustBridge.isAvailable) "已集成" else null,
+                            coreVariant = com.iceflow.core.CoreVariantBridge.variantName,
+                            mihomoVersion = com.iceflow.core.CoreVariantBridge.coreVersionLabel,
                             appVersion = vm.appVersion,
                             onUpdate = vm::updateSettings,
                             onOpenLogs = { vm.cleanOldLogs(); logsOpen = true },
