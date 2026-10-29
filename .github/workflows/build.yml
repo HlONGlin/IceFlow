@@ -15,6 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          df -h /
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -43,6 +48,11 @@ jobs:
           cargo install cargo-ndk --locked
           bash rust-core/build-android.sh
 
+      - name: Remove Rust build intermediates
+        run: |
+          rm -rf rust-core/target
+          df -h /
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -58,6 +68,11 @@ jobs:
 
       - name: Build xray-core AAR
         run: bash xray-wrapper/build-aar.sh
+
+      - name: Free Go build cache before Android builds
+        run: |
+          go clean -cache
+          df -h /
 
       - name: Resolve app version
         shell: bash
