@@ -1,0 +1,20 @@
+﻿{
+  "name": "R1-WireGuard-real-fixture",
+  "type": "wireguard",
+  "server": "54.255.193.12",
+  "port": 51820,
+  "private-key": "<redacted-client-private-key>",
+  "public-key": "iPDzOJilNJ84GQdfPyNzPKqXvisRRsOXHySJahRgWwM=",
+  "ip": "10.66.66.2/32",
+  "allowed-ips": ["0.0.0.0/0"],
+  "persistent-keepalive": 25,
+  "g05": {
+    "landing": "explicit peer.allowed-ips",
+    "peer": {
+      "server": "54.255.193.12",
+      "port": 51820,
+      "public-key": "iPDzOJilNJ84GQdfPyNzPKqXvisRRsOXHySJahRgWwM=",
+      "allowed-ips": ["0.0.0.0/0"]
+    }
+  }
+}

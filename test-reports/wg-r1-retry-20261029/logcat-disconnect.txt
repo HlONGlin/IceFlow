@@ -1,0 +1,776 @@
+﻿--------- beginning of system
+10-29 12:45:54.225  1589  3718 I ActivityManager: Force stopping com.iceflow appid=10064 user=0: from pid 3773
+10-29 12:45:54.225  1589  3718 I ActivityManager: Killing 3729:com.iceflow/u0a64 (adj 0): stop com.iceflow
+10-29 12:45:54.225  1589  3718 W ActivityManager: Force removing ActivityRecord{f5da860 u0 com.iceflow/.MainActivity t8}: app died, no saved state
+--------- beginning of main
+10-29 12:45:32.692  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon expire 17 lines
+10-29 12:45:32.692  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:54.225  1589  1607 W libprocessgroup: kill(-3729, 9) failed: No such process
+10-29 12:45:54.227  1589  3718 W SchedPolicy: add_tid_to_cgroup failed to write '2209' (No space left on device); fd=27
+10-29 12:45:54.228  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:54 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.228  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:45:54.228  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:45:54.229  1917  1917 D CarrierSvcBindHelper: No carrier app for: 0
+10-29 12:45:54.229  2209  2338 W OpenGLRenderer: Incorrectly called buildLayer on View: ShortcutAndWidgetContainer, destroying layer...
+10-29 12:45:54.236  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.sendBroadcast:1020 android.content.ContextWrapper.sendBroadcast:449 com.android.coreservice.TabManager.notifyClosing:413 com.android.coreservice.TabManager.updateInner:200 com.android.coreservice.TabManager.onUpdate:235 
+10-29 12:45:54.245  2163  2163 I CoreService: notifyClosing notify tab closed taskPackageName:com.iceflow
+10-29 12:45:54.245  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:45 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.246  1589  1613 W ActivityManager: setHasOverlayUi called on unknown pid: 3729
+10-29 12:45:54.246  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:45:54.246  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:45:54.247  1425  1425 I Zygote  : Process 3729 exited due to signal (9)
+10-29 12:45:54.260  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:70 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.260  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:45:54.260  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:45:54.260  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:54 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.270  1589  1607 W libprocessgroup: kill(-3729, 9) failed: No such process
+10-29 12:45:54.270  1589  1607 I libprocessgroup: Successfully killed process cgroup uid 10064 pid 3729 in 45ms
+10-29 12:45:54.273  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:54.273  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 14 lines
+10-29 12:45:54.273  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:54.276  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:70 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.287  2209  2338 E EGL_emulation: tid 2338: eglSurfaceAttrib(1504): error 0x3009 (EGL_BAD_MATCH)
+10-29 12:45:54.287  2209  2338 W OpenGLRenderer: Failed to set EGL_SWAP_BEHAVIOR on surface 0x76388a220200, error=EGL_BAD_MATCH
+10-29 12:45:54.360  3775  3775 I appproc : app_process main with argv: /system/bin com.android.commands.monkey.Monkey -p com.iceflow 1 
+10-29 12:45:54.360  3775  3775 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 12:45:54.361  3775  3775 E cutils-trace: Error opening trace file: No such file or directory (2)
+10-29 12:45:54.368  3775  3775 V libnb   : enter native_bridge2_isCompatibleWith 3
+10-29 12:45:54.376  3775  3775 I libnb   : Found /system/lib64/libhoudini.so version 3
+10-29 12:45:54.384  3775  3775 I main    : type=1400 audit(0.0:850): avc: denied { open } for path="/data/local/cfg-gazie/app_xpt" dev="sdb2" ino=393691 scontext=u:r:shell:s0 tcontext=u:object_r:system_data_file:s0 tclass=file permissive=1
+10-29 12:45:54.384  3775  3775 I main    : type=1400 audit(0.0:851): avc: denied { mounton } for path="/proc/cpuinfo" dev="proc" ino=4026531992 scontext=u:r:shell:s0 tcontext=u:object_r:proc_cpuinfo:s0 tclass=file permissive=1
+10-29 12:45:54.388  3775  3775 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:45:54.388  3775  3775 W app_process: Could not create mount namespace.
+10-29 12:45:54.388  3775  3775 D nativebridge: PreInitializeNativeBridge name=unknown instruction_set=x86_64
+10-29 12:45:54.388  3775  3775 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: No such file or directory
+10-29 12:45:54.388  3775  3775 W nativebridge: Failed to bind-mount /system/lib64/x86_64/cpuinfo as /proc/cpuinfo: Operation not permitted
+10-29 12:45:54.388  3775  3775 D nativebridge: call UnloadNativeBridge! state=2
+10-29 12:45:54.394  3775  3775 D AndroidRuntime: Calling main entry com.android.commands.monkey.Monkey
+10-29 12:45:54.394  3775  3775 W Monkey  : args: [-p, com.iceflow, 1]
+10-29 12:45:54.394  3775  3775 W Monkey  :  arg: "-p"
+10-29 12:45:54.394  3775  3775 W Monkey  :  arg: "com.iceflow"
+10-29 12:45:54.394  3775  3775 W Monkey  :  arg: "1"
+10-29 12:45:54.394  3775  3775 W Monkey  : data="com.iceflow"
+10-29 12:45:54.403  1589  1604 W BroadcastQueue: Skipping deliver [background] BroadcastRecord{fae6ca1 u-1 android.net.conn.CONNECTIVITY_CHANGE} to ReceiverList{7e37ec6 3775 (unknown name)/2000/u-1 remote:c3162ab}: process gone or crashing
+10-29 12:45:54.406  1589  3008 I ActivityManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x10200000 cmp=com.iceflow/.MainActivity} from uid 2000
+10-29 12:45:54.409  1589  3008 W Binder  : Outgoing transactions from this process must be FLAG_ONEWAY
+10-29 12:45:54.409  1589  3008 W Binder  : java.lang.Throwable
+10-29 12:45:54.409  1589  3008 W Binder  : 	at android.os.BinderProxy.transact(Binder.java:1114)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at android.app.IActivityController$Stub$Proxy.activityStarting(IActivityController.java:176)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityStarter.startActivity(ActivityStarter.java:745)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityStarter.startActivity(ActivityStarter.java:551)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityStarter.startActivityMayWait(ActivityStarter.java:1156)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityStarter.execute(ActivityStarter.java:490)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityManagerService.startActivityAsUser(ActivityManagerService.java:5211)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityManagerService.startActivityAsUser(ActivityManagerService.java:5112)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityManagerService.startActivity(ActivityManagerService.java:5103)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at android.app.IActivityManager$Stub.onTransact$startActivity$(IActivityManager.java:10088)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at android.app.IActivityManager$Stub.onTransact(IActivityManager.java:122)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at com.android.server.am.ActivityManagerService.onTransact(ActivityManagerService.java:3309)
+10-29 12:45:54.409  1589  3008 W Binder  : 	at android.os.Binder.execTransact(Binder.java:731)
+10-29 12:45:54.412  1589  1604 W SchedPolicy: add_tid_to_cgroup failed to write '2209' (No space left on device); fd=24
+10-29 12:45:54.412  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:45 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.413  3775  3775 I Monkey  : Events injected: 1
+10-29 12:45:54.414  1734  1734 I RenderThread: type=1400 audit(0.0:852): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:platform_app:s0:c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:54.420  1455  1455 I Binder:1455_1: type=1400 audit(0.0:853): avc: denied { read write } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:system_server:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:54.420  1589  1589 I android.anim: type=1400 audit(0.0:854): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=686e scontext=u:r:system_server:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:54.432  1425  1425 D libnativeloader: CrashArm64 config not exist or not readable: /system/vendor/firmware_mnt/gazie/CrashArm64
+10-29 12:45:54.432  1425  1425 I Zygote  : IsCopy  libcrashcatcher: 0
+10-29 12:45:54.433  1589  1589 V SettingsProvider: Notifying for 0: content://settings/system/accelerometer_rotation
+10-29 12:45:54.436  1589  1589 V SettingsProvider: Notifying for 0: content://settings/system/accelerometer_rotation
+10-29 12:45:54.437  3775  3775 I Monkey  : ## Network stats: elapsed time=21ms (0ms mobile, 0ms wifi, 21ms not connected)
+10-29 12:45:54.440  1589  1606 I ActivityManager: Start proc 3785:com.iceflow/u0a64 for activity com.iceflow/.MainActivity
+10-29 12:45:54.440  3775  3775 I app_process: System.exit called, status: 0
+10-29 12:45:54.440  3775  3775 I AndroidRuntime: VM exiting with result code 0.
+10-29 12:45:54.470  3785  3785 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: Not a directory
+10-29 12:45:54.470  3785  3785 I Zygote  : seccomp disabled by setenforce 0
+10-29 12:45:54.471  3785  3785 I com.iceflow: Late-enabling -Xcheck:jni
+10-29 12:45:54.480  3785  3785 D nativebridge: call UnloadNativeBridge! state=1
+10-29 12:45:54.490  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:54.490  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 24 lines
+10-29 12:45:54.490  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:54.490  1589  3373 W SchedPolicy: add_tid_to_cgroup failed to write '3785' (No space left on device); fd=27
+10-29 12:45:54.530  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:54 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:54.540  2163  2163 I oid.coreservice: type=1400 audit(0.0:855): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:system_app:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:54.548  1734  1776 W ziparchive: Unable to open '/data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk': No such file or directory
+10-29 12:45:54.548  1734  1776 E ndroid.systemu: Failed to open APK '/data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk' I/O error
+10-29 12:45:54.548  1734  1776 E ResourcesManager: failed to add asset path /data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk
+10-29 12:45:54.548  1734  1776 W PackageManager: Failure retrieving resources for com.iceflow
+10-29 12:45:54.548  1734  1776 W ziparchive: Unable to open '/data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk': No such file or directory
+10-29 12:45:54.548  1734  1776 E ndroid.systemu: Failed to open APK '/data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk' I/O error
+10-29 12:45:54.548  1734  1776 E ResourcesManager: failed to add asset path /data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk
+10-29 12:45:54.548  1734  1776 W PackageManager: Failure retrieving resources for com.iceflow
+10-29 12:45:54.548  1734  1776 W ziparchive: Unable to open '/data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk': No such file or directory
+10-29 12:45:54.548  1734  1776 E ndroid.systemu: Failed to open APK '/data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk' I/O error
+10-29 12:45:54.548  1734  1776 E ResourcesManager: failed to add asset path /data/app/com.iceflow-9qiiom8BihjsXPlFHLGK1A==/base.apk
+10-29 12:45:54.548  1734  1776 W PackageManager: Failure retrieving resources for com.iceflow
+10-29 12:45:54.596  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:54.596  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 17 lines
+10-29 12:45:54.596  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:55.089  3785  3785 D libnativeloader: CrashArm64 config not exist or not readable: /system/vendor/firmware_mnt/gazie/CrashArm64
+10-29 12:45:55.097  3785  3785 W com.iceflow: Accessing hidden field Landroid/os/Trace;->TRACE_TAG_APP:J (light greylist, reflection)
+10-29 12:45:55.097  3785  3785 W com.iceflow: Accessing hidden method Landroid/os/Trace;->isTagEnabled(J)Z (light greylist, reflection)
+10-29 12:45:55.097  3785  3785 D WM-WrkMgrInitializer: Initializing WorkManager with default configuration.
+10-29 12:45:55.117  3785  3785 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+10-29 12:45:55.117  3785  3785 D WM-Schedulers: Created SystemJobScheduler and enabled SystemJobService
+10-29 12:45:55.130  3785  3804 D WM-ForceStopRunnable: The default process name was not specified.
+10-29 12:45:55.130  3785  3804 D WM-ForceStopRunnable: Performing cleanup operations.
+10-29 12:45:55.137  3785  3804 D WM-ForceStopRunnable: Application was force-stopped, rescheduling.
+10-29 12:45:55.150  3785  3807 D WM-PackageManagerHelper: Skipping component enablement for androidx.work.impl.background.systemalarm.RescheduleReceiver
+10-29 12:45:55.161  3785  3811 W XrayBridge: xray-core unavailable: java.lang.ClassNotFoundException: libxray.Libxray
+10-29 12:45:55.194  3785  3785 D OpenGLRenderer: Skia GL Pipeline
+10-29 12:45:55.194  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:54 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/view/WindowInsets;->CONSUMED:Landroid/view/WindowInsets; (light greylist, reflection)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/View;->getViewRootImpl()Landroid/view/ViewRootImpl; (light greylist, reflection)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/view/View$AttachInfo;->mVisibleInsets:Landroid/graphics/Rect; (light greylist, reflection)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/view/ViewRootImpl;->mAttachInfo:Landroid/view/View$AttachInfo; (light greylist, reflection)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/graphics/Insets;->left:I (light greylist, linking)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/graphics/Insets;->top:I (light greylist, linking)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/graphics/Insets;->right:I (light greylist, linking)
+10-29 12:45:55.297  3785  3785 W com.iceflow: Accessing hidden field Landroid/graphics/Insets;->bottom:I (light greylist, linking)
+10-29 12:45:55.469  3785  3785 W com.iceflow: Accessing hidden method Landroid/text/SpannableStringInternal;->length()I (light greylist, linking)
+10-29 12:45:55.517  3785  3785 I RenderThread: type=1400 audit(0.0:859): avc: denied { read write } for name="fastpipe" dev="tmpfs" ino=3122 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:55.517  3785  3785 I RenderThread: type=1400 audit(0.0:860): avc: denied { open } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:55.520  3785  3785 I RenderThread: type=1400 audit(0.0:861): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6864 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->create(Ljava/lang/String;Landroid/view/View;)Landroid/view/RenderNode; (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->getScaleX()F (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setClipToBounds(Z)Z (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setClipToOutline(Z)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 I chatty  : uid=10064(com.iceflow) identical 1 line
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setClipToOutline(Z)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setLayerType(I)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 I chatty  : uid=10064(com.iceflow) identical 1 line
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setLayerType(I)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->getMatrix(Landroid/graphics/Matrix;)V (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/DisplayListCanvas;->drawRenderNode(Landroid/view/RenderNode;)V (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->isValid()Z (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->start(II)Landroid/view/DisplayListCanvas; (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->end(Landroid/view/DisplayListCanvas;)V (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setAlpha(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setCameraDistance(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setLayerPaint(Landroid/graphics/Paint;)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setOutline(Landroid/graphics/Outline;)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setPivotX(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setPivotX(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setLeftTopRightBottom(IIII)Z (light greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setPivotX(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setRotationX(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setRotationY(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setRotation(F)Z (dark greylist, linking)
+10-29 12:45:55.521  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setScaleX(F)Z (dark greylist, linking)
+10-29 12:45:55.522  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setScaleY(F)Z (dark greylist, linking)
+10-29 12:45:55.522  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setElevation(F)Z (dark greylist, linking)
+10-29 12:45:55.522  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setTranslationX(F)Z (dark greylist, linking)
+10-29 12:45:55.522  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->setTranslationY(F)Z (dark greylist, linking)
+10-29 12:45:55.522  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/RenderNode;->getScaleX()F (dark greylist, linking)
+10-29 12:45:55.528  3785  3815 I         : fastpipe: Connect success
+10-29 12:45:55.528  3785  3815 I         : fastpipe: Connect success
+10-29 12:45:55.529  3785  3815 D HostConnection: HostRPC::connect sucess: app=com.iceflow, pid=3785, tid=3815, this=0x76388bd4ae80
+10-29 12:45:55.529  3785  3815 D HostConnection: queryAndSetGLESMaxVersion select gles-version: 3.1 hostGLVersion:46 process:com.iceflow
+10-29 12:45:55.530  3785  3815 I ConfigStore: android::hardware::configstore::V1_0::ISurfaceFlingerConfigs::hasWideColorDisplay retrieved: 0
+10-29 12:45:55.530  3785  3815 I ConfigStore: android::hardware::configstore::V1_0::ISurfaceFlingerConfigs::hasHDRDisplay retrieved: 0
+10-29 12:45:55.530  3785  3815 I OpenGLRenderer: Initialized EGL, version 1.4
+10-29 12:45:55.530  3785  3815 D OpenGLRenderer: Swap behavior 1
+10-29 12:45:55.562  3785  3815 D EGL_emulation: eglCreateContext: 0x76388bc665c0: maj 3 min 1 rcv 4
+10-29 12:45:55.586  3785  3815 E eglCodecCommon: glUtilsParamSize: unknow param 0x000082da
+10-29 12:45:55.587  3785  3815 E eglCodecCommon: glUtilsParamSize: unknow param 0x000082e5
+10-29 12:45:55.588  3785  3815 D HostConnection: ExtendedRCEncoderContext GL_VERSION return OpenGL ES 3.1 v1
+10-29 12:45:55.590  3785  3815 E eglCodecCommon: glUtilsParamSize: unknow param 0x00008c29
+10-29 12:45:55.590  3785  3815 E eglCodecCommon: glUtilsParamSize: unknow param 0x000087fe
+10-29 12:45:55.591  3785  3815 D vndksupport: Loading /vendor/lib64/hw/android.hardware.graphics.mapper@2.0-impl.so from current namespace instead of sphal namespace.
+10-29 12:45:55.592  3785  3815 D vndksupport: Loading /vendor/lib64/hw/gralloc.default.so from current namespace instead of sphal namespace.
+10-29 12:45:55.600  3785  3815 E EGL_emulation: tid 3815: eglSurfaceAttrib(1504): error 0x3009 (EGL_BAD_MATCH)
+10-29 12:45:55.600  3785  3815 W OpenGLRenderer: Failed to set EGL_SWAP_BEHAVIOR on surface 0x76388bcd4900, error=EGL_BAD_MATCH
+10-29 12:45:55.607  3785  3785 I Choreographer: Skipped 92 frames!  The application may be doing too much work on its main thread.
+10-29 12:45:55.637  1589  1589 I android.anim.lf: type=1400 audit(0.0:862): avc: denied { call } for scontext=u:r:system_server:s0 tcontext=u:r:init:s0 tclass=binder permissive=1
+10-29 12:45:55.642  1589  1603 I ActivityManager: Displayed com.iceflow/.MainActivity: +1s234ms
+10-29 12:45:55.642  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:70 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:55.643  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:70 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:45:55.649  1589  1601 W SchedPolicy: add_tid_to_cgroup failed to write '2209' (No space left on device); fd=25
+10-29 12:45:55.649  2209  2338 W OpenGLRenderer: Incorrectly called buildLayer on View: ShortcutAndWidgetContainer, destroying layer...
+10-29 12:45:55.683  1455  2180 W SurfaceFlinger: Attempting to set client state on removed layer: Splash Screen com.iceflow#0
+10-29 12:45:55.683  1455  2180 W SurfaceFlinger: Attempting to destroy on removed layer: Splash Screen com.iceflow#0
+10-29 12:45:55.695  3785  3785 W com.iceflow: Accessing hidden method Landroid/os/Trace;->asyncTraceBegin(JLjava/lang/String;I)V (light greylist, reflection)
+10-29 12:45:55.695  3785  3785 W com.iceflow: Accessing hidden method Landroid/os/Trace;->asyncTraceEnd(JLjava/lang/String;I)V (light greylist, reflection)
+10-29 12:45:55.695  3785  3785 W com.iceflow: Accessing hidden method Landroid/os/Trace;->traceCounter(JLjava/lang/String;I)V (light greylist, reflection)
+10-29 12:45:56.810  3785  3811 D NetworkSecurityConfig: No Network Security Config specified, using platform default
+10-29 12:45:58.166  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:58.166  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 16 lines
+10-29 12:45:58.166  1589  1596 W System  : A resource failed to call close. 
+10-29 12:45:59.528  3820  3820 I appproc : app_process main with argv: /system/bin com.android.commands.uiautomator.Launcher dump /sdcard/wg-r1-home2.xml 
+10-29 12:45:59.528  3820  3820 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 12:45:59.529  3820  3820 E cutils-trace: Error opening trace file: No such file or directory (2)
+10-29 12:45:59.536  3820  3820 V libnb   : enter native_bridge2_isCompatibleWith 3
+10-29 12:45:59.543  3820  3820 I libnb   : Found /system/lib64/libhoudini.so version 3
+10-29 12:45:59.553  3820  3820 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:45:59.554  3820  3820 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:45:59.554  3820  3820 W app_process: Could not create mount namespace.
+10-29 12:45:59.554  3820  3820 D nativebridge: PreInitializeNativeBridge name=unknown instruction_set=x86_64
+10-29 12:45:59.554  3820  3820 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: No such file or directory
+10-29 12:45:59.554  3820  3820 W nativebridge: Failed to bind-mount /system/lib64/x86_64/cpuinfo as /proc/cpuinfo: Operation not permitted
+10-29 12:45:59.554  3820  3820 D nativebridge: call UnloadNativeBridge! state=2
+10-29 12:45:59.560  3820  3820 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-29 12:45:59.566  1589  1589 V SettingsProvider: Notifying for 0: content://settings/secure/accessibility_enabled
+10-29 12:46:00.576  1443  1482 D EmuHWC2 : sent 24 syncs in 60s
+10-29 12:46:00.590  3820  3820 W AccessibilityNodeInfoDumper: Fetch time: 2ms
+10-29 12:46:00.590  1589  1601 W WindowManager: removeWindowToken: Attempted to remove non-existing token: android.os.Binder@2159af1
+10-29 12:46:00.590  1589  1589 V SettingsProvider: Notifying for 0: content://settings/secure/accessibility_enabled
+10-29 12:46:00.600  3820  3820 D AndroidRuntime: Shutting down VM
+10-29 12:46:00.784  3785  3837 D ProfileInstaller: Installing profile for com.iceflow
+10-29 12:46:01.614  1452  1452 I ldinit  : type=1400 audit(0.0:863): avc: denied { read } for name="partitions" dev="proc" ino=4026532046 scontext=u:r:ldinit:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=1
+10-29 12:46:01.614  1452  1452 I ldinit  : type=1400 audit(0.0:864): avc: denied { open } for path="/proc/partitions" dev="proc" ino=4026532046 scontext=u:r:ldinit:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=1
+10-29 12:46:01.614  1452  1452 I ldinit  : type=1400 audit(0.0:865): avc: denied { getattr } for path="/proc/partitions" dev="proc" ino=4026532046 scontext=u:r:ldinit:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=1
+10-29 12:46:18.774  1444  1444 I health@2.0-serv: type=1400 audit(0.0:866): avc: denied { read } for scontext=u:r:init:s0 tcontext=u:r:init:s0 tclass=netlink_kobject_uevent_socket permissive=1
+10-29 12:46:20.051  1589  1596 W System  : A resource failed to call close. 
+10-29 12:46:31.940  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:46:20.052  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 17 lines
+10-29 12:46:20.052  1589  1596 W System  : A resource failed to call close. 
+10-29 12:46:31.937  1470  1470 I storaged: type=1400 audit(0.0:867): avc: denied { call } for scontext=u:r:storaged:s0 tcontext=u:r:init:s0 tclass=binder permissive=1
+10-29 12:46:42.521  3840  3840 I appproc : app_process main with argv: /system/bin com.android.commands.input.Input tap 720 2065 
+10-29 12:46:42.521  3840  3840 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 12:46:42.522  3840  3840 E cutils-trace: Error opening trace file: No such file or directory (2)
+10-29 12:46:42.529  3840  3840 V libnb   : enter native_bridge2_isCompatibleWith 3
+10-29 12:46:42.535  3840  3840 I libnb   : Found /system/lib64/libhoudini.so version 3
+10-29 12:46:42.540  3840  3840 I main    : type=1400 audit(0.0:868): avc: denied { mounton } for path="/proc/cpuinfo" dev="proc" ino=4026531992 scontext=u:r:shell:s0 tcontext=u:object_r:proc_cpuinfo:s0 tclass=file permissive=1
+10-29 12:46:42.546  3840  3840 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:46:42.546  3840  3840 W app_process: Could not create mount namespace.
+10-29 12:46:42.546  3840  3840 D nativebridge: PreInitializeNativeBridge name=unknown instruction_set=x86_64
+10-29 12:46:42.546  3840  3840 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: No such file or directory
+10-29 12:46:42.546  3840  3840 W nativebridge: Failed to bind-mount /system/lib64/x86_64/cpuinfo as /proc/cpuinfo: Operation not permitted
+10-29 12:46:42.546  3840  3840 D nativebridge: call UnloadNativeBridge! state=2
+10-29 12:46:42.552  3840  3840 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-29 12:46:42.554  3840  3840 I Input   : injectMotionEvent: MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=720.0, y[0]=2065.0, toolType[0]=TOOL_TYPE_UNKNOWN, buttonState=0, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=5172838, downTime=5172838, deviceId=3, source=0x1002 }
+10-29 12:46:42.566  3840  3840 I Input   : injectMotionEvent: MotionEvent { action=ACTION_UP, actionButton=0, id[0]=0, x[0]=720.0, y[0]=2065.0, toolType[0]=TOOL_TYPE_UNKNOWN, buttonState=0, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=5172838, downTime=5172838, deviceId=3, source=0x1002 }
+10-29 12:46:42.570  1455  1455 I surfaceflinger: type=1400 audit(0.0:869): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:46:42.570  1455  1455 I surfaceflinger: type=1400 audit(0.0:870): avc: denied { read write } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:hal_graphics_composer_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:46:42.576  3785  3785 W com.iceflow: Accessing hidden method Landroid/content/Context;->getOpPackageName()Ljava/lang/String; (light greylist, linking)
+10-29 12:46:42.576  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:46:42.576  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:46:42.577  3840  3840 D AndroidRuntime: Shutting down VM
+10-29 12:46:42.580  1443  1443 I composer@2.1-se: type=1400 audit(0.0:871): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:hal_graphics_composer_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:46:42.589  3785  3785 I IceFlowVpnService: [TIMING] service.onCreate
+10-29 12:46:42.602  3785  3785 I IceFlowVpnService: [TIMING] service.onStartCommand action=com.iceflow.action.START
+10-29 12:46:42.604  3785  3811 I IceFlowVpnService: [CMD] Available(network=100)  desiredRunning=false state=Idle
+10-29 12:46:42.609  1589  1604 D NotificationService: notify pkg=com.iceflow pid=1589
+10-29 12:46:42.609  3785  3811 I IceFlowVpnService: [CMD] Start  desiredRunning=false state=Idle
+10-29 12:46:42.628  1589  1596 W System  : A resource failed to call close. 
+10-29 12:46:42.628  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 16 lines
+10-29 12:46:42.628  1589  1596 W System  : A resource failed to call close. 
+10-29 12:46:42.631  1589  1604 D NotificationService: notify pkg=com.iceflow pid=1589
+10-29 12:46:42.632  3785  3811 I IceFlowVpnService: [TIMING] foreground: 3ms
+10-29 12:46:42.644  3785  3785 I DefaultDispatch: type=1400 audit(0.0:872): avc: denied { read } for name="hugepages" dev="sysfs" ino=2260 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:sysfs:s0 tclass=dir permissive=1
+10-29 12:46:42.644  3785  3785 I DefaultDispatch: type=1400 audit(0.0:873): avc: denied { open } for path="/sys/kernel/mm/hugepages" dev="sysfs" ino=2260 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:sysfs:s0 tclass=dir permissive=1
+10-29 12:46:42.657  3785  3811 I IceFlowVpnService: [TIMING] routingResources.prepare: 29ms
+10-29 12:46:42.658  3785  3811 I IceFlowVpnService: [TIMING] validate+readSettings: 29ms
+10-29 12:46:42.658  3785  3811 I IceFlowVpnService: [TIMING] config.generate: 30ms
+10-29 12:46:42.662  3785  3856 I GoLog   : time="2026-10-29T04:46:42.661911321Z" level=info msg="Start initial configuration in progress"
+10-29 12:46:42.662  3785  3856 I GoLog   : time="2026-10-29T04:46:42.662339838Z" level=info msg="Geodata Loader mode: memconservative"
+10-29 12:46:42.662  3785  3855 I GoLog   : time="2026-10-29T04:46:42.662545639Z" level=info msg="Geosite Matcher implementation: succinct"
+10-29 12:46:42.662  3785  3855 I GoLog   : time="2026-10-29T04:46:42.662883968Z" level=info msg="Load GeoSite rule: cn"
+10-29 12:46:42.675  3785  3793 I com.iceflow: JIT allocated 128KB for stack maps of void com.iceflow.ui.IceFlowRootKt.WorkbenchPage(com.iceflow.service.VpnState, com.iceflow.service.TrafficSnapshot, com.iceflow.data.model.ServerStore, java.lang.String, com.iceflow.ui.PublicIpState, boolean, boolean, boolean, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, com.iceflow.ui.NodeTestState, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function2, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function2, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, java.lang.String, com.iceflow.ui.ConnectionTestState, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, com.iceflow.ui.BulkTestState, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function2, boole
+10-29 12:46:42.856  3785  3855 I GoLog   : time="2026-10-29T04:46:42.856314907Z" level=info msg="Finished initial GeoSite rule cn => DIRECT, records: 110526"
+10-29 12:46:42.856  3785  3855 I GoLog   : time="2026-10-29T04:46:42.856469472Z" level=info msg="Load GeoIP rule: cn"
+10-29 12:46:42.870  3785  3855 I GoLog   : time="2026-10-29T04:46:42.870799528Z" level=info msg="Finished initial GeoIP rule cn => DIRECT, records: 10015"
+10-29 12:46:42.871  3785  3856 I GoLog   : time="2026-10-29T04:46:42.871135122Z" level=info msg="Finished initial GeoSite rule cn => dns.nameserver-policy, records: 110526"
+10-29 12:46:42.871  3785  3856 I GoLog   : time="2026-10-29T04:46:42.871259038Z" level=info msg="Initial configuration complete, total time: 209ms"
+10-29 12:46:42.871  3785  3811 I IceFlowVpnService: [TIMING] buildConfig: 243ms
+10-29 12:46:42.872  3785  3863 I GoLog   : time="2026-10-29T04:46:42.872238798Z" level=info msg="Start initial configuration in progress"
+10-29 12:46:42.872  3785  3863 I GoLog   : time="2026-10-29T04:46:42.872961108Z" level=info msg="Geodata Loader mode: memconservative"
+10-29 12:46:42.872  3785  3863 I GoLog   : time="2026-10-29T04:46:42.872973776Z" level=info msg="Geosite Matcher implementation: succinct"
+10-29 12:46:42.873  3785  3863 I GoLog   : time="2026-10-29T04:46:42.873043604Z" level=info msg="Finished initial GeoSite rule cn => DIRECT, records: 110526"
+10-29 12:46:42.873  3785  3863 I GoLog   : time="2026-10-29T04:46:42.873080524Z" level=info msg="Finished initial GeoIP rule cn => DIRECT, records: 10015"
+10-29 12:46:42.873  3785  3856 I GoLog   : time="2026-10-29T04:46:42.873191229Z" level=info msg="Finished initial GeoSite rule cn => dns.nameserver-policy, records: 110526"
+10-29 12:46:42.873  3785  3862 I GoLog   : time="2026-10-29T04:46:42.873212907Z" level=info msg="Initial configuration complete, total time: 0ms"
+10-29 12:46:42.921  3785  3811 I IceFlowVpnService: [TIMING] xray.start: 292ms
+10-29 12:46:42.922  3785  3811 I IceFlowVpnService: [TIMING] vpnBuilder.prepare: 294ms
+10-29 12:46:42.924  1589  1611 I EthernetTracker: interfaceLinkStateChanged, iface: tun0, up: false
+10-29 12:46:42.924  1589  1611 I EthernetTracker: interfaceLinkStateChanged, iface: tun0, up: true
+10-29 12:46:42.924  1589  1715 I EthernetTracker: maybeTrackInterface tun0
+10-29 12:46:42.925  1589  3718 D VpnJni  : Address added on tun0: 172.19.0.1/30
+10-29 12:46:42.925  1589  3718 D VpnJni  : Address added on tun0: fdfe:dcba:9876::1/126
+10-29 12:46:42.925  1589  3718 D Vpn     : setting state=CONNECTING, reason=establish
+10-29 12:46:42.926  1589  3718 D Vpn     : setting state=CONNECTED, reason=agentConnect
+10-29 12:46:42.926  1589  3718 I Vpn     : Established by com.iceflow on tun0
+10-29 12:46:42.927  1424  3766 W DnsTlsSocket: SSL_connect error 5, errno=103
+10-29 12:46:42.927  1424  3768 W DnsTlsSocket: SSL_connect error 5, errno=103
+10-29 12:46:42.927  1424  3768 E DnsTlsSocket: Failed to increment eventfd by -9223372036854775808
+10-29 12:46:42.927  1424  3766 E DnsTlsSocket: Failed to increment eventfd by -9223372036854775808
+10-29 12:46:42.927  1424  1533 I Netd    : Destroyed 4 sockets for UidRanges{ 0-10063 10065-99999 } skip={1016 10064} in 0.2 ms
+10-29 12:46:42.927  1424  3767 W DnsTlsSocket: SSL_connect error 5, errno=103
+10-29 12:46:42.927  1424  3767 E DnsTlsSocket: Failed to increment eventfd by -9223372036854775808
+10-29 12:46:42.927  3785  3811 I IceFlowVpnService: [TIMING] vpn.establish: 298ms
+10-29 12:46:42.928  1589  1686 D DnsManager: setDnsConfigurationForNetwork(103, [1.1.1.1, 119.29.29.29, 114.114.114.114], [], [1800, 25, 8, 64], , [])
+10-29 12:46:42.929  3785  3811 I IceFlowVpnService: [TIMING] rust.startTun: 301ms
+10-29 12:46:42.931  1589  3008 D NotificationService: notify pkg=com.iceflow pid=1589
+10-29 12:46:42.931  3785  3811 I IceFlowVpnService: VPN started: R1-WireGuard-real-fixture
+10-29 12:46:42.932  3785  3811 I IceFlowVpnService: [TIMING] end-to-end from click: 356ms
+10-29 12:46:42.948  1589  3877 D NetworkMonitor/NetworkAgentInfo [VPN () - 103]: Network would not satisfy default request, not validating
+10-29 12:46:42.949  1589  1907 D NetworkTimeUpdateService: New default network 103; checking time.
+10-29 12:46:42.958  3785  3785 I IceFlowUi: [TIMING] UI 观察到已连接：383 ms
+10-29 12:46:42.963  1589  1703 I GnssLocationProvider: WakeLock acquired by sendMessage(UPDATE_NETWORK_STATE, 0, 103)
+10-29 12:46:42.972  1589  1603 I GnssLocationProvider: WakeLock released by handleMessage(UPDATE_NETWORK_STATE, 0, 103)
+10-29 12:46:42.981  1589  1686 D DnsManager: setDnsConfigurationForNetwork(103, [1.1.1.1, 119.29.29.29, 114.114.114.114], [], [1800, 25, 8, 64], , [])
+10-29 12:46:42.999  1589  1596 W System  : A resource failed to call close. 
+10-29 12:46:42.999  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 14 lines
+10-29 12:46:42.999  1589  1596 W System  : A resource failed to call close. 
+10-29 12:46:43.007  3785  3793 I com.iceflow: JIT allocated 95KB for stack maps of void com.iceflow.ui.IceFlowRootKt.IceFlowRoot(com.iceflow.ui.MainViewModel, kotlin.jvm.functions.Function0, boolean, kotlin.jvm.functions.Function0, androidx.compose.runtime.Composer, int, int)
+10-29 12:46:43.008  3785  3793 I com.iceflow: Compiler allocated 9MB to compile void com.iceflow.ui.IceFlowRootKt.IceFlowRoot(com.iceflow.ui.MainViewModel, kotlin.jvm.functions.Function0, boolean, kotlin.jvm.functions.Function0, androidx.compose.runtime.Composer, int, int)
+10-29 12:46:43.955  3785  3793 I com.iceflow: Compiler allocated 4MB to compile kotlin.Unit com.iceflow.ui.IceFlowRootKt.IceFlowRoot$lambda$59$0$12(kotlin.jvm.functions.Function0, com.iceflow.ui.MainViewModel, android.content.Context, androidx.compose.runtime.MutableState, androidx.compose.runtime.MutableState, androidx.compose.runtime.MutableState, androidx.compose.runtime.State, androidx.compose.runtime.MutableIntState, androidx.compose.runtime.MutableState, androidx.compose.runtime.MutableState, androidx.compose.runtime.MutableState, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.MutableState, androidx.compose.runtime.MutableState, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.State, androidx.compose.runtime.MutableState, androidx.compose.runtime.State, androidx.compose.runtime.MutableState, androidx.compose.a
+10-29 12:46:44.734  3881  3881 I appproc : app_process main with argv: /system/bin com.android.commands.uiautomator.Launcher dump /sdcard/wg-r1-after-tap.xml 
+10-29 12:46:44.734  3881  3881 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 12:46:44.735  3881  3881 E cutils-trace: Error opening trace file: No such file or directory (2)
+10-29 12:46:44.741  3881  3881 V libnb   : enter native_bridge2_isCompatibleWith 3
+10-29 12:46:44.748  3881  3881 I libnb   : Found /system/lib64/libhoudini.so version 3
+10-29 12:46:44.754  3881  3881 I main    : type=1400 audit(0.0:881): avc: denied { open } for path="/data/local/cfg-gazie/app_xpt" dev="sdb2" ino=393691 scontext=u:r:shell:s0 tcontext=u:object_r:system_data_file:s0 tclass=file permissive=1
+10-29 12:46:44.758  3881  3881 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:46:44.759  3881  3881 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:46:44.759  3881  3881 W app_process: Could not create mount namespace.
+10-29 12:46:44.759  3881  3881 D nativebridge: PreInitializeNativeBridge name=unknown instruction_set=x86_64
+10-29 12:46:44.759  3881  3881 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: No such file or directory
+10-29 12:46:44.759  3881  3881 W nativebridge: Failed to bind-mount /system/lib64/x86_64/cpuinfo as /proc/cpuinfo: Operation not permitted
+10-29 12:46:44.759  3881  3881 D nativebridge: call UnloadNativeBridge! state=2
+10-29 12:46:44.766  3881  3881 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-29 12:46:44.780  1589  1589 V SettingsProvider: Notifying for 0: content://settings/secure/accessibility_enabled
+10-29 12:46:46.074  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/View;->getAccessibilityViewId()I (light greylist, reflection)
+10-29 12:46:46.079  3881  3881 W AccessibilityNodeInfoDumper: Fetch time: 6ms
+10-29 12:46:46.079  1589  3008 W WindowManager: removeWindowToken: Attempted to remove non-existing token: android.os.Binder@be41b5e
+10-29 12:46:46.079  1589  1589 V SettingsProvider: Notifying for 0: content://settings/secure/accessibility_enabled
+10-29 12:46:46.087  3881  3881 D AndroidRuntime: Shutting down VM
+10-29 12:46:59.004  3785  3793 I com.iceflow: JIT allocated 51KB for stack maps of void com.iceflow.ui.IceFlowRootKt.NodeRow(com.iceflow.data.model.ServerProfile, java.util.List, boolean, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, androidx.compose.ui.Modifier, boolean, boolean, androidx.compose.runtime.Composer, int, int, int)
+10-29 12:46:59.005  3785  3793 I com.iceflow: Compiler allocated 4MB to compile void com.iceflow.ui.IceFlowRootKt.NodeRow(com.iceflow.data.model.ServerProfile, java.util.List, boolean, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function0, androidx.compose.ui.Modifier, boolean, boolean, androidx.compose.runtime.Composer, int, int, int)
+10-29 12:46:59.995  1443  1482 D EmuHWC2 : sent 102 syncs in 60s
+10-29 12:46:59.999  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:46:59.999  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:47:11.786  1471  1471 W wificond: Scan already started
+10-29 12:47:12.788  1589  3008 D WificondControl: Scan result ready event
+10-29 12:47:18.242  1589  1596 W System  : A resource failed to call close. 
+10-29 12:47:31.942  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:47:40.132  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 44 lines
+10-29 12:47:40.132  1589  1596 W System  : A resource failed to call close. 
+10-29 12:48:00.002  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:48:00.002  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:48:00.005  1443  1482 D EmuHWC2 : sent 360 syncs in 60s
+10-29 12:48:08.910  1444  1444 I health@2.0-serv: type=1400 audit(0.0:882): avc: denied { read } for scontext=u:r:init:s0 tcontext=u:r:init:s0 tclass=netlink_kobject_uevent_socket permissive=1
+10-29 12:48:18.315  1589  1596 W System  : A resource failed to call close. 
+10-29 12:48:31.946  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:48:40.181  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 34 lines
+10-29 12:48:40.181  1589  1596 W System  : A resource failed to call close. 
+10-29 12:49:00.005  1443  1482 D EmuHWC2 : sent 360 syncs in 60s
+10-29 12:49:18.392  1589  1596 W System  : A resource failed to call close. 
+10-29 12:49:31.947  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:49:40.255  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 36 lines
+10-29 12:49:40.255  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:00.000  1734  1734 I RenderThread: type=1400 audit(0.0:883): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:platform_app:s0:c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:50:00.000  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:50:00.000  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:50:00.005  1443  1482 D EmuHWC2 : sent 360 syncs in 60s
+10-29 12:50:18.451  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:29.730  1589  1608 E BatteryExternalStatsWorker: no controller energy info supplied for wifi
+10-29 12:50:29.735  1589  1608 E BatteryExternalStatsWorker: no controller energy info supplied for bluetooth
+10-29 12:50:18.451  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 15 lines
+10-29 12:50:18.451  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:29.744  1473  1473 E VSoCRil : Request 135 not supported.
+10-29 12:50:29.749  1589  1608 W KernelCpuProcReader: File not exist: /proc/uid_cpupower/concurrent_active_time
+10-29 12:50:29.749  1589  1608 W KernelCpuProcReader: File not exist: /proc/uid_cpupower/concurrent_policy_time
+10-29 12:50:29.749  1589  1608 E KernelCpuSpeedReader: Failed to read cpu-freq: /sys/devices/system/cpu/cpu0/cpufreq/stats/time_in_state (No such file or directory)
+10-29 12:50:29.749  1589  1608 E KernelWakelockReader: neither /proc/wakelocks nor /d/wakeup_sources exists
+10-29 12:50:29.752  1589  1608 W BatteryStatsImpl: Couldn't get kernel wake lock stats
+10-29 12:50:29.753  1589  1608 W BatteryExternalStatsWorker: modem info is invalid: ModemActivityInfo{ mTimestamp=0 mSleepTimeMs=0 mIdleTimeMs=0 mTxTimeMs[]=[0, 0, 0, 0, 0] mRxTimeMs=0 mEnergyUsed=0}
+10-29 12:50:30.487  3785  3785 I RenderThread: type=1400 audit(0.0:884): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:50:31.773  1471  1471 W wificond: Scan already started
+10-29 12:50:31.947  1470  1470 I storaged: type=1400 audit(0.0:885): avc: denied { call } for scontext=u:r:storaged:s0 tcontext=u:r:init:s0 tclass=binder permissive=1
+10-29 12:50:31.949  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:50:32.641  1589  1969 D DhcpClient: Unicasting DHCPREQUEST ciaddr=172.16.1.4 request=0.0.0.0 serverid=null to /172.16.1.3:67
+10-29 12:50:32.647  1589  2021 D DhcpClient: Received packet: 00:db:18:5b:b7:2d ACK: your new IP /172.16.1.4, netmask /255.255.255.0, gateways [/172.16.1.1] DNS servers: /218.85.152.99 /218.85.157.99 , lease time 600
+10-29 12:50:32.647  1589  1969 D DhcpClient: Renewed lease: IP address 172.16.1.4/24 Gateway 172.16.1.1  DNS servers: [ 218.85.152.99 218.85.157.99 ] Domains  DHCP server /172.16.1.3 Vendor info null lease 600 seconds
+10-29 12:50:32.648  1589  1969 D DhcpClient: Scheduling renewal in 300s
+10-29 12:50:32.648  1589  1969 D DhcpClient: Scheduling rebind in 525s
+10-29 12:50:32.648  1589  1969 D DhcpClient: Scheduling expiry in 600s
+10-29 12:50:32.648  1589  1686 D DnsManager: setDnsConfigurationForNetwork(100, [218.85.152.99, 218.85.157.99, 119.29.29.29], [], [1800, 25, 8, 64], , [218.85.152.99, 218.85.157.99, 119.29.29.29])
+10-29 12:50:32.701  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:32.701  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 15 lines
+10-29 12:50:32.701  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:32.776  1589  3373 D WificondControl: Scan result ready event
+10-29 12:50:32.784  1721  1721 I hci_thread: type=1400 audit(0.0:886): avc: denied { call } for scontext=u:r:bluetooth:s0 tcontext=u:r:init:s0 tclass=binder permissive=1
+10-29 12:50:32.784  1433  1433 I bluetooth@1.0-s: type=1400 audit(0.0:887): avc: denied { call } for scontext=u:r:init:s0 tcontext=u:r:bluetooth:s0 tclass=binder permissive=1
+10-29 12:50:32.785  1433  2018 I dual_mode_controller: Command opcode: 0x2018, OGF: 0x0008, OCF: 0x0018
+10-29 12:50:32.786  1433  2018 I dual_mode_controller: Command opcode: 0x2005, OGF: 0x0008, OCF: 0x0005
+10-29 12:50:32.786  1433  2018 I dual_mode_controller: Controller performing command: LE SetRandomAddress
+10-29 12:50:51.674  1452  1452 I ldinit  : type=1400 audit(0.0:888): avc: denied { read } for name="partitions" dev="proc" ino=4026532046 scontext=u:r:ldinit:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=1
+10-29 12:50:51.674  1452  1452 I ldinit  : type=1400 audit(0.0:889): avc: denied { open } for path="/proc/partitions" dev="proc" ino=4026532046 scontext=u:r:ldinit:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=1
+10-29 12:50:51.674  1452  1452 I ldinit  : type=1400 audit(0.0:890): avc: denied { getattr } for path="/proc/partitions" dev="proc" ino=4026532046 scontext=u:r:ldinit:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=1
+10-29 12:50:58.483  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:58.483  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 15 lines
+10-29 12:50:58.483  1589  1596 W System  : A resource failed to call close. 
+10-29 12:50:58.584  1443  1443 I composer@2.1-se: type=1400 audit(0.0:891): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:hal_graphics_composer_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:00.592  1443  1482 D EmuHWC2 : sent 360 syncs in 60s
+10-29 12:51:20.377  1589  1596 W System  : A resource failed to call close. 
+10-29 12:51:20.377  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 19 lines
+10-29 12:51:20.377  1589  1596 W System  : A resource failed to call close. 
+10-29 12:51:20.544  1589  1589 I system_server: type=1400 audit(0.0:892): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6865 scontext=u:r:system_server:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:20.544  1589  1589 I InputDispatcher: type=1400 audit(0.0:893): avc: denied { call } for scontext=u:r:system_server:s0 tcontext=u:r:init:s0 tclass=binder permissive=1
+10-29 12:51:20.639  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:20.639  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:20.640  3785  3811 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:20.640  3785  3811 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:20.640  3785  3811 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:20.640  3785  3811 E MainViewModel: 	... 9 more
+10-29 12:51:20.640  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=0ms
+10-29 12:51:21.324  1442  1442 I allocator@2.0-s: type=1400 audit(0.0:894): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6867 scontext=u:r:hal_graphics_allocator_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.324  1442  1442 I allocator@2.0-s: type=1400 audit(0.0:895): avc: denied { read write } for name="fastpipe" dev="tmpfs" ino=3122 scontext=u:r:hal_graphics_allocator_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.324  1442  1442 I allocator@2.0-s: type=1400 audit(0.0:896): avc: denied { open } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:hal_graphics_allocator_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.324  1442  1442 I allocator@2.0-s: type=1400 audit(0.0:897): avc: denied { read write } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.324  1455  1455 I Binder:1455_5: type=1400 audit(0.0:898): avc: denied { getattr } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:surfaceflinger:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.324  1455  1455 I Binder:1455_5: type=1400 audit(0.0:899): avc: denied { read write } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:system_server:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.324  1589  1589 I android.display: type=1400 audit(0.0:900): avc: denied { open } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:system_server:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:21.328  1589  1613 I         : fastpipe: Connect success
+10-29 12:51:21.329  1589  1613 D HostConnection: HostRPC::connect sucess: app=system_server, pid=1589, tid=1613, this=0x76387500dd80
+10-29 12:51:21.329  1589  1613 D HostConnection: queryAndSetGLESMaxVersion select gles-version: 3.1 hostGLVersion:46 process:system_server
+10-29 12:51:21.441  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:21.441  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:21.442  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.442  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:21.442  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:21.442  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:21.451  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=10ms
+10-29 12:51:21.803  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:21.803  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:21.804  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.804  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:21.804  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:21.804  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:21.808  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=5ms
+10-29 12:51:21.980  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:21.980  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:21.981  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.981  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:21.981  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:21.981  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:21.988  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=8ms
+10-29 12:51:22.148  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:22.148  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:22.149  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.149  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:22.149  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:22.149  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:22.149  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=1ms
+10-29 12:51:22.305  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:22.305  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:22.305  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.305  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:22.305  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:22.305  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:22.305  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=0ms
+10-29 12:51:22.465  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:22.466  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:22.466  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.466  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:22.466  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:22.466  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:22.471  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=5ms
+10-29 12:51:22.621  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:22.621  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:22.622  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.622  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:22.622  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:22.622  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:22.627  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=6ms
+10-29 12:51:22.788  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:22.788  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:22.789  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.789  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:22.789  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:22.789  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:22.789  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=0ms
+10-29 12:51:22.962  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:51:22.962  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:51:22.962  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.962  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:51:22.962  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:51:22.962  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:51:22.962  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=0ms
+10-29 12:51:31.867  2163  2163 I Thread-3: type=1400 audit(0.0:902): avc: denied { ioctl } for path="/dev/fastpipe" dev="tmpfs" ino=3122 ioctlcmd=6865 scontext=u:r:system_app:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:31.950  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:51:32.000  1455  1455 I Binder:1455_5: type=1400 audit(0.0:903): avc: denied { read write } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:untrusted_app:s0:c64,c256,c512,c768 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:32.012  3785  3815 E EGL_emulation: tid 3815: eglSurfaceAttrib(1504): error 0x3009 (EGL_BAD_MATCH)
+10-29 12:51:32.012  3785  3815 W OpenGLRenderer: Failed to set EGL_SWAP_BEHAVIOR on surface 0x76388bde7700, error=EGL_BAD_MATCH
+10-29 12:51:32.034  1455  1455 I surfaceflinger: type=1400 audit(0.0:904): avc: denied { read write } for path="/dev/fastpipe" dev="tmpfs" ino=3122 scontext=u:r:hal_graphics_composer_default:s0 tcontext=u:object_r:device:s0 tclass=chr_file permissive=1
+10-29 12:51:32.036  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:70 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:51:32.699  3785  3793 I com.iceflow: JIT allocated 104KB for stack maps of void com.iceflow.ui.NodeEditorPageKt.NodeEditorPage(com.iceflow.data.model.ServerProfile, boolean, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, androidx.compose.runtime.Composer, int)
+10-29 12:51:32.700  3785  3793 I com.iceflow: JIT allocated 54KB for compiled code of void com.iceflow.ui.NodeEditorPageKt.NodeEditorPage(com.iceflow.data.model.ServerProfile, boolean, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, androidx.compose.runtime.Composer, int)
+10-29 12:51:32.700  3785  3793 I com.iceflow: Compiler allocated 11MB to compile void com.iceflow.ui.NodeEditorPageKt.NodeEditorPage(com.iceflow.data.model.ServerProfile, boolean, kotlin.jvm.functions.Function0, kotlin.jvm.functions.Function1, androidx.compose.runtime.Composer, int)
+10-29 12:51:32.757  3785  3785 I Choreographer: Skipped 33 frames!  The application may be doing too much work on its main thread.
+10-29 12:51:33.365  3785  3785 W com.iceflow: Accessing hidden method Landroid/view/ViewTreeObserver;->dispatchOnScrollChanged()V (light greylist, reflection)
+10-29 12:51:38.543  1589  1596 W System  : A resource failed to call close. 
+10-29 12:51:38.544  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 18 lines
+10-29 12:51:38.544  1589  1596 W System  : A resource failed to call close. 
+10-29 12:52:00.005  1443  1482 D EmuHWC2 : sent 264 syncs in 60s
+10-29 12:52:00.430  1589  1596 W System  : A resource failed to call close. 
+10-29 12:52:00.430  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 14 lines
+10-29 12:52:00.430  1589  1596 W System  : A resource failed to call close. 
+10-29 12:52:31.371  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:52:31.371  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:52:31.372  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:52:31.372  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:52:31.372  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:52:31.372  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:52:31.376  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=5ms
+10-29 12:51:32.765  2163  2163 W ContextImpl: Calling a method in the system process without a qualified user: android.app.ContextImpl.startService:1531 android.content.ContextWrapper.startService:664 android.content.ContextWrapper.startService:664 com.android.coreservice.CoreBroadcastReceiver.onReceive:70 android.app.ActivityThread.handleReceiver:3424 
+10-29 12:52:31.951  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:52:38.591  1589  1596 W System  : A resource failed to call close. 
+10-29 12:52:38.591  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 16 lines
+10-29 12:52:38.591  1589  1596 W System  : A resource failed to call close. 
+10-29 12:52:40.004  1424  3928 W DnsTlsSocket: SSL_connect error 5, errno=110
+10-29 12:52:40.004  1424  3930 W DnsTlsSocket: SSL_connect error 5, errno=110
+10-29 12:52:40.004  1424  3930 E DnsTlsSocket: Failed to increment eventfd by -9223372036854775808
+10-29 12:52:40.004  1424  3928 E DnsTlsSocket: Failed to increment eventfd by -9223372036854775808
+10-29 12:52:40.004  1424  3929 W DnsTlsSocket: SSL_connect error 5, errno=110
+10-29 12:52:40.004  1424  3929 E DnsTlsSocket: Failed to increment eventfd by -9223372036854775808
+10-29 12:53:00.002  1589  1603 E memtrack: Couldn't load memtrack module
+10-29 12:53:00.002  1589  1603 W android.os.Debug: failed to get memory consumption info: -1
+10-29 12:53:00.530  1443  1482 D EmuHWC2 : sent 360 syncs in 60s
+10-29 12:53:05.666  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:53:05.666  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:53:05.667  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:53:05.667  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:53:05.667  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:53:05.667  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:53:05.667  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=1ms
+10-29 12:53:06.203  3785  3785 I ConnectionPanel: 点击测速: connected=true, testing=false
+10-29 12:53:06.203  3785  3785 I MainViewModel: testRunningConnection: 开始测速节点 R1-WireGuard-real-fixture, testUrl=https://www.google.com/generate_204
+10-29 12:53:06.204  3785  3813 E MainViewModel: 测速失败: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:53:06.204  3785  3813 E MainViewModel: java.io.IOException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:148)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at com.iceflow.ui.MainViewModel$testRunningConnection$1$latency$1.invokeSuspend(MainViewModel.kt:192)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+10-29 12:53:06.204  3785  3813 E MainViewModel: Caused by: java.lang.IllegalStateException: 未集成 xray-core（缺少 app/libs/xray.aar）
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.call(XrayBridge.kt:81)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at com.iceflow.core.XrayBridge.measureSocksDelay(XrayBridge.kt:70)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	at com.iceflow.core.ConnectionProbe.measure(ConnectionProbe.kt:146)
+10-29 12:53:06.204  3785  3813 E MainViewModel: 	... 9 more
+10-29 12:53:06.210  3785  3785 I MainViewModel: testRunningConnection: 测速完成, latency=-1ms, 耗时=6ms
+10-29 12:53:11.778  1471  1471 W wificond: Scan already started
+10-29 12:53:12.780  1589  3373 D WificondControl: Scan result ready event
+10-29 12:53:18.631  1589  1596 W System  : A resource failed to call close. 
+10-29 12:53:31.952  1470  1515 E storaged: getDiskStats failed with result NOT_SUPPORTED and size 0
+10-29 12:53:18.631  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 16 lines
+10-29 12:53:18.631  1589  1596 W System  : A resource failed to call close. 
+10-29 12:53:35.502  3956  3956 I appproc : app_process main with argv: /system/bin com.android.commands.input.Input tap 720 2065 
+10-29 12:53:35.502  3956  3956 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 12:53:35.504  3956  3956 E cutils-trace: Error opening trace file: No such file or directory (2)
+10-29 12:53:35.512  3956  3956 V libnb   : enter native_bridge2_isCompatibleWith 3
+10-29 12:53:35.521  3956  3956 I libnb   : Found /system/lib64/libhoudini.so version 3
+10-29 12:53:35.534  3956  3956 I main    : type=1400 audit(0.0:905): avc: denied { mounton } for path="/proc/cpuinfo" dev="proc" ino=4026531992 scontext=u:r:shell:s0 tcontext=u:object_r:proc_cpuinfo:s0 tclass=file permissive=1
+10-29 12:53:35.539  3956  3956 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:53:35.539  3956  3956 W app_process: Could not create mount namespace.
+10-29 12:53:35.539  3956  3956 D nativebridge: PreInitializeNativeBridge name=unknown instruction_set=x86_64
+10-29 12:53:35.539  3956  3956 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: No such file or directory
+10-29 12:53:35.539  3956  3956 W nativebridge: Failed to bind-mount /system/lib64/x86_64/cpuinfo as /proc/cpuinfo: Operation not permitted
+10-29 12:53:35.539  3956  3956 D nativebridge: call UnloadNativeBridge! state=2
+10-29 12:53:35.550  3956  3956 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-29 12:53:35.551  3956  3956 I Input   : injectMotionEvent: MotionEvent { action=ACTION_DOWN, actionButton=0, id[0]=0, x[0]=720.0, y[0]=2065.0, toolType[0]=TOOL_TYPE_UNKNOWN, buttonState=0, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=5585835, downTime=5585835, deviceId=3, source=0x1002 }
+10-29 12:53:35.559  3956  3956 I Input   : injectMotionEvent: MotionEvent { action=ACTION_UP, actionButton=0, id[0]=0, x[0]=720.0, y[0]=2065.0, toolType[0]=TOOL_TYPE_UNKNOWN, buttonState=0, metaState=0, flags=0x0, edgeFlags=0x0, pointerCount=1, historySize=0, eventTime=5585835, downTime=5585835, deviceId=3, source=0x1002 }
+10-29 12:53:35.568  3956  3956 D AndroidRuntime: Shutting down VM
+10-29 12:53:35.570  1589  1589 I android.fg: type=1400 audit(0.0:906): avc: denied { sys_module } for capability=16 scontext=u:r:system_server:s0 tcontext=u:r:system_server:s0 tclass=capability permissive=1
+10-29 12:53:35.570  3785  3785 I IceFlowVpnService: [TIMING] service.onStartCommand action=com.iceflow.action.STOP
+10-29 12:53:35.570  3785  3813 I IceFlowVpnService: [CMD] Stop(startId=2)  desiredRunning=true state=Connected(serverName=R1-WireGuard-real-fixture, since=1793249202930, socksPort=35955, tunnelUser=cb7ebb1c-7a26-41, tunnelPass=fceac662-8b25-4f52-b345-ded0f5cac401)
+10-29 12:53:35.572  1589  3373 D NotificationService: notify pkg=com.iceflow pid=1589
+10-29 12:53:35.574  3785  3862 I GoLog   : time="2026-10-29T04:53:35.574254622Z" level=warning msg="Mihomo shutting down"
+10-29 12:53:35.574  1589  1611 I EthernetTracker: interfaceLinkStateChanged, iface: tun0, up: false
+10-29 12:53:35.575  1424  1518 D NetlinkEvent: Unknown ifindex 9 in RTM_DELADDR
+10-29 12:53:35.575  1424  1518 D NetlinkEvent: Unknown ifindex 9 in RTM_DELADDR
+10-29 12:53:35.576  1589  1611 D Vpn     : setting state=DISCONNECTED, reason=agentDisconnect
+10-29 12:53:35.577  1589  1715 D EthernetNetworkFactory: updateCapabilityFilter: []
+10-29 12:53:35.578  1424  1533 I Netd    : Destroyed 1 sockets for UidRanges{ 0-10063 10065-99999 } skip={1016 10064} in 0.2 ms
+10-29 12:53:35.592  1589  1703 I GnssLocationProvider: WakeLock acquired by sendMessage(UPDATE_NETWORK_STATE, 0, 103)
+10-29 12:53:35.592  1589  1603 I GnssLocationProvider: WakeLock released by handleMessage(UPDATE_NETWORK_STATE, 0, 103)
+10-29 12:53:35.594  1381  1381 W auditd  : type=1325 audit(0.0:907): table=mangle family=2 entries=32
+10-29 12:53:35.594  1381  1381 W auditd  : type=1325 audit(0.0:908): table=mangle family=10 entries=31
+10-29 12:53:35.594  1589  1907 D NetworkTimeUpdateService: New default network 100; checking time.
+10-29 12:53:35.598  1424  1424 D TcpSocketMonitor: resuming tcpinfo polling (interval=30000ms)
+10-29 12:53:35.598  1589  1686 D VPN     : NetworkAgent: NetworkAgent channel lost
+10-29 12:53:35.641  1589  1596 W System  : A resource failed to call close. 
+10-29 12:53:35.641  1589  1596 I chatty  : uid=1000(system) FinalizerDaemon identical 20 lines
+10-29 12:53:35.641  1589  1596 W System  : A resource failed to call close. 
+10-29 12:53:35.672  1589  1589 I NotificationService: Cannot find enqueued record for key: 0|com.iceflow|1|null|10064
+10-29 12:53:39.707  3979  3979 I appproc : app_process main with argv: /system/bin com.android.commands.uiautomator.Launcher dump /sdcard/wg-r1-disconnected.xml 
+10-29 12:53:39.707  3979  3979 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 12:53:39.708  3979  3979 E cutils-trace: Error opening trace file: No such file or directory (2)
+10-29 12:53:39.717  3979  3979 V libnb   : enter native_bridge2_isCompatibleWith 3
+10-29 12:53:39.723  3979  3979 I libnb   : Found /system/lib64/libhoudini.so version 3
+10-29 12:53:39.730  3979  3979 I main    : type=1400 audit(0.0:909): avc: denied { open } for path="/data/local/cfg-gazie/app_xpt" dev="sdb2" ino=393691 scontext=u:r:shell:s0 tcontext=u:object_r:system_data_file:s0 tclass=file permissive=1
+10-29 12:53:39.736  3979  3979 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:53:39.736  3979  3979 I app_process: The ClassLoaderContext is a special shared library.
+10-29 12:53:39.736  3979  3979 W app_process: Could not create mount namespace.
+10-29 12:53:39.736  3979  3979 D nativebridge: PreInitializeNativeBridge name=unknown instruction_set=x86_64
+10-29 12:53:39.736  3979  3979 W nativebridge: Failed to bind-mount /data/local/cfg-gazie/ as /proc/cpuinfo: No such file or directory
+10-29 12:53:39.736  3979  3979 W nativebridge: Failed to bind-mount /system/lib64/x86_64/cpuinfo as /proc/cpuinfo: Operation not permitted
+10-29 12:53:39.736  3979  3979 D nativebridge: call UnloadNativeBridge! state=2
+10-29 12:53:39.742  3979  3979 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-29 12:53:39.748  1589  1589 V SettingsProvider: Notifying for 0: content://settings/secure/accessibility_enabled
+10-29 12:53:40.770  3979  3979 W AccessibilityNodeInfoDumper: Fetch time: 2ms
+10-29 12:53:40.770  1589  3373 W WindowManager: removeWindowToken: Attempted to remove non-existing token: android.os.Binder@d0506c
+10-29 12:53:40.770  1589  1589 V SettingsProvider: Notifying for 0: content://settings/secure/accessibility_enabled
+10-29 12:53:40.779  3979  3979 D AndroidRuntime: Shutting down VM

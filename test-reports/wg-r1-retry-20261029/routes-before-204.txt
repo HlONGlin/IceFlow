@@ -1,0 +1,2 @@
+﻿172.16.1.0/24 dev wlan0 proto kernel scope link src 172.16.1.4 
+172.19.0.0/30 dev tun0 proto kernel scope link src 172.19.0.1 

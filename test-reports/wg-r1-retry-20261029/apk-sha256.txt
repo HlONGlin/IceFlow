@@ -1,0 +1,1 @@
+﻿2921D82F485DC7F149CD28FE1C27652841F4B4641D3E34D0408460029F981237  app/build/outputs/apk/single/debug/app-single-x86_64-debug.apk

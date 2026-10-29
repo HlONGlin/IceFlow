@@ -1,0 +1,6 @@
+﻿9: tun0: <POINTOPOINT,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast state UNKNOWN group default qlen 500
+    link/none 
+    inet 172.19.0.1/30 scope global tun0
+       valid_lft forever preferred_lft forever
+    inet6 fdfe:dcba:9876::1/126 scope global 
+       valid_lft forever preferred_lft forever
