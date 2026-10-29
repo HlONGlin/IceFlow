@@ -1,0 +1,16 @@
+﻿
+  NetworkAgentInfo{ ni{[type: VPN[], state: CONNECTED/CONNECTED, reason: agentConnect, extra: (none), failover: false, 
+available: true, roaming: false]}  network{102}  nethandle{441492361229}  lp{{InterfaceName: tun0 LinkAddresses: [172.1
+9.0.1/30,]  Routes: [0.0.0.0/0 -> 0.0.0.0 tun0,::/0 unreachable,172.19.0.0/30 -> 0.0.0.0 tun0,] DnsAddresses: [9.9.9.9,
+119.29.29.29,114.114.114.114,] UsePrivateDns: false PrivateDnsServerName: null Domains:  MTU: 0}}  nc{[ Transports: VPN
+ Capabilities: INTERNET&NOT_RESTRICTED&TRUSTED&VALIDATED&NOT_ROAMING&FOREGROUND&NOT_CONGESTED&NOT_SUSPENDED Unwanted:  
+Uids: <{0-10063, 10065-99999}> EstablishingAppUid: 10064]}  Score{101}  everValidated{true}  lastValidated{true}  creat
+ed{true} lingering{false} explicitlySelected{false} acceptUnvalidated{false} everCaptivePortalDetected{false} lastCapti
+vePortalDetected{false} clat{null} }
+    2026-10-29T11:49:23.031 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T11:49:23.031 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T11:52:49.636 - attempting to remove unknown iface (tun0), ignoring
+    2026-10-29T11:59:14.324 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T11:59:14.324 - tun0 is not a tetherable iface, ignoring
+
+

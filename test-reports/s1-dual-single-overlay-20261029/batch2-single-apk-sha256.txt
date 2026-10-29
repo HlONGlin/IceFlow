@@ -1,0 +1,8 @@
+﻿
+
+Algorithm : SHA256
+Hash      : 28B3C1A0D2E209F0FDF1F190DAED5C8A860DEA24C3F2BDEA41D872CDFDB73617
+Path      : E:\IceFlow-core-variants\app\build\outputs\apk\single\debug\app-single-x86_64-debug.apk
+
+
+

@@ -72,14 +72,43 @@ jobs:
           echo "ICEFLOW_VERSION_NAME=$version" >> "$GITHUB_ENV"
           echo "ICEFLOW_VERSION_CODE=$((major * 10000 + minor * 100 + patch))" >> "$GITHUB_ENV"
 
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest lintDebug
+      - name: Dual unit tests
+        run: ./gradlew testDualDebugUnitTest lintDualDebug
 
-      - name: Build APK
-        run: ./gradlew assembleDebug -Piceflow.versionName="$ICEFLOW_VERSION_NAME" -Piceflow.versionCode="$ICEFLOW_VERSION_CODE"
+      - name: Single unit tests
+        run: ./gradlew testSingleDebugUnitTest lintSingleDebug
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease -Piceflow.versionName="$ICEFLOW_VERSION_NAME" -Piceflow.versionCode="$ICEFLOW_VERSION_CODE"
+      - name: Build debug APKs
+        run: ./gradlew assembleDualDebug assembleSingleDebug
+
+      - name: Build release APKs
+        run: ./gradlew assembleDualRelease assembleSingleRelease -Piceflow.versionName="$ICEFLOW_VERSION_NAME" -Piceflow.versionCode="$ICEFLOW_VERSION_CODE"
+
+      - name: Rename release APKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mkdir -p app/build/outputs/apk/release
+
+          for flavor in dual single; do
+            sources=(app/build/outputs/apk/${flavor}/release/*.apk)
+            if [[ "${#sources[@]}" -ne 4 ]]; then
+              echo "Expected four ${flavor} release APKs, found ${#sources[@]}"
+              exit 1
+            fi
+            for source in "${sources[@]}"; do
+              case "$source" in
+                *arm64-v8a*) abi=arm64-v8a ;;
+                *armeabi-v7a*) abi=armeabi-v7a ;;
+                *x86_64*) abi=x86_64 ;;
+                *universal*) abi=universal ;;
+                *) echo "Cannot determine ABI from $source"; exit 1 ;;
+              esac
+              target="app/build/outputs/apk/release/IceFlow-${ICEFLOW_VERSION_NAME}-${flavor}-${abi}-release.apk"
+              mv "$source" "$target"
+            done
+          done
 
       - name: Enable emulator acceleration
         run: |
@@ -93,12 +122,12 @@ jobs:
           api-level: 35
           arch: x86_64
           disable-animations: true
-          script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.networkToggle=true
+          script: ./gradlew connectedDualDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.networkToggle=true
 
       - uses: actions/upload-artifact@v4
         with:
           name: iceflow-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -111,7 +140,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: iceflow-release
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/IceFlow-*.apk
 
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -119,5 +148,4 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/release/IceFlow-*.apk

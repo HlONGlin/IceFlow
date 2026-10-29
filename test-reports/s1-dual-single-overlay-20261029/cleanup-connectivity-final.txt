@@ -1,0 +1,9 @@
+﻿
+    2026-10-29T11:49:23.031 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T11:49:23.031 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T11:52:49.636 - attempting to remove unknown iface (tun0), ignoring
+    2026-10-29T11:59:14.324 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T11:59:14.324 - tun0 is not a tetherable iface, ignoring
+    2026-10-29T12:02:28.131 - attempting to remove unknown iface (tun0), ignoring
+
+

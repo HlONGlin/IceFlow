@@ -1,0 +1,3 @@
+﻿9bbbedc385c3e7e74158b4bf3eb0fe55eb4a7b153e1c1ac7fd8512789f4cecc2  files/servers.json
+b58bd1dee812dd5e7f8a530659876ebcb1953d293eeeea55b9869a84b52b5113  files/servers.json.bak
+424b85f8b87e00bd39616fee0b3e2132d8ca03e531c3b2193d8be22b311faed7  shared_prefs/settings.xml

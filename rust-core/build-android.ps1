@@ -1,4 +1,4 @@
-# Build Rust into app/src/main/jniLibs/<abi>/libiceflow_core.so on Windows.
+# Build Rust into app/src/dual/jniLibs/<abi>/libiceflow_core.so on Windows.
 # Requires: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 #       cargo install cargo-ndk
 $ErrorActionPreference = 'Stop'
@@ -13,9 +13,9 @@ if (-not $env:ANDROID_NDK_HOME) {
 }
 Write-Host "Using NDK: $env:ANDROID_NDK_HOME"
 
-cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -P 26 -o ..\app\src\main\jniLibs build --release
+cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -P 26 -o ..\app\src\dual\jniLibs build --release
 if ($LASTEXITCODE -ne 0) { throw "cargo ndk failed ($LASTEXITCODE)" }
 
 # tun2proxy is already statically linked; remove its redundant cdylib copies.
-Get-ChildItem ..\app\src\main\jniLibs -Recurse -Filter 'libtun2proxy-*.so' | Remove-Item
+Get-ChildItem ..\app\src\dual\jniLibs -Recurse -Filter 'libtun2proxy-*.so' | Remove-Item
 Write-Host 'Rust core build complete'

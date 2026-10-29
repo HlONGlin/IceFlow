@@ -1,0 +1,22 @@
+{
+  "name": "R1-WireGuard-real-fixture",
+  "type": "wireguard",
+  "server": "<VPS_PUBLIC_IPV4>",
+  "port": 51820,
+  "private-key": "<CLIENT_PRIVATE_KEY_BASE64>",
+  "public-key": "<SERVER_PUBLIC_KEY_BASE64>",
+  "ip": "10.66.66.2/32",
+  "allowed-ips": [
+    "0.0.0.0/0"
+  ],
+  "persistent-keepalive": 25,
+  "g05": {
+    "landing": "explicit peer.allowed-ips",
+    "peer": {
+      "server": "<VPS_PUBLIC_IPV4>",
+      "port": 51820,
+      "public-key": "<SERVER_PUBLIC_KEY_BASE64>",
+      "allowed-ips": ["0.0.0.0/0"]
+    }
+  }
+}
