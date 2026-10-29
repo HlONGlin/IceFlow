@@ -1,0 +1,8 @@
+﻿adb.exe : test-reports\s1-dual-single-overlay-20261029\servers.json: 1 file pushed, 0 skipped. 18.2 MB/s (2996 bytes in
+ 0.000s)
+所在位置 行:2 字符: 254
++ ... d/Download; & $adbPath -s emulator-5556 push "$dir\servers.json" /sdc ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (test-reports\s1...ytes in 0.000s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

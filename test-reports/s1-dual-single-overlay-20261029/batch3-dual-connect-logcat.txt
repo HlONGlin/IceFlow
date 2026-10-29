@@ -1,0 +1,24 @@
+﻿
+10-29 11:59:14.167  3276  3276 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 11:59:14.206  3276  3276 D AndroidRuntime: Calling main entry com.android.commands.input.Input
+10-29 11:59:14.232  3276  3276 D AndroidRuntime: Shutting down VM
+10-29 11:59:14.242  3204  3204 I IceFlowVpnService: [TIMING] service.onCreate
+10-29 11:59:14.252  3204  3204 I IceFlowVpnService: [TIMING] service.onStartCommand action=com.iceflow.action.START
+10-29 11:59:14.253  3204  3227 I IceFlowVpnService: [CMD] Available(network=100)  desiredRunning=false state=Idle
+10-29 11:59:14.259  3204  3227 I IceFlowVpnService: [CMD] Start  desiredRunning=false state=Idle
+10-29 11:59:14.264  3204  3227 I IceFlowVpnService: [TIMING] foreground: 4ms
+10-29 11:59:14.269  3204  3227 I IceFlowVpnService: [TIMING] routingResources.prepare: 10ms
+10-29 11:59:14.270  3204  3227 I IceFlowVpnService: [TIMING] validate+readSettings: 10ms
+10-29 11:59:14.271  3204  3227 I IceFlowVpnService: [TIMING] config.generate: 11ms
+10-29 11:59:14.275  3204  3227 I IceFlowVpnService: [TIMING] buildConfig: 15ms
+10-29 11:59:14.322  3204  3227 I IceFlowVpnService: [TIMING] xray.start: 62ms
+10-29 11:59:14.323  3204  3227 I IceFlowVpnService: [TIMING] vpnBuilder.prepare: 63ms
+10-29 11:59:14.327  3204  3227 I IceFlowVpnService: [TIMING] vpn.establish: 67ms
+10-29 11:59:14.331  3204  3227 I IceFlowVpnService: [TIMING] rust.startTun: 71ms
+10-29 11:59:14.334  3204  3227 I IceFlowVpnService: VPN started: S1-Primary
+10-29 11:59:14.335  3204  3227 I IceFlowVpnService: [TIMING] end-to-end from click: 105ms
+10-29 11:59:22.325  3310  3310 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
+10-29 11:59:22.357  3310  3310 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
+10-29 11:59:23.562  3310  3310 D AndroidRuntime: Shutting down VM
+
+

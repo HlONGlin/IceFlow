@@ -1,0 +1,6 @@
+﻿Starting: Intent { cmp=com.iceflow/.MainActivity }
+Status: ok
+Activity: com.iceflow/.MainActivity
+TotalTime: 1343
+WaitTime: 1347
+Complete
