@@ -238,6 +238,21 @@ class MihomoConfigBuilderTest {
         val n = out(base.copy(protocol = Protocol.TUIC, uuid = "", password = "token", protocolOptions = mapOf("fast-open" to "true", "request-timeout" to "5000")))
         assertEquals("token", n.text("token")); assertEquals(JsonPrimitive(true), n["fast-open"])
     }
+    // R3: pinned mihomo TuicOption has no version field; v4/v5 is token-presence derived
+    // (tuic.go:183,271). Rule ② applies only to a non-default tuic.version value in the
+    // raw path; the default path (no version key) must never be rejected for version.
+    @Test fun rawTuicVersionNonDefaultRejectedNamingField() {
+        val p = base.copy(protocol = Protocol.TUIC, uuid = "", clashConfig = Json.parseToJsonElement(
+            """{"name":"t","type":"tuic","server":"e","port":443,"token":"tok","version":5}""").jsonObject)
+        val error = rejected("tuic.version") { out(p) }
+        assertTrue(error.message!!.contains("tuic.version"))
+    }
+    @Test fun tuicWithoutVersionMapsBothFlavors() {
+        val v5 = out(base.copy(protocol = Protocol.TUIC, uuid = "00112233-4455-6677-8899-aabbccddeeff", password = "pass"))
+        assertEquals("00112233-4455-6677-8899-aabbccddeeff", v5.text("uuid"))
+        val v4 = out(base.copy(protocol = Protocol.TUIC, uuid = "", password = "token"))
+        assertEquals("token", v4.text("token"))
+    }
     @Test fun hysteriaAliasesAndObfsConvert() {
         val n = out(base.copy(protocol = Protocol.HYSTERIA, uuid = "", password = "auth", protocolOptions = mapOf("upmbps" to "10", "downmbps" to "20", "obfs" to "xplus", "obfsParam" to "obfs-key", "hopInterval" to "12")))
         assertEquals("obfs-key", n.text("obfs")); assertEquals(12, n.getValue("hop-interval").jsonPrimitive.int)

@@ -61,6 +61,14 @@ for aliases, Hysteria override fields, TUIC version selection and flags,
 WireGuard address prefix removal, raw nested conflicts, and BasicOption fields
 that both adapters ignore. Unknown option keys still fail explicitly.
 
+R3 TUIC clarification: the pinned adapter's TuicOption
+(adapter/outbound/tuic.go:36-69) declares no `version` field; v4-vs-v5
+selection is derived from token presence (tuic.go:183, tuic.go:271), so no
+`tuic.version` input exists and TUIC is never rejected for it. A raw Clash
+TUIC node carrying a `version` key fails the pinned-option schema as
+`tuic.version` under CONFIGURATION_OR_SUBSCRIPTION (rule 2 with an explicit
+non-default value), while nodes without the key map both flavors normally.
+
 ## Tests
 
 The fresh full Kotlin run used:
