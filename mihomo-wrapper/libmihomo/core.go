@@ -101,11 +101,16 @@ func parse(text string) (*config.Config, error) {
 	if raw.ExternalController != "" || raw.ExternalControllerTLS != "" || raw.ExternalControllerUnix != "" || raw.ExternalControllerPipe != "" {
 		return nil, errors.New("CONFIGURATION_OR_SUBSCRIPTION: external controllers are unsupported")
 	}
+	// Explicit remote providers stay unsupported. Inline groups create their own
+	// compatible providers internally and must not be rejected by provider count.
+	if len(raw.ProxyProvider) > 0 || len(raw.RuleProvider) > 0 {
+		return nil, errors.New("CONFIGURATION_OR_SUBSCRIPTION: unsupported provider or listener")
+	}
 	cfg, err := config.ParseRawConfig(raw)
 	if err != nil {
 		return nil, fmt.Errorf("CONFIGURATION_OR_SUBSCRIPTION: %w", err)
 	}
-	if len(cfg.Providers) != 1 || len(cfg.RuleProviders) > 0 || len(cfg.Tunnels) > 0 || cfg.General.Port != 0 || cfg.General.MixedPort != 0 || cfg.General.RedirPort != 0 || cfg.General.TProxyPort != 0 || cfg.General.ShadowSocksConfig != "" || cfg.General.VmessConfig != "" || cfg.General.TuicServer.Enable {
+	if len(cfg.RuleProviders) > 0 || len(cfg.Tunnels) > 0 || cfg.General.Port != 0 || cfg.General.MixedPort != 0 || cfg.General.RedirPort != 0 || cfg.General.TProxyPort != 0 || cfg.General.ShadowSocksConfig != "" || cfg.General.VmessConfig != "" || cfg.General.TuicServer.Enable {
 		return nil, errors.New("CONFIGURATION_OR_SUBSCRIPTION: unsupported provider or listener")
 	}
 	// MTU is an app shim extension; never claim upstream MieruOption consumes it.

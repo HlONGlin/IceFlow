@@ -34,7 +34,25 @@ class ServerRepository(private val file: File) {
         s.copy(servers = s.servers + servers, selectedId = s.selectedId ?: servers.firstOrNull()?.id)
     }
 
-    fun updateServer(server: ServerProfile) = mutate { s -> s.copy(servers = s.servers.map { if (it.id == server.id) server else it }) }
+    /** Save a new manual node in an existing group, including subscription groups. */
+    fun addManualServer(server: ServerProfile) = mutate { s ->
+        require(s.servers.none { it.id == server.id }) { "Node already exists" }
+        val groups = s.orderedGroups
+        val preferred = server.subscriptionId ?: server.groupId
+        val target = groups.firstOrNull { it.id == preferred }
+            ?: groups.firstOrNull { it.id == s.selectedGroupId }
+            ?: groups.firstOrNull()
+        val subscription = s.subscriptions.any { it.id == target?.id }
+        val added = server.copy(
+            manuallyAdded = true,
+            groupId = target?.id?.takeUnless { subscription },
+            subscriptionId = target?.id?.takeIf { subscription },
+        )
+        s.copy(servers = s.servers + added, selectedId = s.selectedId ?: added.id,
+            selectedGroupId = target?.id)
+    }
+
+    fun updateServer(server: ServerProfile) = mutate { s -> s.copy(servers = s.servers.map { if (it.id == server.id) server.copy(manuallyAdded = it.manuallyAdded) else it }) }
 
     fun addTraffic(id: String, upload: Long, download: Long) = mutate { s ->
         s.copy(servers = s.servers.map { if (it.id == id) it.copy(uploadBytes = it.uploadBytes + upload, downloadBytes = it.downloadBytes + download) else it })
@@ -65,7 +83,7 @@ class ServerRepository(private val file: File) {
     /** 按完整连接配置去重，忽略显示名、所属分组和测速结果。 */
     fun dedupe(): Int {
         val seen = HashSet<ServerProfile>()
-        val kept = _store.value.servers.filter { seen.add(it.copy(id = "", name = "", subscriptionId = null, groupId = null, latencyMs = null)) }
+        val kept = _store.value.servers.filter { seen.add(it.copy(id = "", name = "", subscriptionId = null, groupId = null, latencyMs = null, manuallyAdded = false)) }
         val removed = _store.value.servers.size - kept.size
         if (removed > 0) mutate { s -> s.copy(servers = kept) }
         return removed
@@ -219,7 +237,7 @@ class ServerRepository(private val file: File) {
             downloadBytes = parseTrafficHeader(userInfo, "download"),
             downloadedConfigBytes = downloadedBytes,
         )
-        val previous = s.servers.filter { it.subscriptionId == sub.id }
+        val previous = s.servers.filter { it.subscriptionId == sub.id && !it.manuallyAdded }
         val available = previous.toMutableList()
         // Keep stable IDs for unambiguous nodes referenced by other groups. Never
         // silently substitute an unrelated node when the provider removes it.
@@ -228,9 +246,9 @@ class ServerRepository(private val file: File) {
             val exact = available.filter { it.identity() == incoming.identity() }
             val match = exact.singleOrNull() ?: available.filter { it.name == incoming.name && it.protocol == incoming.protocol && it.address == incoming.address && it.port == incoming.port }.singleOrNull()
             if (match != null) available.remove(match)
-            incoming.copy(id = match?.id ?: incoming.id, subscriptionId = sub.id, groupId = null)
+            incoming.copy(id = match?.id ?: incoming.id, subscriptionId = sub.id, groupId = null, manuallyAdded = false)
         }
-        val others = s.servers.filterNot { it.subscriptionId == sub.id }
+        val others = s.servers.filterNot { it.subscriptionId == sub.id && !it.manuallyAdded }
         val all = others + tagged
         s.copy(
             servers = all,

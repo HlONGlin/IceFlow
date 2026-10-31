@@ -31,7 +31,7 @@ object NodeEditing {
     }
     fun clash(text: String, original: ServerProfile): ServerProfile {
         val config = json.parseToJsonElement(text).jsonObject
-        return ClashYamlParser.parse(buildJsonObject { put("proxies", JsonArray(listOf(config))) }.toString()).single().copy(id = original.id, groupId = original.groupId, subscriptionId = original.subscriptionId, latencyMs = null)
+        return ClashYamlParser.parse(buildJsonObject { put("proxies", JsonArray(listOf(config))) }.toString()).single().copy(id = original.id, groupId = original.groupId, subscriptionId = original.subscriptionId, manuallyAdded = original.manuallyAdded, latencyMs = null)
     }
     /** Common form changes only replace changed keys; nested plugin/smux/transport data survives. */
     fun syncClash(original: ServerProfile, changed: ServerProfile): ServerProfile {

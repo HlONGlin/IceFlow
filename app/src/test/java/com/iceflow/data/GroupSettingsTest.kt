@@ -11,6 +11,52 @@ import kotlinx.serialization.json.*
 class GroupSettingsTest {
     @get:Rule val temp = TemporaryFolder()
 
+    @Test fun manualNodesReuseSelectedGroupAndSurviveSubscriptionRefresh() {
+        val file = temp.newFile()
+        val repository = ServerRepository(file)
+        repository.saveGroup(GroupConfiguration(id = "local", name = "Local"))
+        repository.saveGroup(GroupConfiguration(id = "sub", name = "Subscription", subscription = true, url = "https://example.com/sub"))
+        repository.selectGroup("sub")
+        val node = ServerProfile(id = "manual", name = "Manual", protocol = Protocol.VLESS, address = "manual.example", port = 443)
+        repository.addManualServer(node)
+        val added = repository.store.value.servers.single()
+        assertEquals("sub", added.subscriptionId)
+        assertNull(added.groupId)
+        assertTrue(added.manuallyAdded)
+        assertEquals(2, repository.store.value.orderedGroups.size)
+        repository.upsertSubscription("https://example.com/sub", "Subscription", listOf(node.copy(id = "provider")), "sub")
+        repository.select(added.id)
+        repository.updateServer(added.copy(manuallyAdded = false))
+        repository.upsertSubscription("https://example.com/sub", "Subscription", emptyList(), "sub")
+        val reloaded = ServerRepository(file).store.value
+        assertEquals(listOf(added), reloaded.servers)
+        assertEquals(added.id, reloaded.selectedId)
+        assertEquals("sub", reloaded.selectedGroupId)
+    }
+
+    @Test fun manualDestinationUsesExplicitThenSelectedThenFirstExistingGroup() {
+        val repository = ServerRepository(temp.newFile())
+        val node = ServerProfile(name = "Manual", protocol = Protocol.VLESS, address = "manual.example", port = 443)
+        repository.addManualServer(node)
+        assertNull(repository.store.value.servers.single().groupId)
+        assertTrue(repository.store.value.orderedGroups.isEmpty())
+        repository.saveGroup(GroupConfiguration(id = "a", name = "A"))
+        repository.saveGroup(GroupConfiguration(id = "b", name = "B"))
+        repository.reorderGroups(listOf("b", "a"))
+        repository.selectGroup(null)
+        repository.addManualServer(node.copy(id = "fallback", groupId = "deleted"))
+        assertEquals("b", repository.store.value.servers.last().groupId)
+        repository.selectGroup("a")
+        repository.addManualServer(node.copy(id = "selected"))
+        assertEquals("a", repository.store.value.servers.last().groupId)
+        repository.addManualServer(node.copy(id = "explicit", groupId = "b"))
+        assertEquals("b", repository.store.value.servers.last().groupId)
+        repository.selectGroup("a")
+        repository.updateServer(repository.store.value.servers.last().copy(name = "Edited"))
+        assertEquals("b", repository.store.value.servers.last().groupId)
+        assertEquals(2, repository.store.value.orderedGroups.size)
+    }
+
     @Test fun groupOrderingPersistsAcrossTypesRefreshDeletionAndNewGroups() {
         val file = temp.newFile()
         val repository = ServerRepository(file)

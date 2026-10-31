@@ -40,7 +40,7 @@ internal object MihomoConfigBuilder {
                 JsonObject(outbound(p, names[index]) + if (balancing == null && index > 0) mapOf("dialer-proxy" to JsonPrimitive(names[index - 1])) else emptyMap())
             }
             val selectedIndex = chain.indexOfFirst { it.id == profile.id }.takeIf { it >= 0 } ?: 0
-            val selectedOutbound = names[selectedIndex]
+            val selectedOutbound = if (balancing != null) PROXY else names[selectedIndex]
             val mihomoStrategy = when (balancing) {
                 null -> null
                 LoadBalanceStrategy.ROUND_ROBIN -> "round-robin"

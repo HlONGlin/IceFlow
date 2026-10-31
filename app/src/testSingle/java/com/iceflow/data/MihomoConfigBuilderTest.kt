@@ -22,6 +22,7 @@ class MihomoConfigBuilderTest {
                 assertEquals("proxy", proxies.last().text("name"))
             } else {
                 val group = cfg["proxy-groups"]!!.jsonArray.single().jsonObject
+                assertEquals("proxy", cfg.text("iceflow-selected-outbound"))
                 assertEquals("load-balance", group.text("type"))
                 assertEquals("round-robin", group.text("strategy"))
                 assertEquals(listOf("lb-0", "lb-1"), group["proxies"]!!.jsonArray.map { it.jsonPrimitive.content })

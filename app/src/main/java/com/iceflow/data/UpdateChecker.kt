@@ -1,5 +1,7 @@
 package com.iceflow.data
 
+import android.os.Build
+import com.iceflow.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -64,12 +66,8 @@ object UpdateChecker {
                     add(asset.optString("name") to asset.optString("browser_download_url"))
                 }
             }
-            // Prefer an installable universal APK. CI also uploads unsigned release
-            // artifacts, which must never be offered as the primary download.
-            val installable = apkNames.filter { it.first.endsWith(".apk", true) && !it.first.contains("unsigned", true) }
-            val apk = installable.firstOrNull { it.first.contains("universal", true) }
-                ?: installable.firstOrNull()
-                ?: apkNames.firstOrNull { it.first.endsWith(".apk", true) }
+            val downloadUrl = selectDownloadUrl(apkNames, Build.SUPPORTED_ABIS.toList())
+                ?: return@withContext UpdateResult(error = "新版本暂未提供适用于当前${if (BuildConfig.CORE_VARIANT == "single") "单核版" else "双核版"}和设备架构的安装包")
             UpdateResult(
                 UpdateInfo(
                     version = version,
@@ -77,7 +75,7 @@ object UpdateChecker {
                     title = json.optString("name").ifBlank { tag },
                     notes = json.optString("body").trim(),
                     pageUrl = json.optString("html_url"),
-                    downloadUrl = apk?.second,
+                    downloadUrl = downloadUrl,
                 )
             )
         } catch (error: Exception) {
@@ -85,6 +83,23 @@ object UpdateChecker {
         } finally {
             connection.disconnect()
         }
+    }
+
+    /** Keep the installed core variant; use a compatible ABI when its universal APK is absent. */
+    internal fun selectDownloadUrl(
+        assets: List<Pair<String, String>>,
+        supportedAbis: List<String>,
+        coreVariant: String = BuildConfig.CORE_VARIANT,
+    ): String? {
+        if (coreVariant !in setOf("single", "dual")) return null
+        val installable = assets.filter { (name, url) ->
+            name.endsWith(".apk", ignoreCase = true) &&
+                !name.contains("unsigned", ignoreCase = true) && url.isNotBlank()
+        }
+        fun find(abi: String): String? = installable.firstOrNull { (name, _) ->
+            name.endsWith("-$coreVariant-$abi-release.apk", ignoreCase = true)
+        }?.second
+        return find("universal") ?: supportedAbis.firstNotNullOfOrNull(::find)
     }
 
     /** 比较版本号：按数字段逐级比较，忽略前缀 v 与预发布后缀。 */

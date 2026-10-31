@@ -69,6 +69,8 @@ data class ServerProfile(
     val uploadBytes: Long = 0,
     val downloadBytes: Long = 0,
     val composition: ProxyComposition? = null,
+    /** Locally created nodes survive refresh when placed inside a subscription group. */
+    val manuallyAdded: Boolean = false,
 )
 
 @Serializable

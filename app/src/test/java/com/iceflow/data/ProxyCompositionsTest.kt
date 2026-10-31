@@ -19,6 +19,21 @@ class ProxyCompositionsTest {
         subscriptions = listOf(Subscription(id = "sub", name = "subscription", url = "https://example.com/sub")),
     )
 
+    @Test fun allXrayBalancersIncludeRequiredObservatoryAndLogicalProbeOutbound() {
+        for (strategy in listOf(LoadBalanceStrategy.RANDOM, LoadBalanceStrategy.ROUND_ROBIN, LoadBalanceStrategy.LEAST_PING, LoadBalanceStrategy.LEAST_LOAD)) {
+            val p = profile(ProxyCompositionKind.BALANCE).let { it.copy(composition = it.composition!!.copy(strategy = strategy)) }
+            val cfg = Json.parseToJsonElement(XrayConfigBuilder.build(p, AppSettings(), store = store(p))).jsonObject
+            assertEquals(listOf(JsonPrimitive("lb-")), cfg["observatory"]!!.jsonObject["subjectSelector"]!!.jsonArray)
+            val proxy = cfg["outbounds"]!!.jsonArray.first().jsonObject
+            assertEquals(JsonPrimitive("proxy"), proxy["tag"])
+            assertEquals(JsonPrimitive("loopback"), proxy["protocol"])
+            assertEquals(JsonPrimitive("balance-in"), proxy["settings"]!!.jsonObject["inboundTag"])
+            val rule = cfg["routing"]!!.jsonObject["rules"]!!.jsonArray.first().jsonObject
+            assertEquals(listOf(JsonPrimitive("balance-in")), rule["inboundTag"]!!.jsonArray)
+            assertEquals(JsonPrimitive("proxy"), rule["balancerTag"])
+        }
+    }
+
     @Test fun chainUsesSelectedOrderWithoutApplyingSourceGroupSettings() {
         val p = profile(ProxyCompositionKind.CHAIN)
         val s = store(p).copy(localGroups = listOf(LocalGroup(id = "local", name = "original", frontNodeId = "missing")))

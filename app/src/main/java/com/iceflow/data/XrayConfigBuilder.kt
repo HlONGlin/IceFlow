@@ -78,7 +78,7 @@ object XrayConfigBuilder {
         return buildJsonObject {
             if (chain.size == 1 && adapters.isNotEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
             else if (adapters.isNotEmpty()) put("iceflowAdapters", JsonArray(adapters))
-            if (balanceStrategy == LoadBalanceStrategy.LEAST_PING || balanceStrategy == LoadBalanceStrategy.LEAST_LOAD) {
+            if (balanceStrategy != null) {
                 putJsonObject("observatory") {
                     putJsonArray("subjectSelector") { add("lb-") }
                     put("probeURL", (composition?.testUrl ?: local?.balanceTestUrl)?.takeIf { it.isNotBlank() } ?: settings.testUrl)
@@ -149,7 +149,12 @@ object XrayConfigBuilder {
                 }
             }
             putJsonArray("outbounds") {
-                // The first outbound remains the final hop, so normal traffic cannot bypass the chain.
+                // Keep the logical proxy tag available to forced latency and connection probes.
+                if (balanceStrategy != null) addJsonObject {
+                    put("tag", PROXY_TAG); put("protocol", "loopback")
+                    putJsonObject("settings") { put("inboundTag", "balance-in") }
+                }
+                // The first outbound remains the final hop for chains.
                 (if (balanceStrategy == null) chain.indices.reversed() else chain.indices).forEach { index ->
                     val base = outbound(chain[index])
                     add(buildJsonObject {
@@ -214,6 +219,10 @@ object XrayConfigBuilder {
                     }
                 }
                 putJsonArray("rules") {
+                    if (balanceStrategy != null) addJsonObject {
+                        put("type", "field"); putJsonArray("inboundTag") { add("balance-in") }
+                        put("balancerTag", PROXY_TAG)
+                    }
                     if (settings.routingMode == RoutingMode.GLOBAL) {
                         add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); if (balanceStrategy == null) put("outboundTag", PROXY_TAG) else put("balancerTag", PROXY_TAG) })
                     } else if (settings.routingMode == RoutingMode.DIRECT) {

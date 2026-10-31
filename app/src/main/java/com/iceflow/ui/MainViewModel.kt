@@ -226,10 +226,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun saveServer(server: ServerProfile): String? = runCatching {
         val validated = com.iceflow.data.NodeEditing.validate(server, store.value)
         if (store.value.servers.any { it.id == validated.id }) container.servers.updateServer(validated)
-        else {
-            container.servers.addServers(listOf(validated))
-            container.servers.selectGroup(validated.subscriptionId ?: validated.groupId)
-        }
+        else container.servers.addManualServer(validated)
         null
     }.getOrElse { it.message ?: "保存节点失败" }
     fun addLocalGroup(name: String) = container.servers.addLocalGroup(name)
