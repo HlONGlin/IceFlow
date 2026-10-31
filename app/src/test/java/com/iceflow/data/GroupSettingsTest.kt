@@ -40,6 +40,23 @@ class GroupSettingsTest {
         assertTrue(repository.store.value.orderedGroups.none { it.id == null })
     }
 
+    @Test fun localLoadBalanceStrategyPersistsAcrossReload() {
+        val file = temp.newFile()
+        val repository = ServerRepository(file)
+        val group = GroupConfiguration(id = "balanced", name = "Balanced")
+        repository.saveGroup(group)
+        repository.addServers(listOf(
+            ServerProfile(id = "a", name = "A", protocol = Protocol.VLESS, address = "a.example", port = 443, groupId = group.id),
+            ServerProfile(id = "b", name = "B", protocol = Protocol.VLESS, address = "b.example", port = 443, groupId = group.id),
+        ))
+        repository.saveGroup(group.copy(balanceStrategy = LoadBalanceStrategy.LEAST_PING, balanceNodeIds = listOf("a", "b"), balanceTestUrl = "https://probe.example/check", balanceIntervalSeconds = 45))
+        val reloaded = ServerRepository(file).store.value.localGroups.single()
+        assertEquals(LoadBalanceStrategy.LEAST_PING, reloaded.balanceStrategy)
+        assertEquals(listOf("a", "b"), reloaded.balanceNodeIds)
+        assertEquals("https://probe.example/check", reloaded.balanceTestUrl)
+        assertEquals(45, reloaded.balanceIntervalSeconds)
+    }
+
     @Test fun newStoreStartsWithoutGroupsAndImportedNodesStayUngrouped() {
         val repository = ServerRepository(temp.newFile())
         assertTrue(repository.store.value.orderedGroups.isEmpty())

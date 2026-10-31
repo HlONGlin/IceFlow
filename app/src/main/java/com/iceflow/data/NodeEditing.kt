@@ -7,7 +7,11 @@ import java.util.UUID
 object NodeEditing {
     val json = Json { encodeDefaults = true; prettyPrint = true }
     fun blank(protocol: Protocol = Protocol.VLESS) = ServerProfile(name = "", protocol = protocol, address = "", port = 443, tls = when (protocol) { Protocol.TROJAN, Protocol.HYSTERIA, Protocol.HYSTERIA2, Protocol.TUIC, Protocol.ANYTLS -> "tls"; else -> "none" }, security = when (protocol) { Protocol.SHADOWSOCKS -> "aes-128-gcm"; Protocol.SHADOWSOCKSR -> "aes-128-cfb"; else -> "auto" })
-    fun validate(p: ServerProfile): ServerProfile {
+    fun validate(p: ServerProfile, store: ServerStore? = null): ServerProfile {
+        if (p.composition != null) {
+            ProxyCompositions.resolve(p, store)
+            return p.copy(name = p.name.trim())
+        }
         require(p.name.isNotBlank()) { "请输入节点名称" }
         require(p.address.isNotBlank() && p.address.none { it.isWhitespace() || it == '/' || it == '@' }) { "请输入有效的服务器地址（不含协议和端口）" }
         require(p.port in 1..65535) { "端口必须在 1–65535 之间" }

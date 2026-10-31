@@ -40,7 +40,7 @@ object ShareLinkParser {
         if (ClashYamlParser.looksLike(trimmed)) return ClashYamlParser.parse(trimmed)
         val content = if (trimmed.contains("://")) trimmed else decodeBase64(trimmed) ?: trimmed
         if (content != trimmed && ClashYamlParser.looksLike(content.trim())) return parseMany(content)
-        return content.lineSequence()
+        return unfoldShareLinks(content).asSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .flatMap { line ->
@@ -51,8 +51,32 @@ object ShareLinkParser {
             .toList()
     }
 
+    // Clipboard text can wrap query parameters or the remark onto another line.
+    // Only explicit URI continuations are joined; separate links stay separate.
+    private fun unfoldShareLinks(content: String): List<String> {
+        val lines = mutableListOf<String>()
+        content.lineSequence().forEach { raw ->
+            val line = raw.trim()
+            val previous = lines.lastOrNull().orEmpty()
+            val scheme = previous.substringBefore("://").lowercase()
+            val canContinue = scheme in setOf("vmess", "vless", "trojan", "ss") && '#' !in previous
+            if (canContinue && (line.startsWith('#') || (line.startsWith('&') && '?' in previous))) {
+                lines[lines.lastIndex] = previous + line
+            } else {
+                lines += line
+            }
+        }
+        return lines
+    }
+
+    private fun defaultNodeName(protocol: Protocol, address: String, port: Int): String =
+        if (address.contains(':') || address.matches(Regex("^[0-9.]+$"))) {
+            "${protocol.name.lowercase()}-${formatHost(address)}:$port"
+        } else address
+
     /** Prefers a protocol URI; retains Clash JSON when AnyTLS options cannot survive conversion. */
     fun encodeV2rayN(profile: ServerProfile): String {
+        require(profile.composition == null) { "链式代理和负载均衡配置请通过备份导出" }
         val export = if (profile.protocol == Protocol.ANYTLS && profile.clashConfig != null) {
             ExtendedShareLinks.anyTlsUriProfile(profile) ?: return ClashYamlParser.encode(profile)
         } else profile
@@ -107,21 +131,8 @@ object ShareLinkParser {
         if (address.isEmpty() || uuid.isEmpty()) return null
         val network = str("net").ifEmpty { "tcp" }
 
-        // 生成友好的默认名称：优先使用 SNI、host，最后才用 IP:端口
-        val defaultName = when {
-            str("sni").isNotEmpty() -> str("sni")
-            str("host").isNotEmpty() -> str("host")
-            else -> {
-                if (address.matches(Regex("^[0-9.]+$")) || address.matches(Regex("^\\[[0-9a-fA-F:]+]$"))) {
-                    "vmess-$address:$port"
-                } else {
-                    address
-                }
-            }
-        }
-
         return ServerProfile(
-            name = str("ps").ifEmpty { defaultName },
+            name = str("ps").ifBlank { defaultNodeName(Protocol.VMESS, address, port) },
             protocol = Protocol.VMESS,
             address = address,
             port = port,
@@ -155,23 +166,8 @@ object ShareLinkParser {
         fun q(key: String) = query[key].orEmpty()
         val defaultSecurity = if (protocol == Protocol.TROJAN) "tls" else "none"
 
-        // 生成友好的默认名称：优先使用 SNI、host 参数，最后才用 IP:端口
-        val defaultName = when {
-            q("sni").isNotEmpty() -> q("sni")
-            q("peer").isNotEmpty() -> q("peer")
-            q("host").isNotEmpty() -> q("host")
-            else -> {
-                // 如果是IP地址，添加协议前缀；如果是域名，直接使用
-                if (host.matches(Regex("^[0-9.]+$")) || host.matches(Regex("^\\[[0-9a-fA-F:]+]$"))) {
-                    "${protocol.name.lowercase()}-$host:$port"
-                } else {
-                    host
-                }
-            }
-        }
-
         return ServerProfile(
-            name = urlDecode(fragment).ifEmpty { defaultName },
+            name = urlDecode(fragment).ifBlank { defaultNodeName(protocol, host, port) },
             protocol = protocol,
             address = host,
             port = port,

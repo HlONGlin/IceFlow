@@ -23,6 +23,8 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.expandVertically
@@ -45,6 +47,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -60,6 +66,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -120,6 +129,10 @@ import com.iceflow.data.model.GroupConfiguration
 import com.iceflow.data.model.GroupSort
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
+import com.iceflow.data.model.Protocol
+import com.iceflow.data.model.ProxyComposition
+import com.iceflow.data.model.ProxyCompositionKind
+import com.iceflow.data.model.LoadBalanceStrategy
 import com.iceflow.data.ShareLinkParser
 import com.iceflow.data.BoundedTextReader
 import com.iceflow.data.UpdateInfo
@@ -185,6 +198,10 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
     val nodeToShare = remember(shareNodeId) { store.servers.firstOrNull { it.id == shareNodeId } }
     var nodeEditorOpen by rememberSaveable { mutableStateOf(false) }
     var nodeEditorId by rememberSaveable { mutableStateOf<String?>(null) }
+    var manualAddOpen by rememberSaveable { mutableStateOf(false) }
+    var manualAddPage by rememberSaveable { mutableStateOf(ManualAddPage.CHAIN_EDITOR) }
+    var newNodeProtocol by rememberSaveable { mutableStateOf(Protocol.VLESS) }
+    var pendingGroupSettingsId by remember { mutableStateOf<String?>(null) }
     var groupId by rememberSaveable { mutableStateOf<String?>(store.selectedGroupId) }
     LaunchedEffect(openLogsRequested) {
         if (openLogsRequested) {
@@ -219,23 +236,45 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            if (nodeEditorOpen) {
+            AnimatedContent(
+                targetState = when { nodeEditorOpen -> "node"; manualAddOpen -> "composition"; backupOpen -> "backup"; logsOpen -> "logs"; appsOpen -> "apps"; else -> "main" },
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                transitionSpec = {
+                    val direction = if (targetState == "main") -1 else 1
+                    fadeIn(tween(240)) + slideInHorizontally(tween(240)) { direction * it / 8 } togetherWith
+                        fadeOut(tween(160)) + slideOutHorizontally(tween(240)) { -direction * it / 8 }
+                }, label = "workbench-page",
+            ) { screen ->
+            Column(Modifier.fillMaxSize()) {
+            if (screen == "node") {
                 val initialJson = rememberSaveable(nodeEditorId) {
-                    val node = store.servers.firstOrNull { it.id == nodeEditorId } ?: com.iceflow.data.NodeEditing.blank().copy(groupId = groupId?.takeIf { id -> store.localGroups.any { it.id == id } })
+                    val node = store.servers.firstOrNull { it.id == nodeEditorId } ?: com.iceflow.data.NodeEditing.blank(newNodeProtocol).copy(groupId = groupId?.takeIf { id -> store.localGroups.any { it.id == id } })
                     com.iceflow.data.NodeEditing.json.encodeToString(ServerProfile.serializer(), node)
                 }
                 val initial = remember(initialJson) { com.iceflow.data.NodeEditing.json.decodeFromString(ServerProfile.serializer(), initialJson) }
-                NodeEditorPage(initial, nodeEditorId == null, { nodeEditorOpen = false }, vm::saveServer)
-            } else if (backupOpen) {
+                if (initial.composition != null) ManualAddScreen(initial, store.servers, com.iceflow.core.CoreVariantBridge.variantName, { nodeEditorOpen = false }, vm::saveServer)
+                else NodeEditorPage(initial, nodeEditorId == null, { nodeEditorOpen = false }, vm::saveServer)
+            } else if (screen == "composition") {
+                val initialJson = rememberSaveable(manualAddPage) {
+                    val kind = if (manualAddPage == ManualAddPage.CHAIN_EDITOR) ProxyCompositionKind.CHAIN else ProxyCompositionKind.BALANCE
+                    val initial = com.iceflow.data.NodeEditing.blank(Protocol.SOCKS).copy(
+                        groupId = groupId?.takeIf { id -> store.localGroups.any { it.id == id } },
+                        composition = ProxyComposition(kind = kind, strategy = if (com.iceflow.core.CoreVariantBridge.variantName == "dual") LoadBalanceStrategy.RANDOM else LoadBalanceStrategy.ROUND_ROBIN),
+                    )
+                    com.iceflow.data.NodeEditing.json.encodeToString(ServerProfile.serializer(), initial)
+                }
+                val initial = remember(initialJson) { com.iceflow.data.NodeEditing.json.decodeFromString(ServerProfile.serializer(), initialJson) }
+                ManualAddScreen(initial, store.servers, com.iceflow.core.CoreVariantBridge.variantName, { manualAddOpen = false }, vm::saveServer)
+            } else if (screen == "backup") {
                 BackupPage(vm::exportBackup, vm::restoreBackup, { backupOpen = false })
-            } else if (logsOpen) {
+            } else if (screen == "logs") {
                 RuntimeLogPage(
                     readLogs = vm::readLogs,
                     onBack = { logsOpen = false },
                     logRetentionDays = settings.logRetentionDays,
                     modifier = Modifier.weight(1f)
                 )
-            } else if (appsOpen) {
+            } else if (screen == "apps") {
                 AppSelectorScreen(
                     proxyMode = settings.appProxyMode,
                     selectedApps = settings.bypassApps,
@@ -253,7 +292,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
             ) { current ->
                 Box(Modifier.fillMaxSize()) {
                     when (current) {
-                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, settings.showPublicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { nodeEditorId = null; nodeEditorOpen = true }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency) { action ->
+                        Tab.HOME -> WorkbenchPage(state, traffic, store, groupId, publicIp, settings.showPublicIp, testing, settings.showTrafficStats, onToggleVpn, vm::select, vm::testAll, vm::testOne, nodeTest, vm::delete, vm::updateServer, vm::moveServerToGroup, { shareNodeId = it.id }, { vm.importText(readClipboard(context), groupId) }, { text -> vm.importText(text, groupId) }, vm::refreshSubscriptions, vm::setGroupSort, vm::sortGroupByLatency, vm::dedupeServers, toast, connectionTest, vm::testRunningConnection, { selected -> groupId = selected; vm.selectGroup(selected) }, { protocol, page -> if (protocol != null) { newNodeProtocol = protocol; nodeEditorId = null; nodeEditorOpen = true } else { manualAddPage = requireNotNull(page); manualAddOpen = true } }, { server -> nodeEditorId = server.id; nodeEditorOpen = true }, bulkTest, vm::dismissBulkTest, vm::reorderServers, settings.showNodeLatency) { action ->
                             when (action) {
                                 VpnErrorAction.REAUTHORIZE, VpnErrorAction.CONNECT -> onToggleVpn()
                                 VpnErrorAction.CHECK_NODE -> store.selected?.let { nodeEditorId = it.id; nodeEditorOpen = true }
@@ -261,7 +300,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
                                 VpnErrorAction.OPEN_LOGS -> { vm.cleanOldLogs(); logsOpen = true }
                             }
                         }
-                        Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, vm::createGroupFromUngrouped, vm::deleteUngroupedServers, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview)
+                        Tab.SUBS -> GroupsPage(store, groupId, { selected -> groupId = selected; vm.selectGroup(selected) }, refreshing, vm::refreshSubscriptions, vm::refreshSubscription, refreshingGroups, vm::saveGroup, vm::deleteLocalGroup, vm::deleteSubscription, { groupSettingsOpen = it }, vm::reorderGroups, vm::createGroupFromUngrouped, vm::deleteUngroupedServers, subscriptionLoad, vm::previewSubscription, vm::commitSubscriptionPreview, vm::dismissSubscriptionPreview, pendingGroupSettingsId, { pendingGroupSettingsId = null })
                         Tab.SETTINGS -> SettingsScreen(
                             settings = settings,
                             xrayVersion = XrayBridge.version(),
@@ -281,7 +320,9 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
                 }
             }
             }
-            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !backupOpen && !nodeEditorOpen && !appsOpen) Row(
+            }
+            }
+            if (!groupSettingsOpen && !settingsDetailOpen && !logsOpen && !backupOpen && !nodeEditorOpen && !manualAddOpen && !appsOpen) Row(
                 Modifier.fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surface)
                     .navigationBarsPadding()
@@ -374,7 +415,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: PublicIpState, showPublicIp: Boolean, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: () -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false, onErrorAction: (VpnErrorAction) -> Unit) {
+@Composable private fun WorkbenchPage(state: VpnState, traffic: TrafficSnapshot, store: ServerStore, groupId: String?, publicIp: PublicIpState, showPublicIp: Boolean, testing: Boolean, showTrafficStats: Boolean, onToggle: () -> Unit, onSelect: (String) -> Unit, onTest: () -> Unit, onTestOne: (ServerProfile) -> Unit, nodeTest: NodeTestState, onDelete: (String) -> Unit, onUpdate: (ServerProfile) -> Unit, onMove: (String, String?) -> Unit, onShare: (ServerProfile) -> Unit, onImportClipboard: () -> Unit, onImportText: (String) -> Unit, onRefreshSubs: () -> Unit, onSetGroupSort: (String?, GroupSort) -> Unit, onSortGroupByLatency: (String?) -> Unit, onDedupe: () -> Unit, toast: String?, connectionTest: ConnectionTestState, onTestConnection: () -> Unit, onSelectGroup: (String?) -> Unit, onAddNode: (Protocol?, ManualAddPage?) -> Unit, onEditNode: (ServerProfile) -> Unit, bulkTest: BulkTestState, dismissBulkTest: () -> Unit, onReorderNodes: (String?, List<String>) -> Unit, showNodeLatency: Boolean = false, onErrorAction: (VpnErrorAction) -> Unit) {
     var now by remember { mutableStateOf(System.currentTimeMillis()) }
     val panelVisibility = remember { MutableTransitionState(false) }
     var lastRunningState by remember { mutableStateOf<VpnState>(VpnState.Connecting) }
@@ -382,6 +423,7 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var addMenu by remember { mutableStateOf(false) }
+    var manualMenu by remember { mutableStateOf(false) }
     var moreMenu by remember { mutableStateOf(false) }
     var sortMenu by remember { mutableStateOf(false) }
     var sortingKey by remember { mutableStateOf<String?>(null) }
@@ -416,12 +458,31 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
                 Text(if (searchOpen) T("home.search") else "IceFlow", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
                 IconButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }) { Icon(if (searchOpen) Icons.Filled.Close else Icons.Filled.Search, T("home.searchHint"), tint = MaterialTheme.colorScheme.primary) }
                 Box {
-                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, T("home.import.menu"), tint = MaterialTheme.colorScheme.primary) }
-                    IceDropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                        IceMenuItem(T("home.import.clipboard"), Icons.Filled.List) { addMenu = false; onImportClipboard() }
-                        IceMenuItem(T("home.import.manual"), Icons.Filled.Add) { addMenu = false; onAddNode() }
-                        IceMenuItem(T("home.import.file"), Icons.Filled.Home) { addMenu = false; fileLauncher.launch("*/*") }
-                        IceMenuItem(T("home.import.qr"), Icons.Filled.Search) { addMenu = false; scanLauncher.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false)) }
+                    IconButton(onClick = { manualMenu = false; addMenu = true }) { Icon(Icons.Filled.Add, T("home.import.menu"), tint = MaterialTheme.colorScheme.primary) }
+                    IceDropdownMenu(expanded = addMenu, onDismissRequest = { if (manualMenu) manualMenu = false else addMenu = false }) {
+                        AnimatedContent(targetState = manualMenu, transitionSpec = {
+                            val direction = if (targetState) 1 else -1
+                            fadeIn(tween(220)) + slideInHorizontally(tween(220)) { direction * it / 4 } togetherWith
+                                fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { -direction * it / 4 }
+                        }, label = "add-server-menu") { manual ->
+                            Column(Modifier.width(240.dp).heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                                if (manual) {
+                                    IceMenuItem(T("home.import.manual"), Icons.AutoMirrored.Filled.ArrowBack) { manualMenu = false }
+                                    HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                                    IceMenuItem(T("groups.chain"), Icons.Filled.Link) { addMenu = false; onAddNode(null, ManualAddPage.CHAIN_EDITOR) }
+                                    IceMenuItem(T("groups.loadBalance"), Icons.Filled.Balance) { addMenu = false; onAddNode(null, ManualAddPage.BALANCE_EDITOR) }
+                                    HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                                    Protocol.entries.forEach { protocol ->
+                                        IceMenuItem(protocol.label, Icons.Filled.Add) { addMenu = false; onAddNode(protocol, null) }
+                                    }
+                                } else {
+                                    IceMenuItem(T("home.import.clipboard"), Icons.Filled.List) { addMenu = false; onImportClipboard() }
+                                    IceMenuItem(T("home.import.manual"), Icons.Filled.Add, submenu = true) { manualMenu = true }
+                                    IceMenuItem(T("home.import.file"), Icons.Filled.Home) { addMenu = false; fileLauncher.launch("*/*") }
+                                    IceMenuItem(T("home.import.qr"), Icons.Filled.Search) { addMenu = false; scanLauncher.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false)) }
+                                }
+                            }
+                        }
                     }
                 }
                 Box {
@@ -647,7 +708,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(server.protocol.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                Text(ServerTypeLabel(server), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 if (showTrafficStats) {
                     Text("↑ ${formatBytes(server.uploadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                     Text("↓ ${formatBytes(server.downloadBytes)}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
@@ -660,7 +721,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
                 IceDropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     IceMenuItem(T("node.test.one"), Icons.Filled.Info) { menu = false; onTest() }
                     IceMenuItem(T("common.edit"), Icons.Filled.Settings) { menu = false; if (onEdit != null) onEdit() else edit = true }
-                    IceMenuItem(T("node.share.title"), Icons.Filled.Share) { menu = false; onShare() }
+                    if (server.composition == null) IceMenuItem(T("node.share.title"), Icons.Filled.Share) { menu = false; onShare() }
                     if (onSort != null) IceMenuItem(T("node.sort"), Icons.Filled.List) { menu = false; onSort() }
                     HorizontalDivider(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), color = MaterialTheme.colorScheme.surfaceVariant)
                     IceMenuItem(T("common.delete"), Icons.Filled.Delete, destructive = true) { menu = false; onDelete() }
@@ -671,7 +732,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
     if (edit) AlertDialog(onDismissRequest = { edit = false }, title = { Text(T("node.editTitle")) }, text = { OutlinedTextField(name, { name = it }, label = { Text(T("node.name")) }, singleLine = true) }, confirmButton = { TextButton(onClick = { edit = false; onRename(name.trim()) }, enabled = name.isNotBlank()) { Text(T("common.save")) } }, dismissButton = { TextButton(onClick = { edit = false }) { Text(T("common.cancel")) } })
 }
 
-@Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, refreshGroup: (String) -> Unit, refreshingGroups: Set<String>, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit, createGroupFromUngrouped: (String) -> Unit = {}, deleteUngrouped: () -> Unit = {}, subscriptionLoad: SubscriptionLoadState = SubscriptionLoadState.Idle, onPreviewSubscription: (url: String, name: String) -> Unit = { _, _ -> }, onCommitPreview: (groupId: String) -> Unit = {}, onDismissPreview: () -> Unit = {}) {
+@Composable private fun GroupsPage(store: ServerStore, selectedId: String?, onSelect: (String?) -> Unit, refreshing: Boolean, refresh: () -> Unit, refreshGroup: (String) -> Unit, refreshingGroups: Set<String>, save: (GroupConfiguration) -> String?, deleteLocal: (String) -> Unit, deleteSubscription: (String) -> Unit, onEditingChange: (Boolean) -> Unit, onReorder: (List<String>) -> Unit, createGroupFromUngrouped: (String) -> Unit = {}, deleteUngrouped: () -> Unit = {}, subscriptionLoad: SubscriptionLoadState = SubscriptionLoadState.Idle, onPreviewSubscription: (url: String, name: String) -> Unit = { _, _ -> }, onCommitPreview: (groupId: String) -> Unit = {}, onDismissPreview: () -> Unit = {}, requestedSettingsId: String? = null, onRequestedSettingsHandled: () -> Unit = {}) {
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingConfigId by remember { mutableStateOf<String?>(null) }
@@ -685,13 +746,16 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
         onDispose { onEditingChange(false) }
     }
     fun edit(id: String?) { editingId = id; settingsOpen = true }
+    LaunchedEffect(requestedSettingsId) {
+        requestedSettingsId?.let { id -> edit(id); onRequestedSettingsHandled() }
+    }
     if (settingsOpen) {
         val local = store.localGroups.firstOrNull { it.id == editingId }
         val sub = store.subscriptions.firstOrNull { it.id == editingId }
         val initial = remember(editingId) {
             when {
                 sub != null -> GroupConfiguration(sub.id, sub.name, true, sub.url, sub.updateIntervalHours, sub.sort, sub.frontNodeId, sub.landingNodeId)
-                local != null -> GroupConfiguration(id = local.id, name = local.name, sort = local.sort, frontNodeId = local.frontNodeId, landingNodeId = local.landingNodeId)
+                local != null -> GroupConfiguration(id = local.id, name = local.name, sort = local.sort, frontNodeId = local.frontNodeId, landingNodeId = local.landingNodeId, balanceStrategy = local.balanceStrategy, balanceNodeIds = local.balanceNodeIds, balanceTestUrl = local.balanceTestUrl, balanceIntervalSeconds = local.balanceIntervalSeconds)
                 else -> GroupConfiguration()
             }
         }
@@ -857,6 +921,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
     var order by rememberSaveable { mutableStateOf(initial.sort.name) }
     var frontNodeId by rememberSaveable { mutableStateOf(initial.frontNodeId) }
     var landingNodeId by rememberSaveable { mutableStateOf(initial.landingNodeId) }
+    var balanceStrategy by rememberSaveable { mutableStateOf(initial.balanceStrategy) }
     var nodePicker by remember { mutableStateOf<String?>(null) }
     var chooser by remember { mutableStateOf<String?>(null) }
     var saveError by remember { mutableStateOf<String?>(null) }
@@ -864,7 +929,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
     val subLabel = T("groups.subscription")
     var discard by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val config = GroupConfiguration(id, name.trim(), subscription, url.trim(), hours.toIntOrNull() ?: 0, GroupSort.valueOf(order), frontNodeId, landingNodeId)
+    val config = GroupConfiguration(id, name.trim(), subscription, url.trim(), hours.toIntOrNull() ?: 0, GroupSort.valueOf(order), frontNodeId, landingNodeId, balanceStrategy, initial.balanceNodeIds, initial.balanceTestUrl, initial.balanceIntervalSeconds)
     val dirty = config != initial
     val back = { if (dirty) discard = true else onBack() }
     BackHandler(onBack = back)
@@ -1079,7 +1144,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
     )
 }
 
-@Composable internal fun IceMenuItem(title: String, icon: ImageVector, enabled: Boolean = true, destructive: Boolean = false, onClick: () -> Unit) {
+@Composable internal fun IceMenuItem(title: String, icon: ImageVector, enabled: Boolean = true, destructive: Boolean = false, submenu: Boolean = false, onClick: () -> Unit) {
     val tint = if (destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
     DropdownMenuItem(
         text = { Text(title, style = MaterialTheme.typography.bodyMedium, color = if (!enabled) MaterialTheme.colorScheme.onSurfaceVariant else if (destructive) tint else MaterialTheme.colorScheme.onSurface) },
@@ -1088,6 +1153,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
                 Icon(icon, null, tint = if (enabled) tint else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         },
+        trailingIcon = if (submenu) ({ Icon(Icons.Filled.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp)) }) else null,
         enabled = enabled,
         contentPadding = PaddingValues(horizontal = 16.dp),
         onClick = onClick,

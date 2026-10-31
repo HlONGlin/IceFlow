@@ -3,6 +3,9 @@ package com.iceflow.data
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.Protocol
 import com.iceflow.data.model.ServerProfile
+import com.iceflow.data.model.LocalGroup
+import com.iceflow.data.model.ServerStore
+import com.iceflow.data.model.LoadBalanceStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
@@ -40,6 +43,19 @@ class XrayConfigBuilderTest {
         assertEquals("reality", stream.str("security"))
         assertEquals("PBK", stream.obj("realitySettings").str("publicKey"))
         assertEquals("www.microsoft.com", stream.obj("realitySettings").str("serverName"))
+    }
+
+    @Test
+    fun `least ping group emits balancer and observatory`() {
+        val group = LocalGroup(id = "g", name = "Balanced", balanceStrategy = LoadBalanceStrategy.LEAST_PING, balanceTestUrl = "https://probe.example/check", balanceIntervalSeconds = 45)
+        val members = listOf(vless.copy(id = "a", groupId = "g"), vless.copy(id = "b", groupId = "g"))
+        val cfg = parse(XrayConfigBuilder.build(members.first(), AppSettings(), store = ServerStore(servers = members, localGroups = listOf(group))))
+        val balancer = cfg.getValue("routing").jsonObject.getValue("balancers").jsonArray.single().jsonObject
+        assertEquals("proxy", balancer.str("tag"))
+        assertEquals("leastPing", balancer.obj("strategy").str("type"))
+        assertEquals("45s", cfg.getValue("observatory").jsonObject.str("probeInterval"))
+        assertEquals("https://probe.example/check", cfg.getValue("observatory").jsonObject.str("probeURL"))
+        assertTrue(cfg.getValue("routing").jsonObject.getValue("rules").jsonArray.any { it.jsonObject["balancerTag"]?.jsonPrimitive?.content == "proxy" })
     }
 
     @Test

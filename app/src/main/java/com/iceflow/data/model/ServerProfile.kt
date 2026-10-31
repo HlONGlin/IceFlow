@@ -68,6 +68,20 @@ data class ServerProfile(
     val latencyMs: Int? = null,
     val uploadBytes: Long = 0,
     val downloadBytes: Long = 0,
+    val composition: ProxyComposition? = null,
+)
+
+@Serializable
+enum class ProxyCompositionKind { CHAIN, BALANCE }
+
+/** References existing servers without moving them out of their groups or subscriptions. */
+@Serializable
+data class ProxyComposition(
+    val kind: ProxyCompositionKind,
+    val serverIds: List<String> = emptyList(),
+    val strategy: LoadBalanceStrategy = LoadBalanceStrategy.ROUND_ROBIN,
+    val testUrl: String = "",
+    val intervalSeconds: Int = 300,
 )
 
 @Serializable
@@ -92,7 +106,21 @@ data class LocalGroup(
     val sort: GroupSort = GroupSort.ORIGINAL,
     val frontNodeId: String? = null,
     val landingNodeId: String? = null,
+    val balanceStrategy: LoadBalanceStrategy? = null,
+    val balanceNodeIds: List<String> = emptyList(),
+    val balanceTestUrl: String = "",
+    val balanceIntervalSeconds: Int = 300,
 )
+
+@Serializable
+enum class LoadBalanceStrategy(val stringKey: String) {
+    RANDOM("groups.balance.random"),
+    ROUND_ROBIN("groups.balance.roundRobin"),
+    LEAST_PING("groups.balance.leastPing"),
+    LEAST_LOAD("groups.balance.leastLoad"),
+    CONSISTENT_HASHING("groups.balance.consistentHashing"),
+    STICKY_SESSIONS("groups.balance.stickySessions"),
+}
 
 @Serializable
 enum class GroupSort(val label: String, val stringKey: String) {
@@ -119,8 +147,14 @@ data class GroupConfiguration(
     val sort: GroupSort = GroupSort.ORIGINAL,
     val frontNodeId: String? = null,
     val landingNodeId: String? = null,
+    val balanceStrategy: LoadBalanceStrategy? = null,
+    val balanceNodeIds: List<String> = emptyList(),
+    val balanceTestUrl: String = "",
+    val balanceIntervalSeconds: Int = 300,
 ) {
     fun validationError(): String? = when {
+        balanceStrategy != null && (frontNodeId != null || landingNodeId != null) -> "Chaining and load balancing cannot be enabled together"
+        balanceStrategy != null && balanceIntervalSeconds !in 10..86400 -> "负载均衡间隔应为 10–86400 秒"
         name.isBlank() -> "请输入分组名称"
         frontNodeId != null && frontNodeId == landingNodeId -> "前置节点和落地节点不能相同"
         subscription && !runCatching { SubscriptionUrl.requireHttpsUri(url.trim()) }.isSuccess -> "请输入有效的 HTTPS 订阅链接"

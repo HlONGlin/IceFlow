@@ -23,10 +23,30 @@ internal object MihomoConfigBuilder {
         try {
             settings.validate()
             require(tunnelPort == null || (tunnelPort in 1..65535 && (!settings.socksEnabled || tunnelPort != settings.socksPort)))
-            val chain = chain(profile, store)
-            val names = chain.indices.map { if (it == chain.lastIndex) PROXY else "chain-$it" }
+            val composition = profile.composition
+            val localGroup = store?.localGroups?.firstOrNull { composition == null && it.id == profile.groupId }
+            val balancing = composition?.takeIf { it.kind == ProxyCompositionKind.BALANCE }?.strategy ?: localGroup?.balanceStrategy
+            val chain = if (composition != null) ProxyCompositions.resolve(profile, store)
+            else if (balancing == null) chain(profile, store) else {
+                val group = requireNotNull(localGroup)
+                require(group.frontNodeId == null && group.landingNodeId == null) { "chaining and load balancing cannot be enabled together" }
+                val groupMembers = requireNotNull(store).servers.filter { it.groupId == group.id && it.composition == null }
+                val members = if (group.balanceNodeIds.isEmpty()) groupMembers else groupMembers.filter { it.id in group.balanceNodeIds }
+                require(members.size >= 2) { "load balancing requires at least two nodes" }
+                members
+            }
+            val names = if (balancing == null) chain.indices.map { if (it == chain.lastIndex) PROXY else "chain-$it" } else chain.indices.map { "lb-$it" }
             val proxies = chain.mapIndexed { index, p ->
-                JsonObject(outbound(p, names[index]) + if (index == 0) emptyMap() else mapOf("dialer-proxy" to JsonPrimitive(names[index - 1])))
+                JsonObject(outbound(p, names[index]) + if (balancing == null && index > 0) mapOf("dialer-proxy" to JsonPrimitive(names[index - 1])) else emptyMap())
+            }
+            val selectedIndex = chain.indexOfFirst { it.id == profile.id }.takeIf { it >= 0 } ?: 0
+            val selectedOutbound = names[selectedIndex]
+            val mihomoStrategy = when (balancing) {
+                null -> null
+                LoadBalanceStrategy.ROUND_ROBIN -> "round-robin"
+                LoadBalanceStrategy.CONSISTENT_HASHING -> "consistent-hashing"
+                LoadBalanceStrategy.STICKY_SESSIONS -> "sticky-sessions"
+                else -> fail("balanceStrategy", "The selected balancing strategy is not supported by Mihomo")
             }
             return buildJsonObject {
                 put("mode", "rule"); put("log-level", "warning"); put("find-process-mode", "off")
@@ -39,8 +59,18 @@ internal object MihomoConfigBuilder {
                     put("inet6-address", JsonArray(if (settings.ipv6Enabled) listOf(JsonPrimitive("fdfe:dcba:9876::1/126")) else emptyList()))
                 }
                 put("proxies", JsonArray(proxies))
+                if (mihomoStrategy != null) putJsonArray("proxy-groups") {
+                    addJsonObject {
+                        put("name", PROXY)
+                        put("type", "load-balance")
+                        put("strategy", mihomoStrategy)
+                        put("url", (composition?.testUrl ?: localGroup?.balanceTestUrl)?.takeIf { it.isNotBlank() } ?: settings.testUrl)
+                        put("interval", composition?.intervalSeconds ?: localGroup?.balanceIntervalSeconds ?: 300)
+                        put("proxies", JsonArray(names.map(::JsonPrimitive)))
+                    }
+                }
                 // Wrapper-only metadata: session persistence belongs to the selected node.
-                put("iceflow-selected-outbound", names[chain.indexOfFirst { it.id == profile.id }])
+                put("iceflow-selected-outbound", selectedOutbound)
                 put("rules", JsonArray(rules(settings).map(::JsonPrimitive)))
                 put("dns", dns(settings))
                 if (includeInbound) put("listeners", JsonArray(listeners(settings, tunnelPort, tunnelAuth)))
@@ -51,6 +81,7 @@ internal object MihomoConfigBuilder {
     }
 
     internal fun chain(profile: ServerProfile, store: ServerStore?): List<ServerProfile> {
+        if (profile.composition != null) return ProxyCompositions.resolve(profile, store)
         val group = store?.localGroups?.firstOrNull { it.id == profile.groupId }
         val subscription = store?.subscriptions?.firstOrNull { it.id == profile.subscriptionId }
         fun resolve(id: String?, field: String) = id?.let { selected ->

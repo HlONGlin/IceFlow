@@ -224,7 +224,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun delete(id: String) = container.servers.delete(id)
     fun updateServer(server: ServerProfile) = container.servers.updateServer(server)
     fun saveServer(server: ServerProfile): String? = runCatching {
-        val validated = com.iceflow.data.NodeEditing.validate(server)
+        val validated = com.iceflow.data.NodeEditing.validate(server, store.value)
         if (store.value.servers.any { it.id == validated.id }) container.servers.updateServer(validated)
         else {
             container.servers.addServers(listOf(validated))

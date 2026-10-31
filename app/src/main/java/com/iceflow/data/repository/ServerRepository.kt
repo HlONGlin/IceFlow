@@ -126,6 +126,12 @@ class ServerRepository(private val file: File) {
 
     fun saveGroup(config: GroupConfiguration) = mutate { s ->
         require(config.validationError() == null) { config.validationError().orEmpty() }
+        require(config.balanceStrategy == null || !config.subscription) { "Load balancing is supported on local groups only" }
+        val groupNodes = s.servers.filter { it.groupId == config.id && it.composition == null }
+        val balanceNodes = if (config.balanceNodeIds.isEmpty()) groupNodes else groupNodes.filter { it.id in config.balanceNodeIds }
+        require(config.balanceStrategy == null || balanceNodes.size >= 2) { "Load balancing requires at least two selected nodes in this group" }
+        require(config.balanceNodeIds.distinct().size == config.balanceNodeIds.size && config.balanceNodeIds.all { id -> groupNodes.any { it.id == id } }) { "Load balancing nodes must belong to this group" }
+        require(config.balanceTestUrl.isBlank() || runCatching { java.net.URI(config.balanceTestUrl.trim()).let { it.scheme in setOf("http", "https") && !it.host.isNullOrBlank() } }.getOrDefault(false)) { "Invalid load-balancing test URL" }
         require(!config.subscription || s.subscriptions.none { it.id != config.id && it.url == config.url.trim() }) { "该订阅链接已存在" }
         listOfNotNull(config.frontNodeId, config.landingNodeId).forEach { nodeId ->
             val node = s.servers.firstOrNull { it.id == nodeId }
@@ -139,8 +145,8 @@ class ServerRepository(private val file: File) {
             updatedAt = if (old?.url == config.url.trim()) old.updatedAt else 0,
         ) else null
         val locals = if (subscription == null) {
-            if (s.localGroups.any { it.id == config.id }) s.localGroups.map { if (it.id == config.id) it.copy(name = config.name.trim(), sort = config.sort, frontNodeId = config.frontNodeId, landingNodeId = config.landingNodeId) else it }
-            else s.localGroups + LocalGroup(config.id, config.name.trim(), config.sort, config.frontNodeId, config.landingNodeId)
+            if (s.localGroups.any { it.id == config.id }) s.localGroups.map { if (it.id == config.id) it.copy(name = config.name.trim(), sort = config.sort, frontNodeId = config.frontNodeId, landingNodeId = config.landingNodeId, balanceStrategy = config.balanceStrategy, balanceNodeIds = config.balanceNodeIds, balanceTestUrl = config.balanceTestUrl.trim(), balanceIntervalSeconds = config.balanceIntervalSeconds) else it }
+            else s.localGroups + LocalGroup(config.id, config.name.trim(), config.sort, config.frontNodeId, config.landingNodeId, config.balanceStrategy, config.balanceNodeIds, config.balanceTestUrl.trim(), config.balanceIntervalSeconds)
         } else s.localGroups.filterNot { it.id == config.id }
         val subscriptions = if (subscription != null) {
             if (old != null) s.subscriptions.map { if (it.id == config.id) subscription else it } else s.subscriptions + subscription

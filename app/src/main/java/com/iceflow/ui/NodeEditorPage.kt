@@ -1,19 +1,170 @@
 package com.iceflow.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.ui.Alignment
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.iceflow.data.NodeEditing
 import com.iceflow.data.model.*
 import com.iceflow.i18n.T
 import kotlinx.serialization.json.*
+
+internal enum class ManualAddPage { CHAIN_EDITOR, BALANCE_EDITOR }
+
+@Composable internal fun ServerTypeLabel(server: ServerProfile): String = when (server.composition?.kind) {
+    ProxyCompositionKind.CHAIN -> T("groups.chain")
+    ProxyCompositionKind.BALANCE -> T("groups.loadBalance")
+    null -> server.protocol.label
+}
+
+@Composable internal fun ManualAddScreen(
+    initial: ServerProfile,
+    servers: List<ServerProfile>,
+    coreVariant: String,
+    onDismiss: () -> Unit,
+    onSave: (ServerProfile) -> String?,
+) {
+    val original = requireNotNull(initial.composition)
+    val focusManager = LocalFocusManager.current
+    val balancing = original.kind == ProxyCompositionKind.BALANCE
+    var configName by rememberSaveable(initial.id) { mutableStateOf(initial.name) }
+    var serverIds by rememberSaveable(initial.id) { mutableStateOf(original.serverIds) }
+    var strategy by rememberSaveable(initial.id) { mutableStateOf(original.strategy) }
+    var testUrl by rememberSaveable(initial.id) { mutableStateOf(original.testUrl) }
+    var intervalText by rememberSaveable(initial.id) { mutableStateOf(original.intervalSeconds.toString()) }
+    var picker by rememberSaveable(initial.id) { mutableStateOf(false) }
+    var query by rememberSaveable(initial.id) { mutableStateOf("") }
+    var strategyMenu by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var discard by remember { mutableStateOf(false) }
+    val strategies = if (coreVariant == "single") listOf(LoadBalanceStrategy.ROUND_ROBIN, LoadBalanceStrategy.CONSISTENT_HASHING, LoadBalanceStrategy.STICKY_SESSIONS)
+        else listOf(LoadBalanceStrategy.RANDOM, LoadBalanceStrategy.ROUND_ROBIN, LoadBalanceStrategy.LEAST_PING, LoadBalanceStrategy.LEAST_LOAD)
+    val dirty = configName != initial.name || serverIds != original.serverIds || strategy != original.strategy || testUrl != original.testUrl || intervalText != original.intervalSeconds.toString()
+    fun back() { if (picker) picker = false else if (dirty) discard = true else onDismiss() }
+    BackHandler(onBack = ::back)
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().imePadding()) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = ::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, T("common.cancel")) }
+            Text(if (picker) T("groups.balance.addServer") else if (balancing) T("groups.loadBalance") else T("groups.chain"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (picker) {
+                IconButton(onClick = { picker = false }) { Icon(Icons.Filled.Check, T("common.done")) }
+            } else {
+                IconButton(onClick = {
+                    focusManager.clearFocus()
+                    val interval = intervalText.toIntOrNull()
+                    if (balancing && interval == null) { error = "请输入有效的检查间隔" }
+                    else {
+                        val next = initial.copy(name = configName, latencyMs = null, composition = original.copy(serverIds = serverIds, strategy = strategy, testUrl = testUrl.trim(), intervalSeconds = interval ?: 300))
+                        error = onSave(next)
+                        if (error == null) onDismiss()
+                    }
+                }) { Icon(Icons.Filled.Check, T("common.save"), tint = MaterialTheme.colorScheme.primary) }
+            }
+        }
+        AnimatedContent(targetState = picker, modifier = Modifier.weight(1f).fillMaxWidth(), transitionSpec = {
+            val direction = if (targetState) 1 else -1
+            fadeIn(tween(220)) + slideInHorizontally(tween(220)) { direction * it / 8 } togetherWith
+                fadeOut(tween(160)) + slideOutHorizontally(tween(220)) { -direction * it / 8 }
+        }, label = "configuration-servers") { selecting ->
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
+                if (selecting) {
+                    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(bottom = 8.dp), label = { Text(T("home.searchHint")) }, singleLine = true)
+                    val candidates = servers.filter { it.id != initial.id && it.composition == null && (query.isBlank() || it.name.contains(query, true) || it.address.contains(query, true)) }
+                    if (candidates.isEmpty()) Text("暂无可添加的服务器配置", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
+                    candidates.forEach { server ->
+                        Row(Modifier.fillMaxWidth().clickable {
+                            serverIds = if (server.id in serverIds) serverIds - server.id else serverIds + server.id
+                        }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(server.name, style = MaterialTheme.typography.bodyMedium)
+                                Text(server.protocol.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Checkbox(server.id in serverIds, onCheckedChange = { selected -> serverIds = if (selected) serverIds + server.id else serverIds - server.id })
+                        }
+                    }
+                } else {
+                    OutlinedTextField(configName, { configName = it }, Modifier.fillMaxWidth().padding(vertical = 8.dp), label = { Text("配置名称") }, singleLine = true)
+                    if (balancing) {
+                        Box {
+                            ManualSettingRow(T("groups.balance.strategy"), T(strategy.stringKey)) { strategyMenu = true }
+                            IceDropdownMenu(strategyMenu, { strategyMenu = false }) {
+                                strategies.forEach { item -> IceMenuItem(T(item.stringKey), Icons.Filled.Balance) { strategy = item; strategyMenu = false } }
+                            }
+                        }
+                        OutlinedTextField(testUrl, { testUrl = it }, Modifier.fillMaxWidth().padding(top = 8.dp), label = { Text(T("groups.balance.testUrl")) }, placeholder = { Text(T("common.notSet")) }, singleLine = true)
+                        OutlinedTextField(intervalText, { intervalText = it.filter(Char::isDigit) }, Modifier.fillMaxWidth().padding(vertical = 8.dp), label = { Text(T("groups.balance.interval")) }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    } else {
+                        Text("按列表顺序依次连接，最后一个服务器为出口。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+                    }
+                    OutlinedButton({ focusManager.clearFocus(); query = ""; picker = true }, Modifier.fillMaxWidth().padding(vertical = 12.dp).heightIn(min = 48.dp), shape = RoundedCornerShape(8.dp)) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                        Text(T("groups.balance.addServer"), modifier = Modifier.padding(start = 8.dp))
+                    }
+                    serverIds.forEachIndexed { index, id ->
+                        val server = servers.firstOrNull { it.id == id }
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("${index + 1}. ${server?.name ?: "服务器已删除"}", style = MaterialTheme.typography.bodyMedium)
+                                server?.let { Text(it.protocol.label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            }
+                            if (!balancing) {
+                                IconButton(onClick = {
+                                    serverIds = serverIds.toMutableList().apply { add(index - 1, removeAt(index)) }
+                                }, enabled = index > 0) { Icon(Icons.Filled.KeyboardArrowUp, "上移") }
+                                IconButton(onClick = {
+                                    serverIds = serverIds.toMutableList().apply { add(index + 1, removeAt(index)) }
+                                }, enabled = index < serverIds.lastIndex) { Icon(Icons.Filled.KeyboardArrowDown, "下移") }
+                            }
+                            IconButton(onClick = { serverIds = serverIds - id }) { Icon(Icons.Filled.Delete, T("common.delete")) }
+                        }
+                    }
+                }
+            }
+        }
+        error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+    }
+    if (discard) AlertDialog(
+        onDismissRequest = { discard = false },
+        title = { Text("放弃修改？") }, text = { Text("尚未保存的配置将丢失。") },
+        confirmButton = { TextButton(onClick = { discard = false; onDismiss() }) { Text("放弃") } },
+        dismissButton = { TextButton(onClick = { discard = false }) { Text(T("common.cancel")) } },
+    )
+}
+
+@Composable private fun ManualSettingRow(title: String, value: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
 
 @Composable internal fun NodeEditorPage(initial: ServerProfile, isNew: Boolean, close: () -> Unit, save: (ServerProfile) -> String?) {
     var encoded by rememberSaveable(initial.id) { mutableStateOf(NodeEditing.json.encodeToString(ServerProfile.serializer(), initial)) }

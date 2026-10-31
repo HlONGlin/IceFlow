@@ -7,6 +7,29 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MihomoConfigBuilderTest {
+    @Test fun standaloneCompositionsUseOrderedReferencesAcrossGroups() {
+        val a = ServerProfile(id = "a", name = "a", protocol = Protocol.VLESS, address = "a.example", port = 443, uuid = "00112233-4455-6677-8899-aabbccddeeff", groupId = "different")
+        val b = a.copy(id = "b", address = "b.example", groupId = null, subscriptionId = "sub")
+        for (kind in ProxyCompositionKind.entries) {
+            val p = NodeEditing.blank(Protocol.SOCKS).copy(name = "composition", composition = ProxyComposition(kind, listOf(b.id, a.id), testUrl = "https://example.com/check", intervalSeconds = 60))
+            val s = ServerStore(servers = listOf(a, b, p))
+            val cfg = config(p = p, store = s)
+            val proxies = cfg["proxies"]!!.jsonArray.map { it.jsonObject }
+            assertEquals(listOf("b.example", "a.example"), proxies.map { it.text("server") })
+            if (kind == ProxyCompositionKind.CHAIN) {
+                assertEquals("chain-0", proxies.last().text("dialer-proxy"))
+                assertFalse(proxies.first().containsKey("dialer-proxy"))
+                assertEquals("proxy", proxies.last().text("name"))
+            } else {
+                val group = cfg["proxy-groups"]!!.jsonArray.single().jsonObject
+                assertEquals("load-balance", group.text("type"))
+                assertEquals("round-robin", group.text("strategy"))
+                assertEquals(listOf("lb-0", "lb-1"), group["proxies"]!!.jsonArray.map { it.jsonPrimitive.content })
+                assertEquals("https://example.com/check", group.text("url"))
+                assertEquals("60", group.text("interval"))
+            }
+        }
+    }
     private val base = ServerProfile(id = "selected", name = "node", protocol = Protocol.VLESS,
         address = "example.com", port = 443, uuid = "00112233-4455-6677-8899-aabbccddeeff")
     private fun config(p: ServerProfile = base, s: AppSettings = AppSettings(), include: Boolean = true,
@@ -197,6 +220,18 @@ class MihomoConfigBuilderTest {
     }
     @Test fun missingChainNodeRejected() { rejected("frontNodeId") { config(base.copy(groupId = "g"), store = ServerStore(localGroups = listOf(LocalGroup(id = "g", name = "g", frontNodeId = "missing")))) } }
     @Test fun duplicateChainNodeRejected() { rejected("chain") { config(base.copy(groupId = "g"), store = ServerStore(servers = listOf(base), localGroups = listOf(LocalGroup(id = "g", name = "g", frontNodeId = base.id)))) } }
+    @Test fun loadBalanceGroupUsesSelectedMihomoStrategyAndAllMembers() {
+        val nodes = listOf(base.copy(id = "a", groupId = "g"), base.copy(id = "b", groupId = "g"), base.copy(id = "c", groupId = "g"))
+        val group = LocalGroup(id = "g", name = "g", balanceStrategy = LoadBalanceStrategy.CONSISTENT_HASHING, balanceNodeIds = listOf("a", "b"), balanceTestUrl = "https://probe.example/check", balanceIntervalSeconds = 45)
+        val cfg = config(nodes.first(), store = ServerStore(servers = nodes, localGroups = listOf(group)))
+        val lb = cfg.getValue("proxy-groups").jsonArray.single().jsonObject
+        assertEquals("load-balance", lb.text("type"))
+        assertEquals("consistent-hashing", lb.text("strategy"))
+        assertEquals(listOf("lb-0", "lb-1"), lb.getValue("proxies").jsonArray.map { it.jsonPrimitive.content })
+        assertEquals("https://probe.example/check", lb.text("url"))
+        assertEquals(45, lb.getValue("interval").jsonPrimitive.int)
+        assertEquals("MATCH,proxy", cfg.getValue("rules").jsonArray.last().jsonPrimitive.content)
+    }
     @Test fun metadataDoesNotMutatePersistedProfile() {
         val p = base.copy(name = "original", latencyMs = 42, uploadBytes = 123, downloadBytes = 456)
         config(p); assertEquals("original", p.name); assertEquals(123L, p.uploadBytes); assertEquals(456L, p.downloadBytes)

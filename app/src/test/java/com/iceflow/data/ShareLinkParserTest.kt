@@ -113,6 +113,74 @@ class ShareLinkParserTest {
         assertTrue(ShareLinkParser.parseMany(lines).size == 2)
     }
 
+
+    @Test
+    fun `long v2rayN reality link preserves encoded remark in clipboard import`() {
+        val link = "vless://11111111-2222-3333-4444-555555555555@192.0.2.60:57620" +
+            "?encryption=none&security=reality&sni=www.amazon.com&fp=chrome" +
+            "&pbk=public-key&sid=d1e776a8&spx=%2F&pqv=" + "Ab9_-".repeat(700) +
+            "&type=tcp&headerType=none#%E9%A6%99%E6%B8%AF1%28le%29"
+        for (input in listOf(link, b64(link))) {
+            val p = ShareLinkParser.parseMany(input).single()
+            assertEquals("香港1(le)", p.name)
+            assertEquals("www.amazon.com", p.sni)
+            assertEquals("192.0.2.60", p.address)
+            assertEquals("reality", p.tls)
+            assertEquals("public-key", p.publicKey)
+            assertEquals("/", p.spiderX)
+        }
+    }
+
+    @Test
+    fun `clipboard import keeps remark on continuation line`() {
+        val link = "vless://u@192.0.2.60:57620?security=reality&sni=www.amazon.com" +
+            "\r\n&pbk=public-key&sid=d1e776a8\r\n#%E9%A6%99%E6%B8%AF1%28le%29"
+        for (input in listOf(link, b64(link))) {
+            val p = ShareLinkParser.parseMany(input).single()
+            assertEquals("香港1(le)", p.name)
+            assertEquals("public-key", p.publicKey)
+            assertEquals("www.amazon.com", p.sni)
+        }
+    }
+
+    @Test
+    fun `continuation handling preserves independent links and ignores unrelated lines`() {
+        val text = "vless://u@192.0.2.1:443?sni=tls.example.com\n#First\n" +
+            "trojan://p@192.0.2.2:443?peer=peer.example.com#Second\n" +
+            "# unrelated line\n&unused=value\ngarbage line\n" +
+            "vless://u@192.0.2.3:443?sni=third.example.com#Third%2BNode"
+        val profiles = ShareLinkParser.parseMany(text)
+        assertEquals(listOf("First", "Second", "Third+Node"), profiles.map { it.name })
+        assertEquals(listOf("tls.example.com", "peer.example.com", "third.example.com"), profiles.map { it.sni })
+    }
+
+    @Test
+    fun `unnamed vmess never uses tls or transport host as name`() {
+        for (remark in listOf("", "   ")) {
+            val body = """{"ps":"$remark","add":"192.0.2.1","port":443,"id":"u","host":"cdn.example.com","sni":"tls.example.com"}"""
+            val p = ShareLinkParser.parse("vmess://" + b64(body))!!
+            assertEquals("vmess-192.0.2.1:443", p.name)
+            assertEquals("cdn.example.com", p.host)
+            assertEquals("tls.example.com", p.sni)
+        }
+    }
+
+    @Test
+    fun `unnamed standard links keep name independent from sni peer and host`() {
+        for (scheme in listOf("vless", "trojan")) {
+            for (tlsName in listOf("sni", "peer")) {
+                for (remark in listOf("", "#%20%20")) {
+                    val p = ShareLinkParser.parse("$scheme://u@[2001:db8::1]:443?$tlsName=tls.example.com&host=cdn.example.com$remark")!!
+                    assertEquals("$scheme-[2001:db8::1]:443", p.name)
+                    assertEquals("tls.example.com", p.sni)
+                    assertEquals("cdn.example.com", p.host)
+                }
+            }
+            val p = ShareLinkParser.parse("$scheme://u@node.example.com:443?sni=tls.example.com")!!
+            assertEquals("node.example.com", p.name)
+        }
+    }
+
     @Test
     fun `encode round trips supported protocols`() {
         val profiles = listOf(

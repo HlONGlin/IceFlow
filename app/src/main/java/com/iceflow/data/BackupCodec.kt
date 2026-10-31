@@ -41,7 +41,7 @@ object BackupCodec {
         require(store.selectedId == null || store.selectedId in ids) { "所选节点不存在" }
         require(store.selectedGroupId == null || store.selectedGroupId in groups) { "所选分组不存在" }
         store.servers.forEach { node ->
-            NodeEditing.validate(node)
+            NodeEditing.validate(node, store)
             require(node.groupId == null || store.localGroups.any { it.id == node.groupId }) { "节点所属分组不存在" }
             require(node.subscriptionId == null || store.subscriptions.any { it.id == node.subscriptionId }) { "节点所属订阅不存在" }
         }

@@ -6,6 +6,7 @@ import com.iceflow.data.model.RouteAction
 import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.model.RoutingMode
+import com.iceflow.data.model.LoadBalanceStrategy
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonObject
@@ -50,23 +51,40 @@ object XrayConfigBuilder {
         tunnelAuth: Pair<String, String>? = null
     ): String {
         require(tunnelPort == null || (tunnelPort in 1..65535 && (!settings.socksEnabled || tunnelPort != settings.socksPort)))
-        val local = store?.localGroups?.firstOrNull { it.id == profile.groupId }
-        val subscription = store?.subscriptions?.firstOrNull { it.id == profile.subscriptionId }
+        val composition = profile.composition
+        val local = store?.localGroups?.firstOrNull { composition == null && it.id == profile.groupId }
+        val subscription = store?.subscriptions?.firstOrNull { composition == null && it.id == profile.subscriptionId }
         val frontId = subscription?.frontNodeId ?: local?.frontNodeId
         val landingId = subscription?.landingNodeId ?: local?.landingNodeId
+        val balanceStrategy = composition?.takeIf { it.kind == com.iceflow.data.model.ProxyCompositionKind.BALANCE }?.strategy ?: local?.balanceStrategy
         fun resolve(id: String?, label: String): ServerProfile? = id?.let { selected ->
             requireNotNull(store?.servers?.firstOrNull { it.id == selected }) { "${label}已失效，请在分组设置中重新选择" }
         }
-        val chain = listOfNotNull(resolve(frontId, "前置节点"), profile, resolve(landingId, "落地节点"))
+        val chain = if (composition != null) ProxyCompositions.resolve(profile, store)
+        else if (balanceStrategy == null) listOfNotNull(resolve(frontId, "前置节点"), profile, resolve(landingId, "落地节点")) else {
+            require(frontId == null && landingId == null) { "chaining and load balancing cannot be enabled together" }
+            val group = requireNotNull(local)
+            val groupMembers = requireNotNull(store).servers.filter { it.groupId == group.id && it.composition == null }
+            val members = if (group.balanceNodeIds.isEmpty()) groupMembers else groupMembers.filter { it.id in group.balanceNodeIds }
+            require(members.size >= 2) { "load balancing requires at least two nodes" }
+            members
+        }
         require(chain.map { it.id }.distinct().size == chain.size) { "代理链包含重复节点，请调整分组设置" }
-        val tags = chain.indices.map { if (it == chain.lastIndex) PROXY_TAG else "chain-$it" }
+        val tags = chain.indices.map { if (balanceStrategy != null) "lb-$it" else if (it == chain.lastIndex) PROXY_TAG else "chain-$it" }
         val adapters = chain.mapIndexedNotNull { index, node ->
             val options = if (node.clashConfig != null) ClashYamlParser.config(node) else if (node.protocol in ExtendedShareLinks.protocols) ExtendedConfigBuilder.build(node) else null
-            options?.let { buildJsonObject { put("tag", tags[index]); if (index > 0) put("upstream", tags[index - 1]); put("options", it) } }
+            options?.let { buildJsonObject { put("tag", tags[index]); if (balanceStrategy == null && index > 0) put("upstream", tags[index - 1]); put("options", it) } }
         }
         return buildJsonObject {
             if (chain.size == 1 && adapters.isNotEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
             else if (adapters.isNotEmpty()) put("iceflowAdapters", JsonArray(adapters))
+            if (balanceStrategy == LoadBalanceStrategy.LEAST_PING || balanceStrategy == LoadBalanceStrategy.LEAST_LOAD) {
+                putJsonObject("observatory") {
+                    putJsonArray("subjectSelector") { add("lb-") }
+                    put("probeURL", (composition?.testUrl ?: local?.balanceTestUrl)?.takeIf { it.isNotBlank() } ?: settings.testUrl)
+                    put("probeInterval", "${composition?.intervalSeconds ?: local?.balanceIntervalSeconds ?: 300}s")
+                }
+            }
             putJsonObject("log") { put("loglevel", "warning") }
             putJsonObject("stats") {}
             putJsonObject("policy") {
@@ -132,12 +150,12 @@ object XrayConfigBuilder {
             }
             putJsonArray("outbounds") {
                 // The first outbound remains the final hop, so normal traffic cannot bypass the chain.
-                chain.indices.reversed().forEach { index ->
+                (if (balanceStrategy == null) chain.indices.reversed() else chain.indices).forEach { index ->
                     val base = outbound(chain[index])
                     add(buildJsonObject {
                         base.forEach { (key, value) -> put(key, value) }
                         put("tag", tags[index])
-                        if (index > 0 && adapters.none { it["tag"] == JsonPrimitive(tags[index]) }) {
+                        if (balanceStrategy == null && index > 0 && adapters.none { it["tag"] == JsonPrimitive(tags[index]) }) {
                             put("streamSettings", buildJsonObject {
                                 base["streamSettings"]?.jsonObject?.forEach { (key, value) -> put(key, value) }
                                 putJsonObject("sockopt") { put("dialerProxy", tags[index - 1]) }
@@ -179,21 +197,48 @@ object XrayConfigBuilder {
             }
             putJsonObject("routing") {
                 put("domainStrategy", "IPIfNonMatch")
+                if (balanceStrategy != null) putJsonArray("balancers") {
+                    addJsonObject {
+                        put("tag", PROXY_TAG)
+                        putJsonArray("selector") { add("lb-") }
+                        put("fallbackTag", tags.first())
+                        putJsonObject("strategy") {
+                            put("type", when (balanceStrategy) {
+                                LoadBalanceStrategy.RANDOM -> "random"
+                                LoadBalanceStrategy.ROUND_ROBIN -> "roundRobin"
+                                LoadBalanceStrategy.LEAST_PING -> "leastPing"
+                                LoadBalanceStrategy.LEAST_LOAD -> "leastLoad"
+                                else -> error("Strategy is not supported by Xray")
+                            })
+                        }
+                    }
+                }
                 putJsonArray("rules") {
                     if (settings.routingMode == RoutingMode.GLOBAL) {
-                        add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); put("outboundTag", PROXY_TAG) })
+                        add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); if (balanceStrategy == null) put("outboundTag", PROXY_TAG) else put("balancerTag", PROXY_TAG) })
                     } else if (settings.routingMode == RoutingMode.DIRECT) {
                         add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); put("outboundTag", "direct") })
                     } else settings.routingRules.filter { it.enabled && (it.id != "builtin:private" || settings.bypassLan) }.forEach { rule ->
                         rule.validate()
                         if (rule.id == "builtin:private" && rule.ips == listOf("geoip:private")) add(buildJsonObject {
-                            rule.toXray().forEach { (k, v) -> put(k, v) }
+                            routeToBalancer(rule.toXray(), balanceStrategy != null).forEach { (k, v) -> put(k, v) }
                             put("ip", JsonArray(PRIVATE_CIDRS.map(::JsonPrimitive)))
-                        }) else add(rule.toXray())
+                        }) else add(routeToBalancer(rule.toXray(), balanceStrategy != null))
+                    }
+                    if (balanceStrategy != null && settings.routingMode == RoutingMode.RULE) addJsonObject {
+                        put("type", "field"); put("network", "tcp,udp"); put("balancerTag", PROXY_TAG)
                     }
                 }
             }
         }.toString()
+    }
+
+    private fun routeToBalancer(rule: JsonObject, enabled: Boolean): JsonObject {
+        if (!enabled || rule["outboundTag"] != JsonPrimitive(PROXY_TAG)) return rule
+        return JsonObject(rule.toMutableMap().apply {
+            remove("outboundTag")
+            put("balancerTag", JsonPrimitive(PROXY_TAG))
+        })
     }
 
     private fun outbound(p: ServerProfile): JsonObject = buildJsonObject {
