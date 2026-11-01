@@ -15,6 +15,7 @@ data class RoutingRule(
     val name: String = "",
     val enabled: Boolean = true,
     val action: RouteAction = RouteAction.DIRECT,
+    val outboundTargetId: String? = null,
     val domains: List<String> = emptyList(),
     val ips: List<String> = emptyList(),
     val port: String = "",
@@ -26,6 +27,7 @@ data class RoutingRule(
     fun validate() {
         require(id.isNotBlank() && id.length <= 200) { "无效规则 ID" }
         require(name.isNotBlank() && name.length <= 200) { "请输入规则名称（最多 200 字）" }
+        require(outboundTargetId == null || (outboundTargetId.isNotBlank() && outboundTargetId.length <= 240)) { "无效的路由出口 / Invalid routing target" }
         require(domains.isNotEmpty() || ips.isNotEmpty() || port.isNotBlank() || source.isNotEmpty() || sourcePort.isNotBlank() || network.isNotBlank() || protocols.isNotEmpty()) { "请至少设置一个匹配条件" }
         require((domains + ips + source).size <= 10000) { "单条规则条件过多" }
         require((domains + ips + source).all { it.isNotBlank() && it.length <= 2048 }) { "匹配条件不能为空或过长" }
@@ -49,8 +51,8 @@ data class RoutingRule(
         ips.forEach(::cidr); source.forEach(::cidr)
         domains.filter { it.startsWith("regexp:") }.forEach { Regex(it.removePrefix("regexp:")) }
     }
-    fun toXray(): JsonObject = buildJsonObject {
-        put("type", "field"); put("outboundTag", action.tag)
+    fun toXray(outboundTag: String = action.tag): JsonObject = buildJsonObject {
+        put("type", "field"); put("outboundTag", outboundTag)
         // ruleTag 是域匹配器缓存（MPH cache）的键，必须存在且唯一
         if (domains.isNotEmpty()) put("ruleTag", xrayRuleTag)
         fun strings(key: String, values: List<String>) { if (values.isNotEmpty()) put(key, JsonArray(values.map(::JsonPrimitive))) }

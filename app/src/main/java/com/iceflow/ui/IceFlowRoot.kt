@@ -181,6 +181,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
     val refreshing by vm.refreshingSubscriptions.collectAsStateWithLifecycle()
     val refreshingGroups by vm.refreshingGroupIds.collectAsStateWithLifecycle()
     val subscriptionLoad by vm.subscriptionLoad.collectAsStateWithLifecycle()
+    val deepLinkPrompt by vm.deepLinkPrompt.collectAsStateWithLifecycle()
     val connectionTest by vm.connectionTest.collectAsStateWithLifecycle()
     val nodeTest by vm.nodeTest.collectAsStateWithLifecycle()
     val bulkTest by vm.bulkTest.collectAsStateWithLifecycle()
@@ -315,7 +316,7 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
                             onCheckUpdate = { vm.checkForUpdate(manual = true) },
                             onDetailOpenChange = { settingsDetailOpen = it },
                         )
-                        Tab.ROUTES -> RoutingPage(settings, vm::updateSettings, vm.routingResources, { groupSettingsOpen = it })
+                        Tab.ROUTES -> RoutingPage(settings, store, vm::updateSettings, vm.routingResources, vm.routingRuleSets, { groupSettingsOpen = it })
                     }
                 }
             }
@@ -372,6 +373,9 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
                 onDismiss = { shareNodeId = null }
             )
         }
+
+        // 外部深链接 / 分享导入的确认框：确认前不写入、不连接
+        DeepLinkDialog(deepLinkPrompt, vm::confirmDeepLink, vm::dismissDeepLink)
 
         UpdateDialog(
             state = updateState,
@@ -1335,6 +1339,48 @@ private fun themeLabel(theme: com.iceflow.data.model.AppTheme) = when (theme) {
 @Composable private fun AddSubscriptionDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) { var url by rememberSaveable { mutableStateOf("") }; AlertDialog(onDismissRequest = onDismiss, title = { Text(T("sub.add")) }, text = { OutlinedTextField(url, { url = it }, label = { Text(T("sub.url")) }, singleLine = true) }, confirmButton = { TextButton(onClick = { onConfirm(url.trim()) }, enabled = url.startsWith("http")) { Text(T("common.add")) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(T("common.cancel")) } }) }
 
 private fun readClipboard(context: Context): String? { val cm = context.getSystemService(ClipboardManager::class.java) ?: return null; return cm.primaryClip?.let { if (it.itemCount > 0) it.getItemAt(0).coerceToText(context).toString() else null } }
+
+/**
+ * 外部深链接 / 分享导入的确认框：展示订阅名称与完整地址（或节点摘要与数量），
+ * 只有点「确认导入」才会写入；已存在相同地址的订阅只提示，不重复添加。
+ */
+@Composable
+private fun DeepLinkDialog(prompt: DeepLinkPrompt?, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    if (prompt == null) return
+    val duplicate = prompt is DeepLinkPrompt.Subscription && prompt.existingName != null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (prompt is DeepLinkPrompt.Subscription) T("deeplink.sub.title") else T("deeplink.nodes.title")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                when (prompt) {
+                    is DeepLinkPrompt.Subscription -> {
+                        prompt.name?.let { Text(String.format("%s：%s", T("deeplink.name"), it), style = MaterialTheme.typography.bodyMedium) }
+                        Text(T("deeplink.sub.text"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(String.format("%s：%s", T("deeplink.url"), prompt.url), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        prompt.existingName?.let {
+                            Text(String.format(T("deeplink.duplicate"), it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    is DeepLinkPrompt.Nodes -> {
+                        Text(T("deeplink.nodes.text"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(String.format(T("deeplink.nodes.count"), prompt.count), style = MaterialTheme.typography.bodyMedium)
+                        prompt.summary.forEach { line ->
+                            Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        prompt.request.sourceName?.let {
+                            Text(String.format(T("deeplink.nodes.source"), it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (!duplicate) TextButton(onClick = onConfirm) { Text(T("deeplink.confirm")) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(if (duplicate) T("common.close") else T("common.cancel")) } },
+    )
+}
 
 @Composable private fun UpdateDialog(
     state: UpdateState,

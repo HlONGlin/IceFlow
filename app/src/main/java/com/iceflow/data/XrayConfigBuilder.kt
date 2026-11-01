@@ -7,6 +7,7 @@ import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.model.RoutingMode
 import com.iceflow.data.model.LoadBalanceStrategy
+import com.iceflow.data.model.RoutingOutboundTargets
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonObject
@@ -50,7 +51,8 @@ object XrayConfigBuilder {
         tunnelPort: Int? = null,
         tunnelAuth: Pair<String, String>? = null
     ): String {
-        require(tunnelPort == null || (tunnelPort in 1..65535 && (!settings.socksEnabled || tunnelPort != settings.socksPort)))
+        settings.validate()
+        require(tunnelPort == null || (tunnelPort in 1..65535 && (!settings.socksEnabled || tunnelPort != settings.socksPort) && (!settings.httpEnabled || tunnelPort != settings.httpPort)))
         val composition = profile.composition
         val local = store?.localGroups?.firstOrNull { composition == null && it.id == profile.groupId }
         val subscription = store?.subscriptions?.firstOrNull { composition == null && it.id == profile.subscriptionId }
@@ -75,14 +77,51 @@ object XrayConfigBuilder {
             val options = if (node.clashConfig != null) ClashYamlParser.config(node) else if (node.protocol in ExtendedShareLinks.protocols) ExtendedConfigBuilder.build(node) else null
             options?.let { buildJsonObject { put("tag", tags[index]); if (balanceStrategy == null && index > 0) put("upstream", tags[index - 1]); put("options", it) } }
         }
+        val ruleTargets = RoutingOutboundTargets.referenced(settings, store)
+        val targetRouteTags = mutableMapOf<String, Pair<String, Boolean>>()
+        val targetOutbounds = mutableListOf<JsonObject>()
+        val targetAdapters = mutableListOf<JsonObject>()
+        ruleTargets.forEach { target ->
+            val finals = target.members.mapIndexed { memberIndex, member ->
+                val memberTags = member.indices.map { hopIndex -> target.tag + "-" + memberIndex + "-" + hopIndex }
+                member.indices.reversed().forEach { hopIndex ->
+                    val node = member[hopIndex]
+                    val base = outbound(node)
+                    targetOutbounds += buildJsonObject {
+                        base.forEach { (key, value) -> put(key, value) }
+                        put("tag", memberTags[hopIndex])
+                        if (hopIndex > 0 && (node.clashConfig == null && node.protocol !in ExtendedShareLinks.protocols)) {
+                            put("streamSettings", buildJsonObject {
+                                base["streamSettings"]?.jsonObject?.forEach { (key, value) -> put(key, value) }
+                                putJsonObject("sockopt") { put("dialerProxy", memberTags[hopIndex - 1]) }
+                            })
+                        }
+                    }
+                    val options = if (node.clashConfig != null) ClashYamlParser.config(node) else if (node.protocol in ExtendedShareLinks.protocols) ExtendedConfigBuilder.build(node) else null
+                    options?.let { targetAdapters += buildJsonObject { put("tag", memberTags[hopIndex]); if (hopIndex > 0) put("upstream", memberTags[hopIndex - 1]); put("options", it) } }
+                }
+                memberTags.last()
+            }
+            targetRouteTags[target.id] = if (target.group && finals.size > 1) target.tag to true else finals.first() to false
+        }
+        val allAdapters = adapters + targetAdapters
+        val probingTargets = ruleTargets.filter { it.group && it.strategy in setOf(LoadBalanceStrategy.LEAST_PING, LoadBalanceStrategy.LEAST_LOAD) }
+        val selectedProbeUrl = (composition?.testUrl ?: local?.balanceTestUrl)?.takeIf { it.isNotBlank() } ?: settings.testUrl
+        val selectedProbeInterval = composition?.intervalSeconds ?: local?.balanceIntervalSeconds ?: 300
+        val probeUrls = (if (balanceStrategy != null) listOf(selectedProbeUrl) else emptyList()) + probingTargets.map { it.testUrl.takeIf(String::isNotBlank) ?: settings.testUrl }
+        val probeIntervals = (if (balanceStrategy != null) listOf(selectedProbeInterval) else emptyList()) + probingTargets.map { it.intervalSeconds }
+        require(probeUrls.distinct().size <= 1 && probeIntervals.distinct().size <= 1) { "Xray 规则出口的最少延迟/负载策略必须共用探测地址和间隔 / Xray least-ping/load targets must share a probe URL and interval" }
         return buildJsonObject {
-            if (chain.size == 1 && adapters.isNotEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
-            else if (adapters.isNotEmpty()) put("iceflowAdapters", JsonArray(adapters))
-            if (balanceStrategy != null) {
+            if (chain.size == 1 && allAdapters.size == 1 && targetAdapters.isEmpty()) put("iceflowAdapter", adapters.single()["options"]!!)
+            else if (allAdapters.isNotEmpty()) put("iceflowAdapters", JsonArray(allAdapters))
+            if (balanceStrategy != null || probingTargets.isNotEmpty()) {
                 putJsonObject("observatory") {
-                    putJsonArray("subjectSelector") { add("lb-") }
-                    put("probeURL", (composition?.testUrl ?: local?.balanceTestUrl)?.takeIf { it.isNotBlank() } ?: settings.testUrl)
-                    put("probeInterval", "${composition?.intervalSeconds ?: local?.balanceIntervalSeconds ?: 300}s")
+                    putJsonArray("subjectSelector") {
+                        if (balanceStrategy != null) add("lb-")
+                        probingTargets.forEach { add(it.tag + "-") }
+                    }
+                    put("probeURL", probeUrls.first())
+                    put("probeInterval", probeIntervals.first().toString() + "s")
                 }
             }
             putJsonObject("log") { put("loglevel", "warning") }
@@ -95,7 +134,7 @@ object XrayConfigBuilder {
                     put("statsOutboundDownlink", true)
                 }
             }
-            if (includeInbound && (settings.socksEnabled || tunnelPort != null)) {
+            if (includeInbound && (settings.socksEnabled || settings.httpEnabled || tunnelPort != null)) {
                 putJsonArray("inbounds") {
                     if (tunnelPort != null) addJsonObject {
                         put("tag", "tun-in")
@@ -124,7 +163,7 @@ object XrayConfigBuilder {
                     }
                     if (settings.socksEnabled) addJsonObject {
                         put("tag", "socks-in")
-                        put("listen", "127.0.0.1")
+                        put("listen", if (settings.allowLan) "0.0.0.0" else "127.0.0.1")
                         put("port", settings.socksPort)
                         put("protocol", "socks")
                         putJsonObject("settings") {
@@ -144,6 +183,17 @@ object XrayConfigBuilder {
                             put("enabled", true)
                             putJsonArray("destOverride") { add("http"); add("tls"); add("quic") }
                             put("routeOnly", true)
+                        }
+                    }
+                    if (settings.httpEnabled) addJsonObject {
+                        put("tag", "http-in")
+                        put("listen", if (settings.allowLan) "0.0.0.0" else "127.0.0.1")
+                        put("port", settings.httpPort)
+                        put("protocol", "http")
+                        putJsonObject("settings") {
+                            if (settings.socksUsername.isNotBlank() && settings.socksPassword.isNotBlank()) putJsonArray("accounts") {
+                                addJsonObject { put("user", settings.socksUsername); put("pass", settings.socksPassword) }
+                            }
                         }
                     }
                 }
@@ -168,18 +218,19 @@ object XrayConfigBuilder {
                         }
                     })
                 }
+                targetOutbounds.forEach { add(it) }
                 addJsonObject { put("tag", "direct"); put("protocol", "freedom") }
                 addJsonObject { put("tag", "block"); put("protocol", "blackhole") }
             }
             putJsonObject("dns") {
                 putJsonArray("servers") {
                     // 国内 DNS：用于直连域名，避免 CDN 污染
-                    val directDomains = settings.routingRules
-                        .filter { it.enabled && it.action == RouteAction.DIRECT && it.domains.isNotEmpty() }
+                    val directDomains = settings.effectiveRoutingRules
+                        .filter { it.enabled && it.outboundTargetId == null && it.action == RouteAction.DIRECT && it.domains.isNotEmpty() }
                         .flatMap { it.domains }
                     if (directDomains.isNotEmpty() || settings.routingMode == RoutingMode.RULE) {
                         addJsonObject {
-                            put("address", settings.domesticDns)
+                            put("address", xrayDnsAddress(settings.domesticDns))
                             // tag 用于域匹配器缓存（MPH cache）的键，必须存在且唯一
                             put("tag", DOMESTIC_DNS_TAG)
                             putJsonArray("domains") {
@@ -193,7 +244,7 @@ object XrayConfigBuilder {
                     }
                     // 远端 DNS：默认，用于代理域名
                     addJsonObject {
-                        put("address", settings.remoteDns)
+                        put("address", xrayDnsAddress(settings.remoteDns))
                         put("tag", REMOTE_DNS_TAG)
                     }
                 }
@@ -202,8 +253,8 @@ object XrayConfigBuilder {
             }
             putJsonObject("routing") {
                 put("domainStrategy", "IPIfNonMatch")
-                if (balanceStrategy != null) putJsonArray("balancers") {
-                    addJsonObject {
+                if (balanceStrategy != null || ruleTargets.any { it.group && it.members.size > 1 }) putJsonArray("balancers") {
+                    if (balanceStrategy != null) addJsonObject {
                         put("tag", PROXY_TAG)
                         putJsonArray("selector") { add("lb-") }
                         put("fallbackTag", tags.first())
@@ -217,6 +268,18 @@ object XrayConfigBuilder {
                             })
                         }
                     }
+                    ruleTargets.filter { it.group && it.members.size > 1 }.forEach { target -> addJsonObject {
+                        put("tag", target.tag)
+                        putJsonArray("selector") { add(target.tag + "-") }
+                        put("fallbackTag", target.tag + "-0-" + (target.members.first().lastIndex))
+                        putJsonObject("strategy") { put("type", when (target.strategy) {
+                            LoadBalanceStrategy.RANDOM -> "random"
+                            LoadBalanceStrategy.ROUND_ROBIN -> "roundRobin"
+                            LoadBalanceStrategy.LEAST_PING -> "leastPing"
+                            LoadBalanceStrategy.LEAST_LOAD -> "leastLoad"
+                            else -> error("Xray 不支持该规则分组策略 / Xray does not support this routing group strategy")
+                        }) }
+                    } }
                 }
                 putJsonArray("rules") {
                     if (balanceStrategy != null) addJsonObject {
@@ -227,12 +290,17 @@ object XrayConfigBuilder {
                         add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); if (balanceStrategy == null) put("outboundTag", PROXY_TAG) else put("balancerTag", PROXY_TAG) })
                     } else if (settings.routingMode == RoutingMode.DIRECT) {
                         add(buildJsonObject { put("type", "field"); put("network", "tcp,udp"); put("outboundTag", "direct") })
-                    } else settings.routingRules.filter { it.enabled && (it.id != "builtin:private" || settings.bypassLan) }.forEach { rule ->
+                    } else settings.effectiveRoutingRules.filter { it.enabled && (it.id != "builtin:private" || settings.bypassLan) }.forEach { rule ->
                         rule.validate()
+                        val requested = rule.outboundTargetId?.let(targetRouteTags::get)
+                        val resolvedRule = if (rule.outboundTargetId != null) rule.toXray(requested?.first ?: PROXY_TAG) else rule.toXray()
+                        val routedRule = if (requested?.second == true) JsonObject(resolvedRule.toMutableMap().apply {
+                            remove("outboundTag"); put("balancerTag", JsonPrimitive(requested.first))
+                        }) else routeToBalancer(resolvedRule, balanceStrategy != null)
                         if (rule.id == "builtin:private" && rule.ips == listOf("geoip:private")) add(buildJsonObject {
-                            routeToBalancer(rule.toXray(), balanceStrategy != null).forEach { (k, v) -> put(k, v) }
+                            routedRule.forEach { (k, v) -> put(k, v) }
                             put("ip", JsonArray(PRIVATE_CIDRS.map(::JsonPrimitive)))
-                        }) else add(routeToBalancer(rule.toXray(), balanceStrategy != null))
+                        }) else add(routedRule)
                     }
                     if (balanceStrategy != null && settings.routingMode == RoutingMode.RULE) addJsonObject {
                         put("type", "field"); put("network", "tcp,udp"); put("balancerTag", PROXY_TAG)
@@ -240,6 +308,13 @@ object XrayConfigBuilder {
                 }
             }
         }.toString()
+    }
+
+    private fun xrayDnsAddress(value: String): String = when {
+        value.startsWith("tls://", ignoreCase = true) -> error("Xray core does not support DoT tls:// DNS endpoints")
+        value.startsWith("quic://", ignoreCase = true) -> "quic+local://${value.removePrefix("quic://").removePrefix("QUIC://")}"
+        value.startsWith("h3://", ignoreCase = true) -> "https://${value.removePrefix("h3://").removePrefix("H3://")}"
+        else -> value
     }
 
     private fun routeToBalancer(rule: JsonObject, enabled: Boolean): JsonObject {

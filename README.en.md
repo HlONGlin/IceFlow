@@ -3,7 +3,7 @@
 # ❄️ IceFlow
 
 <p align="center">
-  <b>Android Proxy Client Based on xray-core</b>
+  <b>Android Proxy Client with dual xray + mihomo cores</b>
 </p>
 
 <p align="center">
@@ -21,13 +21,14 @@
 
 ## 📖 Introduction
 
-IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI and powerful proxy capabilities powered by xray-core. Supports Android 8.0 and above.
+IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI. It ships two core variants — **dual (xray + mihomo)** and **single (mihomo)** — that share the same UI, subscription and routing features; the dual variant additionally packages xray and the Rust TUN layer. Supports Android 8.0 and above.
 
 ### ✨ Key Features
 
 - 🚀 **Multi-Protocol Support** - VMess, VLESS (with Reality), Trojan, Shadowsocks, Mieru, Hysteria/Hysteria2, TUIC, WireGuard, SSR, HTTP, SOCKS, AnyTLS and Sudoku
 - 📱 **Modern UI** - Smooth user interface built with Jetpack Compose
 - 🔄 **Flexible Import** - Supports Clash YAML, QR code scanning, subscription links
+- 🔗 **Deep Link Import** - Open a link from a browser or another app to import a subscription or node, always after confirmation
 - 🎯 **Smart Routing** - Rule-based routing and per-app proxy
 - 🔐 **Privacy & Security** - Local data encryption, protected internal TUN with random credentials
 - 📊 **Traffic Statistics** - Detailed traffic analysis by outbound type (proxy/direct/block)
@@ -63,13 +64,17 @@ IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI an
            🌐 Remote Proxy Server
 ```
 
+> The diagram above describes the **dual** variant (xray + mihomo): the TUN device is owned by `rust-core` (tun2proxy) and handed to the core through an internal SOCKS5 listener.
+> The **single** variant only packages mihomo, which drives TUN and protocol handling itself, so it carries no Rust layer and no `libiceflow_core.so`.
+
 ## 📁 Project Structure
 
 | Directory | Description |
 |------|------|
 | `app/` | Kotlin + Compose application layer: UI, VpnService, quick toggle |
-| `rust-core/` | Rust traffic processing layer based on tun2proxy with JNI interface |
-| `xray-wrapper/` | gomobile wrapper for xray-core, outputs `app/libs/xray.aar` |
+| `rust-core/` | Rust TUN forwarding layer (tun2proxy, JNI), packaged by the dual variant only |
+| `xray-wrapper/` | gomobile wrapper for xray-core, outputs `app/libs/xray.aar` (dual) |
+| `mihomo-wrapper/` | gomobile wrapper for mihomo, outputs `app/libs/single/mihomo.aar` (single) |
 | `docs/` | Architecture documentation and design specifications |
 
 ## 🛠️ Build Guide
@@ -86,31 +91,37 @@ IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI an
 #### Windows
 
 ```powershell
-# 1. Build Rust core → app/src/main/jniLibs/
+# 1. Build the Rust TUN layer → app/src/dual/jniLibs/ (dual variant only)
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
 .\rust-core\build-android.ps1
 
-# 2. Build xray-core → app/libs/xray.aar
+# 2. Build xray-core → app/libs/xray.aar (dual variant only)
 .\xray-wrapper\build-aar.ps1
 
-# 3. Build APK
-.\gradlew.bat testDebugUnitTest assembleDebug assembleRelease
+# 2b. Build mihomo → app/libs/single/mihomo.aar (single variant)
+.\mihomo-wrapper\build-aar.ps1
+
+# 3. Build APKs (both dual and single variants)
+.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
 ```
 
 #### Linux/macOS
 
 ```bash
-# 1. Build Rust core
+# 1. Build the Rust TUN layer → app/src/dual/jniLibs/ (dual variant only)
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
 ./rust-core/build-android.sh
 
-# 2. Build xray-core
+# 2. Build xray-core → app/libs/xray.aar (dual variant only)
 ./xray-wrapper/build-aar.sh
 
-# 3. Build APK
-./gradlew testDebugUnitTest assembleDebug assembleRelease
+# 2b. Build mihomo → app/libs/single/mihomo.aar (single variant)
+./mihomo-wrapper/build-aar.sh
+
+# 3. Build APKs (both dual and single variants)
+./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
 ```
 
 ### ⚠️ Windows Notes
@@ -139,7 +150,8 @@ $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH"
 
 ### Test Structure
 
-- **app/src/test** - JVM unit tests: share link parsing, xray config generation, formatting
+- **app/src/test** - JVM unit tests: share/deep link parsing, config generation, formatting (shared by dual and single)
+- **app/src/testSingle** - JVM unit tests specific to the single (mihomo) variant
 - **app/src/androidTest** - Android instrumentation tests: Compose UI tests, native library validation
 - **rust-core** - Rust unit tests: `cargo test`
 - **xray-wrapper** - Go unit tests: `go test ./...`
@@ -161,6 +173,25 @@ adb -s emulator-5556 install -r app\build\outputs\apk\debug\app-debug.apk
 adb -s emulator-5556 install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
 adb -s emulator-5556 shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
 ```
+
+## 🔗 Deep Links & Shared Text
+
+Browsers and other apps can hand links straight to IceFlow. Every external import first shows a confirmation dialog (subscription name plus the full URL, or a node summary and count) — **nothing is written and no connection is started before you confirm**.
+
+| Entry point | Example |
+|------|------|
+| Clash subscription | `clash://install-config?url=https%3A%2F%2Fexample.com%2Fsub` |
+| IceFlow subscription | `iceflow://install-config?url=https%3A%2F%2Fexample.com%2Fsub&name=My%20Sub` (`iceflow://import-config` also works) |
+| v2rayN subscription | `v2rayn://install-sub?url=https%3A%2F%2Fexample.com%2Fsub` |
+| sing-box remote profile | `sing-box://import-remote-profile?url=https%3A%2F%2Fexample.com%2Fsub` |
+| Single node share link | `vmess://`, `vless://`, `trojan://`, `ss://`, `ssr://`, `hysteria2://`, `hy2://`, `tuic://`, `wireguard://`, `anytls://`, `mierus://` |
+| Shared text | Another app's "Share" → IceFlow (`text/plain`) |
+| Config file | Open `.yaml` / `.yml` / `.json` / `.txt` from a file manager (4 MiB limit) |
+
+- Subscription URLs must be HTTPS; `http://`, malformed or oversized links are rejected with an explicit reason.
+- A subscription with the same URL is reported, never added twice.
+- Full `mieru://` Protobuf links need xray to decode, so only the **dual** variant accepts them; the **single** variant shows an explicit "this core cannot open the link" message instead of silently ignoring it.
+- Each Intent is consumed once: rotation, activity re-creation and repeated `onNewIntent` never re-open the dialog.
 
 ## 🔄 Auto Update
 
@@ -226,6 +257,7 @@ $env:ICEFLOW_KEY_PASSWORD="key_password"
 - ✅ Group management
 - ✅ Subscription updates
 - ✅ QR code scanning
+- ✅ Deep link & shared-text import (confirmation required)
 - ✅ Latency testing
 - ✅ Batch import
 

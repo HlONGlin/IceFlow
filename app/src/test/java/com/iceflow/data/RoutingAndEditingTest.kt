@@ -32,9 +32,37 @@ class RoutingAndEditingTest {
         assertTrue(imported.none { node -> rules.any { it.id == node.id } })
         val xray = RoutingRules.decode("""{"routing":{"rules":[{"type":"field","outboundTag":"block","domain":["domain:example.org"],"network":"tcp","port":"80,443"}]}}""").single()
         assertEquals(RouteAction.BLOCK, xray.action)
+        assertNull(xray.outboundTargetId)
         assertEquals(listOf("domain:example.org"), xray.domains)
         rejects { RoutingRules.decode("""[{"outboundTag":"direct","domain":["example.org"],"inboundTag":["secret"]}]""") }
         rejects { RoutingRules.decode("""[{"outboundTag":"unknown","port":"443"}]""") }
+    }
+
+    @Test fun referencedNodeGetsOnlyItsOwnXrayOutboundAndMissingTargetFallsBackToProxy() {
+        val current = ServerProfile(id = "current", name = "Current", protocol = Protocol.VLESS, address = "current.example", port = 443, uuid = uuid)
+        val target = ServerProfile(id = "target", name = "Target", protocol = Protocol.VLESS, address = "target.example", port = 443, uuid = uuid)
+        val rule = RoutingRule(name = "selected", action = RouteAction.DIRECT, outboundTargetId = "node:target", domains = listOf("full:example.org"))
+        val root = Json.parseToJsonElement(XrayConfigBuilder.build(current, AppSettings(routingRules = listOf(rule)), store = ServerStore(servers = listOf(current, target)))).jsonObject
+        val targetTag = RoutingOutboundTargets.resolve("node:target", ServerStore(servers = listOf(current, target)))!!.tag + "-0-0"
+        val outbounds = root.getValue("outbounds").jsonArray.map { it.jsonObject }
+        assertTrue(outbounds.any { it["tag"]?.jsonPrimitive?.content == targetTag })
+        assertEquals(targetTag, root.getValue("routing").jsonObject.getValue("rules").jsonArray.first().jsonObject.getValue("outboundTag").jsonPrimitive.content)
+        val missing = rule.copy(outboundTargetId = "node:deleted")
+        val fallback = Json.parseToJsonElement(XrayConfigBuilder.build(current, AppSettings(routingRules = listOf(missing)), store = ServerStore(servers = listOf(current)))).jsonObject
+        assertEquals("proxy", fallback.getValue("routing").jsonObject.getValue("rules").jsonArray.first().jsonObject.getValue("outboundTag").jsonPrimitive.content)
+    }
+
+    @Test fun referencedGroupBuildsXrayBalancerAndUsesBalancerTag() {
+        val a = ServerProfile(id = "a", name = "A", protocol = Protocol.VLESS, address = "a.example", port = 443, uuid = uuid, groupId = "g")
+        val b = a.copy(id = "b", name = "B", address = "b.example")
+        val store = ServerStore(servers = listOf(a, b), localGroups = listOf(LocalGroup(id = "g", name = "Group")))
+        val target = RoutingOutboundTargets.resolve("group:g", store)!!
+        val rule = RoutingRule(name = "group route", outboundTargetId = "group:g", domains = listOf("full:example.org"))
+        val root = Json.parseToJsonElement(XrayConfigBuilder.build(a.copy(groupId = null), AppSettings(routingRules = listOf(rule)), store = store)).jsonObject
+        val balancers = root.getValue("routing").jsonObject.getValue("balancers").jsonArray
+        assertTrue(balancers.any { it.jsonObject["tag"]?.jsonPrimitive?.content == target.tag })
+        val first = root.getValue("routing").jsonObject.getValue("rules").jsonArray.first().jsonObject
+        assertEquals(target.tag, first.getValue("balancerTag").jsonPrimitive.content)
     }
 
     @Test fun invalidRulesAndMeasurementUrlsAreRejected() {

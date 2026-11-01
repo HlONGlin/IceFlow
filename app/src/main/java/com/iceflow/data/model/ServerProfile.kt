@@ -1,6 +1,7 @@
 package com.iceflow.data.model
 
 import kotlinx.serialization.Serializable
+import java.net.URI
 import java.util.UUID
 
 @Serializable
@@ -138,6 +139,7 @@ enum class GroupSort(val label: String, val stringKey: String) {
             { it.latencyMs ?: 0 },
         ))
     }
+
 }
 
 data class GroupConfiguration(
@@ -224,6 +226,21 @@ enum class AppLanguage(val tag: String) {
 }
 data class NodeGroup(val key: String, val id: String?, val name: String)
 
+private val DNS_SCHEMES = setOf("https", "tls", "quic", "h3")
+
+private fun isValidDnsEndpoint(value: String): Boolean {
+    val text = value.trim()
+    if (text.isEmpty() || text.any(Char::isWhitespace)) return false
+    val plain = text.split('.').let { parts ->
+        parts.size == 4 && parts.all { part -> part.isNotEmpty() && part.all(Char::isDigit) && part.toIntOrNull() in 0..255 }
+    } || (':' in text && text.matches(Regex("[0-9a-fA-F:.]+")) && runCatching { java.net.InetAddress.getByName(text) }.isSuccess)
+    if (plain) return true
+    val uri = runCatching { URI(text) }.getOrNull() ?: return false
+    if (uri.scheme?.lowercase() !in DNS_SCHEMES || uri.host.isNullOrBlank() || uri.userInfo != null || uri.fragment != null) return false
+    if (uri.port !in -1..65535) return false
+    return uri.path != null && (uri.scheme.equals("https", true) || uri.scheme.equals("h3", true) || uri.path.isEmpty() || uri.path.startsWith("/"))
+}
+
 @Serializable
 data class AppSettings(
     val socksPort: Int = 10808,
@@ -234,6 +251,8 @@ data class AppSettings(
     val fakeDns: Boolean = true,
     val testUrl: String = "https://www.google.com/generate_204",
     val routingRules: List<RoutingRule> = RoutingRules.defaults(),
+    val remoteRuleSets: List<RemoteRoutingRuleSet> = emptyList(),
+    @kotlinx.serialization.Transient val expandedRemoteRules: List<RoutingRule> = emptyList(),
     val routingMode: RoutingMode = RoutingMode.RULE,
     val bypassApps: List<String> = emptyList(),
     val proxyAppsOnly: Boolean = false,
@@ -243,6 +262,9 @@ data class AppSettings(
     val socksUdp: Boolean = true,
     val socksUsername: String = "",
     val socksPassword: String = "",
+    val httpEnabled: Boolean = false,
+    val httpPort: Int = 10809,
+    val allowLan: Boolean = false,
     val dnsProxyEnabled: Boolean = true,
     val theme: AppTheme = AppTheme.LIGHT_BLUE,
     val nightMode: NightMode = NightMode.FOLLOW_SYSTEM,
@@ -257,6 +279,8 @@ data class AppSettings(
     val appProxyMode: Boolean = false,
     val language: String = "zh-CN",
 ) {
+    val effectiveRoutingRules: List<RoutingRule> get() = routingRules + expandedRemoteRules
+
     fun hasSameConnection(other: AppSettings): Boolean = copy(
         theme = other.theme, nightMode = other.nightMode, language = other.language,
         showTrafficStats = other.showTrafficStats, logRetentionDays = other.logRetentionDays,
@@ -265,15 +289,25 @@ data class AppSettings(
     ) == other
 
     fun validate() {
+        require(httpPort in 1024..65535) { "HTTP port must be between 1024 and 65535" }
+        require(!(socksEnabled && httpEnabled && socksPort == httpPort)) { "SOCKS and HTTP ports must be different" }
+        if (allowLan) {
+            require(socksUsername.isNotBlank() && socksPassword.isNotBlank()) { "LAN access requires a username and password" }
+            require(socksEnabled || httpEnabled) { "LAN access requires at least one proxy listener" }
+        }
         require(socksPort in 1024..65535) { "SOCKS 端口应为 1024–65535" }
         require(dnsServers.isNotEmpty()) { "至少输入一个 DNS 地址" }
         (dnsServers + remoteDns + domesticDns).forEach { value ->
-            val v4 = value.split('.').let { parts -> parts.size == 4 && parts.all { part -> part.isNotEmpty() && part.all(Char::isDigit) && part.toIntOrNull() in 0..255 } }
-            val v6 = ':' in value && value.matches(Regex("[0-9a-fA-F:.]+")) && runCatching { java.net.InetAddress.getByName(value) }.isSuccess
+            val v4 = isValidDnsEndpoint(value)
+            val v6 = false
             require(v4 || v6) { "DNS 必须是 IPv4 或 IPv6 地址：$value" }
         }
         RoutingRules.validateTestUrl(testUrl)
         RoutingRules.encode(routingRules)
+        require(remoteRuleSets.size <= 100) { "最多支持 100 个远程规则集 / At most 100 remote rule sets are supported" }
+        require(remoteRuleSets.map { it.id }.distinct().size == remoteRuleSets.size) { "规则集 ID 不能重复 / Rule set IDs must be unique" }
+        remoteRuleSets.forEach(RemoteRoutingRuleSet::validate)
+
         require(logRetentionDays in 0..365) { "日志保留天数应为 0–365" }
     }
 }

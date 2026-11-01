@@ -15,6 +15,17 @@ class BackupCodecTest {
         assertEquals(listOf("com.example.a", "com.example.b"), restored.settings.bypassApps)
     }
 
+    @Test fun remoteRuleSetDefinitionsAreBackedUpWithoutExpandedCacheEntries() {
+        val definition = RemoteRoutingRuleSet(name = "Remote", url = "https://rules.example/list", format = RemoteRuleSetFormat.DOMAIN_LIST, action = RouteAction.BLOCK)
+        val settings = AppSettings(remoteRuleSets = listOf(definition), expandedRemoteRules = listOf(RoutingRule(name = "cache", domains = listOf("full:private-cache-entry.example"))))
+        val text = BackupCodec.encode(ServerStore(), settings)
+        assertTrue(text.contains("rules.example/list"))
+        assertFalse(text.contains("private-cache-entry.example"))
+        val decoded = BackupCodec.decode(text).settings
+        assertEquals(listOf(definition), decoded.remoteRuleSets)
+        assertTrue(decoded.expandedRemoteRules.isEmpty())
+    }
+
     @Test fun restoreSkipsAppRoutingEntriesThatAreNoLongerInstalled() {
         val apps = listOf("com.example.installed", "com.example.removed")
         val installed = setOf("com.example.installed", "com.example.other")
@@ -39,6 +50,14 @@ class BackupCodecTest {
         assertThrows(IllegalArgumentException::class.java) { settings.copy(dnsServers = listOf("256.1.1.1")).validate() }
         assertThrows(IllegalArgumentException::class.java) { settings.copy(remoteDns = "::::").validate() }
         settings.copy(dnsServers = listOf("2606:4700:4700::1111")).validate()
+    }
+
+    @Test fun dnsSchemesAndInboundSecurityAreValidated() {
+        val settings = AppSettings()
+        settings.copy(remoteDns = "https://dns.example/dns-query", domesticDns = "tls://1.1.1.1:853", dnsServers = listOf("quic://dns.example:784")).validate()
+        assertThrows(IllegalArgumentException::class.java) { settings.copy(remoteDns = "https://user:pass@dns.example/query").validate() }
+        assertThrows(IllegalArgumentException::class.java) { settings.copy(httpEnabled = true, socksPort = 10809).validate() }
+        assertThrows(IllegalArgumentException::class.java) { settings.copy(allowLan = true).validate() }
     }
 
     @Test fun deletedChainNodesRemainRestorableAndCannotSilentlyBypassTheChain() {

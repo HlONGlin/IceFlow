@@ -175,6 +175,12 @@ class MihomoConfigBuilderTest {
         assertEquals(JsonPrimitive(false), list[1].jsonObject["udp"])
     }
     @Test fun disabledPublicSocksKeepsPrivateListener() { assertEquals(1, config(s = AppSettings(socksEnabled = false), port = 12345).getValue("listeners").jsonArray.size) }
+    @Test fun httpInboundAndLanBindingUseCredentials() {
+        val list = config(s = AppSettings(httpEnabled = true, allowLan = true, socksUsername = "u", socksPassword = "p")).getValue("listeners").jsonArray
+        val http = list.first { it.jsonObject.text("name") == "http-in" }.jsonObject
+        assertEquals("0.0.0.0", http.text("listen")); assertEquals("http", http.text("type"))
+        assertEquals("u", http.getValue("users").jsonArray.single().jsonObject.text("username"))
+    }
     @Test fun measurementOmitsListeners() { assertFalse(config(include = false).containsKey("listeners")) }
     @Test fun dnsFakeIpMode() { assertEquals("fake-ip", config().getValue("dns").jsonObject.text("enhanced-mode")) }
     @Test fun dnsRealIpStillUsesProxyTcp() {
@@ -232,6 +238,21 @@ class MihomoConfigBuilderTest {
         assertEquals("https://probe.example/check", lb.text("url"))
         assertEquals(45, lb.getValue("interval").jsonPrimitive.int)
         assertEquals("MATCH,proxy", cfg.getValue("rules").jsonArray.last().jsonPrimitive.content)
+    }
+    @Test fun routingRulesCreateOnlyReferencedMihomoTargetsAndGroup() {
+        val a = base.copy(id = "a", groupId = "g")
+        val b = base.copy(id = "b", address = "other.example", groupId = "g")
+        val store = ServerStore(servers = listOf(a, b), localGroups = listOf(LocalGroup(id = "g", name = "Group")))
+        val groupTarget = RoutingOutboundTargets.resolve("group:g", store)!!
+        val rule = RoutingRule(name = "route", action = RouteAction.DIRECT, outboundTargetId = "group:g", domains = listOf("full:example.org"))
+        val cfg = config(a, AppSettings(routingRules = listOf(rule)), store = store)
+        val proxies = cfg.getValue("proxies").jsonArray.map { it.jsonObject }
+        assertEquals(2, proxies.count { it.text("name").startsWith(groupTarget.tag + "-") })
+        val groups = cfg.getValue("proxy-groups").jsonArray.map { it.jsonObject }
+        assertTrue(groups.any { it.text("name") == groupTarget.tag && it.text("type") == "load-balance" })
+        assertTrue(cfg.getValue("rules").jsonArray.first().jsonPrimitive.content.endsWith("," + groupTarget.tag))
+        val missing = rule.copy(outboundTargetId = "node:missing")
+        assertTrue(MihomoConfigBuilder.rules(AppSettings(routingRules = listOf(missing))).first().endsWith(",proxy"))
     }
     @Test fun metadataDoesNotMutatePersistedProfile() {
         val p = base.copy(name = "original", latencyMs = 42, uploadBytes = 123, downloadBytes = 456)

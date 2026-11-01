@@ -7,6 +7,9 @@ import com.iceflow.data.model.AppLanguage
 import com.iceflow.data.model.AppTheme
 import com.iceflow.data.model.NightMode
 import com.iceflow.data.model.TextSize
+import com.iceflow.data.model.RemoteRoutingRuleSet
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +33,7 @@ class SettingsRepository(context: Context) {
             putBoolean(KEY_FAKE_DNS, next.fakeDns)
             putString("test_url", next.testUrl)
             putString("routing_rules", encodedRules)
+            putString("routing_rule_sets", Json.encodeToString(ListSerializer(RemoteRoutingRuleSet.serializer()), next.remoteRuleSets))
             putStringSet("bypass_apps", next.bypassApps.toSet())
             putBoolean("proxy_apps_only", next.proxyAppsOnly)
             putBoolean("ipv6_enabled", next.ipv6Enabled)
@@ -38,6 +42,9 @@ class SettingsRepository(context: Context) {
             putBoolean("socks_udp", next.socksUdp)
             putString("socks_username", next.socksUsername)
             putString("socks_password", next.socksPassword)
+            putBoolean("http_enabled", next.httpEnabled)
+            putInt("http_port", next.httpPort)
+            putBoolean("allow_lan", next.allowLan)
             putBoolean("dns_proxy_enabled", next.dnsProxyEnabled)
             putString("theme", next.theme.name)
             putString("night_mode", next.nightMode.name)
@@ -67,6 +74,7 @@ class SettingsRepository(context: Context) {
             fakeDns = prefs.getBoolean(KEY_FAKE_DNS, d.fakeDns),
             testUrl = prefs.getString("test_url", d.testUrl) ?: d.testUrl,
             routingRules = prefs.getString("routing_rules", null)?.let { runCatching { RoutingRules.decode(it, preserveIds = true) }.getOrNull() } ?: RoutingRules.defaults(prefs.getBoolean(KEY_BYPASS_LAN, true)),
+            remoteRuleSets = prefs.getString("routing_rule_sets", null)?.let { runCatching { Json.decodeFromString(ListSerializer(RemoteRoutingRuleSet.serializer()), it) }.getOrNull() }.orEmpty(),
             bypassApps = bypassApps,
             proxyAppsOnly = legacyProxyAppsOnly,
             ipv6Enabled = prefs.getBoolean("ipv6_enabled", true),
@@ -75,6 +83,9 @@ class SettingsRepository(context: Context) {
             socksUdp = prefs.getBoolean("socks_udp", true),
             socksUsername = prefs.getString("socks_username", "") ?: "",
             socksPassword = prefs.getString("socks_password", "") ?: "",
+            httpEnabled = prefs.getBoolean("http_enabled", d.httpEnabled),
+            httpPort = prefs.getInt("http_port", d.httpPort),
+            allowLan = prefs.getBoolean("allow_lan", d.allowLan),
             dnsProxyEnabled = prefs.getBoolean("dns_proxy_enabled", true),
             theme = runCatching { AppTheme.valueOf(prefs.getString("theme", d.theme.name)!!) }.getOrDefault(d.theme),
             nightMode = runCatching { NightMode.valueOf(prefs.getString("night_mode", d.nightMode.name)!!) }.getOrDefault(d.nightMode),

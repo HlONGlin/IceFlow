@@ -350,8 +350,10 @@ fun SettingsScreen(
     val textSizeOptions = TextSize.entries.map { it to T(it.stringKey) }
     val routingOptions = RoutingMode.entries.map { it to T(it.stringKey) }
     var port by rememberSaveable { mutableStateOf(settings.socksPort.toString()) }
+    var httpPort by rememberSaveable { mutableStateOf(settings.httpPort.toString()) }
     var detail by rememberSaveable { mutableStateOf<String?>(null) }
     val portValid = port.toIntOrNull()?.let { it in 1024..65535 } == true
+    val httpPortValid = httpPort.toIntOrNull()?.let { it in 1024..65535 } == true
 
     LaunchedEffect(detail) { onDetailOpenChange(detail != null) }
     DisposableEffect(Unit) { onDispose { onDetailOpenChange(false) } }
@@ -409,7 +411,7 @@ fun SettingsScreen(
                     onUpdate { it.copy(dnsServers = values, remoteDns = values.first()) }
                     detail = null
                 }.exceptionOrNull()?.message
-            })
+            }, help = T("settings.dnsHelp"))
             "testUrl" -> TextSettingsPage(T("settings.testUrl"), T("settings.testUrlPlaceholder"), settings.testUrl, onBack = { detail = null }, onSave = { text ->
                 runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(text) }
                     .onSuccess { valid -> onUpdate { it.copy(testUrl = valid) }; detail = null }
@@ -466,6 +468,26 @@ fun SettingsScreen(
             }
             // UDP 放最底部
             ToggleRow(Icons.Outlined.SwapHoriz, T("settings.udp"), T("settings.udpHint"), settings.socksUdp) { v -> onUpdate { it.copy(socksUdp = v) } }
+            RowDivider()
+            ToggleRow(Icons.Outlined.SettingsEthernet, T("settings.httpInbound"), T("settings.httpInboundHint"), settings.httpEnabled) { v -> onUpdate { it.copy(httpEnabled = v) } }
+            if (settings.httpEnabled) OutlinedTextField(
+                value = httpPort,
+                onValueChange = { httpPort = it.filter(Char::isDigit).take(5); httpPort.toIntOrNull()?.takeIf { p -> p in 1024..65535 }?.let { p -> onUpdate { s -> s.copy(httpPort = p) } } },
+                label = { Text(T("settings.httpPort"), style = MaterialTheme.typography.labelSmall) },
+                supportingText = { if (!httpPortValid) Text(T("settings.portRange"), style = MaterialTheme.typography.labelSmall) },
+                isError = !httpPortValid, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 6.dp),
+            )
+            val canEnableLan = settings.socksUsername.isNotBlank() && settings.socksPassword.isNotBlank()
+            ToggleRow(Icons.Outlined.Lan, T("settings.allowLan"), T("settings.allowLanHint"), settings.allowLan) { v ->
+                if (v && !canEnableLan) {
+                    // 尝试开启但不满足条件，不更新状态
+                    return@ToggleRow
+                }
+                onUpdate { it.copy(allowLan = v) }
+            }
+            if (settings.allowLan) Text(T("settings.allowLanWarning"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 28.dp, vertical = 6.dp))
+            if (!canEnableLan && !settings.allowLan) Text(T("settings.allowLanRequiresAuth"), color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 28.dp, vertical = 6.dp))
         }
 
         // ── DNS 与网络 ────────────────────────────────────────────────────────────

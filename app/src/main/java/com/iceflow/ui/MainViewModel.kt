@@ -7,6 +7,9 @@ import com.iceflow.core.RustBridge
 import com.iceflow.core.ConnectionProbe
 import com.iceflow.core.CoreVariantBridge
 import com.iceflow.data.BackupCodec
+import com.iceflow.data.BoundedTextReader
+import com.iceflow.data.DeepLinkError
+import com.iceflow.data.DeepLinkRequest
 import com.iceflow.service.VpnState
 import com.iceflow.data.ShareLinkParser
 import com.iceflow.data.UpdateChecker
@@ -20,6 +23,7 @@ import com.iceflow.data.model.ServerProfile
 import com.iceflow.data.repository.SubscriptionFetcher
 import com.iceflow.service.VpnController
 import com.iceflow.service.SubscriptionScheduler
+import com.iceflow.service.RemoteRuleSetScheduler
 import com.iceflow.service.AppLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -45,6 +49,15 @@ sealed interface SubscriptionLoadState {
     data object Loading : SubscriptionLoadState
     data class Preview(val name: String, val servers: List<ServerProfile>) : SubscriptionLoadState
     data class Failure(val message: String) : SubscriptionLoadState
+}
+
+/** 深链接/分享导入的待确认内容。确认前不落库、不连接。 */
+sealed interface DeepLinkPrompt {
+    /** [existingName] 不为 null 表示已存在相同地址的订阅，只提示、不重复添加。 */
+    data class Subscription(val url: String, val name: String?, val existingName: String?) : DeepLinkPrompt
+
+    /** 分享文本 / 配置文件解析出的节点摘要。 */
+    data class Nodes(val count: Int, val summary: List<String>, val request: DeepLinkRequest.ImportText) : DeepLinkPrompt
 }
 
 /** 检查更新的界面状态。 */
@@ -78,6 +91,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val store = container.servers.store
     val settings: StateFlow<AppSettings> = container.settings.settings
     val routingResources get() = container.routingResources
+    val routingRuleSets get() = container.routingRuleSets
     val recoveryMessage get() = container.servers.recoveryMessage
 
     private val _testing = MutableStateFlow(false)
@@ -96,6 +110,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val subscriptionLoad = _subscriptionLoad.asStateFlow()
     /** 预览阶段的原始数据，确认后写入仓库。 */
     private var pendingPreview: SubscriptionPreview? = null
+    /** 外部深链接/分享导入的待确认请求，用户确认前不产生任何写入。 */
+    private val _deepLinkPrompt = MutableStateFlow<DeepLinkPrompt?>(null)
+    val deepLinkPrompt = _deepLinkPrompt.asStateFlow()
 
     private val publicIpLookup = PublicIpLookup { failure ->
         android.util.Log.w("PublicIpLookup", "Public IP lookup failed", failure)
@@ -370,7 +387,73 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addSubscription(url: String) = viewModelScope.launch { refreshOne(url, url.substringAfter("://").substringBefore('/')) }
+    fun addSubscription(url: String) = addSubscription(url, null)
+
+    fun addSubscription(url: String, name: String?) = viewModelScope.launch {
+        val label = name?.trim()?.takeIf { it.isNotEmpty() } ?: url.substringAfter("://").substringBefore('/')
+        refreshOne(url, label)
+    }
+
+    /**
+     * 外部深链接 / 分享导入入口：只准备确认对话框，绝不直接写入、绝不自动连接。
+     * 用户确认后由 [confirmDeepLink] 复用现有导入路径。
+     */
+    fun submitDeepLink(request: DeepLinkRequest) {
+        if (_deepLinkPrompt.value != null) {
+            _messages.tryEmit(s("deeplink.busy"))
+            return
+        }
+        when (request) {
+            is DeepLinkRequest.Invalid -> _messages.tryEmit(s(request.reason.stringKey))
+            is DeepLinkRequest.AddSubscription -> {
+                val existing = store.value.subscriptions.firstOrNull { it.url == request.url }
+                _deepLinkPrompt.value = DeepLinkPrompt.Subscription(request.url, request.name, existing?.name)
+            }
+            is DeepLinkRequest.ImportFile -> readImportFile(request)
+            is DeepLinkRequest.ImportText -> prepareImportedNodes(request)
+        }
+    }
+
+    /** 确认后才落库：订阅走 [addSubscription]，节点走 [importText]，两者都不触发连接。 */
+    fun confirmDeepLink() {
+        val prompt = _deepLinkPrompt.value ?: return
+        _deepLinkPrompt.value = null
+        when (prompt) {
+            is DeepLinkPrompt.Subscription -> if (prompt.existingName == null) addSubscription(prompt.url, prompt.name)
+            is DeepLinkPrompt.Nodes -> importText(prompt.request.text, store.value.selectedGroupId)
+        }
+    }
+
+    fun dismissDeepLink() { _deepLinkPrompt.value = null }
+
+    /** 读取外部打开的配置文件，沿用 [BoundedTextReader] 的 4 MiB 上限。 */
+    private fun readImportFile(request: DeepLinkRequest.ImportFile) = viewModelScope.launch {
+        val text = withContext(Dispatchers.IO) {
+            runCatching {
+                val resolver = getApplication<Application>().contentResolver
+                resolver.openInputStream(android.net.Uri.parse(request.uri))?.use { BoundedTextReader.readUtf8(it) }
+                    ?: error("无法读取所选文件")
+            }
+        }
+        text.onSuccess { prepareImportedNodes(DeepLinkRequest.ImportText(it, request.displayName)) }
+            .onFailure { _messages.tryEmit(s(DeepLinkError.READ_FAILED.stringKey)) }
+    }
+
+    /** 解析出节点摘要用于确认框，解析失败不弹框，只提示。 */
+    private fun prepareImportedNodes(request: DeepLinkRequest.ImportText) = viewModelScope.launch {
+        val servers = withContext(Dispatchers.IO) {
+            runCatching { ShareLinkParser.parseMany(request.text) }.getOrDefault(emptyList())
+        }
+        if (servers.isEmpty()) {
+            _messages.tryEmit(s("home.import.empty"))
+            return@launch
+        }
+        _deepLinkPrompt.value = DeepLinkPrompt.Nodes(
+            count = servers.size,
+            summary = servers.take(3).map { "${it.name} · ${it.protocol.label}" },
+            request = request,
+        )
+    }
 
     fun refreshSubscriptions() = viewModelScope.launch {
         if (_refreshingSubscriptions.value) return@launch
@@ -478,6 +561,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 previousStore.subscriptions.forEach { SubscriptionScheduler.cancel(getApplication(), it.id) }
                 backup.store.subscriptions.forEach { SubscriptionScheduler.schedule(getApplication(), it) }
+                previousSettings.remoteRuleSets.filter { old -> backup.settings.remoteRuleSets.none { it == old } }.forEach {
+                    RemoteRuleSetScheduler.cancel(getApplication(), it.id)
+                    container.routingRuleSets.delete(it.id)
+                }
+                backup.settings.remoteRuleSets.forEach { RemoteRuleSetScheduler.schedule(getApplication(), it) }
             }
         }
     }

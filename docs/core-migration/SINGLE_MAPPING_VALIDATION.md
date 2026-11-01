@@ -1,5 +1,8 @@
 # 阶段 2 / 第 2 步：批量清查与映射草稿验证
 
+> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 test-reports/README.md。历史结论与未验证项不变。
+
+
 日期：2026-10-28。工作树：E:/IceFlow-core-variants，分支 feat/core-variants。
 
 本次交付是映射层实现、单测、完整消费表草稿与一次性缺口清单。第 2 步尚未整体验收关闭；缺口需统一处置。没有接 single bridge，没有设备操作，没有进入第 3 步。

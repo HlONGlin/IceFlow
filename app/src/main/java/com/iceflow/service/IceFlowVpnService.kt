@@ -114,8 +114,9 @@ class IceFlowVpnService : VpnService() {
         scope.launch {
             val container = (application as IceFlowApp).container
             combine(container.settings.settings, container.servers.store) { settings, store ->
-                settings to runCatching {
-                    store.selected?.let { CoreVariantBridge.buildConfig(it, settings, includeInbound = false, store = store) }
+                val runtimeSettings = settings.copy(expandedRemoteRules = container.routingRuleSets.loadEnabled(settings.remoteRuleSets))
+                runtimeSettings to runCatching {
+                    store.selected?.let { CoreVariantBridge.buildConfig(it, runtimeSettings, includeInbound = false, store = store) }
                 }.fold({ it }, { "invalid:${it.message}" })
             }
                 .distinctUntilChanged { old, new -> old.first.hasSameConnection(new.first) && old.second == new.second }
@@ -363,7 +364,7 @@ class IceFlowVpnService : VpnService() {
 
             failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
             val cfg = CoreVariantBridge.buildConfig(
-                profile, settings,
+                profile, settings.copy(expandedRemoteRules = container.routingRuleSets.loadEnabled(settings.remoteRuleSets)),
                 store = container.servers.store.value,
                 tunnelPort = tunnelPort,
                 tunnelAuth = tunnelAuth

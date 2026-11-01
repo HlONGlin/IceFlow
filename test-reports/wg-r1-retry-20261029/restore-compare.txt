@@ -1,6 +1,0 @@
-﻿# Restore comparison
-
-The restored device `files/servers.json` parses to the same JSON object as the pre-test snapshot.
-
-- `json_equal`: true
-- canonical SHA-256: `b249dbcdf88f456b9537403a15f2e754d26a75626c8656ac0a173c755bd3d297`

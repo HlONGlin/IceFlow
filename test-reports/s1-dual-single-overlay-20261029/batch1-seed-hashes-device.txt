@@ -1,3 +1,0 @@
-﻿f8dc667e7344da6e7cfafdc20ee13249f4b62365361ceaa1422426dd94229f21  files/servers.json
-f8dc667e7344da6e7cfafdc20ee13249f4b62365361ceaa1422426dd94229f21  files/servers.json.bak
-424b85f8b87e00bd39616fee0b3e2132d8ca03e531c3b2193d8be22b311faed7  shared_prefs/settings.xml

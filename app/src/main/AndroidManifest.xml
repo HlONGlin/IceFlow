@@ -32,6 +32,57 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- 深链接：订阅导入（clash / iceflow / v2rayn / sing-box） -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="clash" />
+                <data android:scheme="iceflow" />
+                <data android:scheme="v2rayn" />
+                <data android:scheme="sing-box" />
+            </intent-filter>
+            <!-- 深链接：单节点分享链接。http/https 与普通网页冲突，故意不注册。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="vmess" />
+                <data android:scheme="vless" />
+                <data android:scheme="trojan" />
+                <data android:scheme="ss" />
+                <data android:scheme="ssr" />
+                <data android:scheme="hysteria" />
+                <data android:scheme="hy" />
+                <data android:scheme="hysteria2" />
+                <data android:scheme="hy2" />
+                <data android:scheme="tuic" />
+                <data android:scheme="wireguard" />
+                <data android:scheme="wg" />
+                <data android:scheme="socks" />
+                <data android:scheme="socks5" />
+                <data android:scheme="socks5h" />
+                <data android:scheme="anytls" />
+                <data android:scheme="mieru" />
+                <data android:scheme="mierus" />
+            </intent-filter>
+            <!-- 分享文本（ACTION_SEND text/plain）导入 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- 打开配置文件（.yaml/.yml/.json/.txt），读取上限见 BoundedTextReader -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" android:mimeType="text/*" />
+                <data android:scheme="content" android:mimeType="application/json" />
+                <data android:scheme="content" android:mimeType="application/x-yaml" />
+                <data android:scheme="content" android:mimeType="application/yaml" />
+                <data android:scheme="content" android:mimeType="application/octet-stream" />
+            </intent-filter>
         </activity>
 
         <service

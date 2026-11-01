@@ -1,6 +1,0 @@
-﻿
-10-29 11:57:03.818  3245  3245 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
-10-29 11:57:03.870  3245  3245 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
-10-29 11:57:04.953  3245  3245 D AndroidRuntime: Shutting down VM
-
-

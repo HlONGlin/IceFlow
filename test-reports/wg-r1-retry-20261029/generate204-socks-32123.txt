@@ -1,7 +1,0 @@
-﻿adb.exe : curl: (7) Failed to connect to 127.0.0.1 port 32123: Connection refused
-所在位置 行:2 字符: 75
-+ ... s\adb.exe'; & $adb -s emulator-5556 shell curl -sS -D - -o /dev/null  ...
-+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (curl: (7) Faile...nection refused:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 

@@ -25,19 +25,22 @@ import androidx.compose.ui.unit.dp
 import com.iceflow.ui.theme.IceRadius
 import com.iceflow.data.model.*
 import com.iceflow.data.repository.RoutingResources
+import com.iceflow.data.repository.RemoteRoutingRuleSetRepository
+import com.iceflow.service.RemoteRuleSetScheduler
 import com.iceflow.i18n.T
 import com.iceflow.i18n.Tf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@Composable internal fun RoutingPage(settings: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit, resources: RoutingResources, editing: (Boolean) -> Unit) {
+@Composable internal fun RoutingPage(settings: AppSettings, store: ServerStore, update: ((AppSettings) -> AppSettings) -> Unit, resources: RoutingResources, ruleSets: RemoteRoutingRuleSetRepository, editing: (Boolean) -> Unit) {
     val context = LocalContext.current
     val clipboard = remember { context.getSystemService(ClipboardManager::class.java) }
     var menu by remember { mutableStateOf(false) }
     var editor by rememberSaveable { mutableStateOf(false) }
     var editingId by rememberSaveable { mutableStateOf<String?>(null) }
     var resourcePage by rememberSaveable { mutableStateOf(false) }
+    var ruleSetPage by rememberSaveable { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
     var incoming by remember { mutableStateOf<List<RoutingRule>?>(null) }
     var deleting by remember { mutableStateOf<RoutingRule?>(null) }
@@ -50,12 +53,14 @@ import kotlinx.coroutines.withContext
     val importText = T("route.importText")
     val description = T("route.description")
     val empty = T("route.empty")
-    DisposableEffect(editor, resourcePage) { editing(editor || resourcePage); onDispose { editing(false) } }
+    DisposableEffect(editor, resourcePage, ruleSetPage) { editing(editor || resourcePage || ruleSetPage); onDispose { editing(false) } }
     fun commit(rules: List<RoutingRule>) { update { it.copy(routingRules = rules, bypassLan = rules.firstOrNull { r -> r.id == "builtin:private" }?.enabled ?: true) } }
     if (resourcePage) { RoutingResourcePage(resources) { resourcePage = false }; return }
+    if (ruleSetPage) { RoutingRuleSetPage(settings, update, ruleSets) { ruleSetPage = false }; return }
+    if (ruleSetPage) { RoutingRuleSetPage(settings, update, ruleSets) { ruleSetPage = false }; return }
     if (editor) {
         val initial = remember(editingId) { settings.routingRules.firstOrNull { it.id == editingId } ?: RoutingRule(action = RouteAction.PROXY) }
-        RuleEditor(initial, { editor = false }) { rule ->
+        RuleEditor(initial, store, { editor = false }) { rule ->
             val list = settings.routingRules.toMutableList(); val index = list.indexOfFirst { it.id == rule.id }
             if (index >= 0) list[index] = rule else list.add(0, rule)
             commit(list); editor = false
@@ -86,6 +91,8 @@ import kotlinx.coroutines.withContext
                     }
                      IceMenuItem(T("route.export"), Icons.Default.Send) { menu = false; clipboard?.setPrimaryClip(ClipData.newPlainText(routeTitle, RoutingRules.encode(settings.routingRules))); notice = String.format(copiedFormat, settings.routingRules.size) }
                      IceMenuItem(T("route.resources"), Icons.Default.Settings) { menu = false; resourcePage = true }
+                     IceMenuItem(T("route.ruleSets"), Icons.Default.List) { menu = false; ruleSetPage = true }
+                     IceMenuItem(T("route.ruleSets"), Icons.Default.List) { menu = false; ruleSetPage = true }
                 }
             }
         }
@@ -101,7 +108,16 @@ import kotlinx.coroutines.withContext
                         }
                          Text(rule.summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(vertical = 8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                             Text(rule.action.label, color = if (rule.action == RouteAction.BLOCK) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                             val targetName = rule.outboundTargetId?.let { id ->
+                                 when {
+                                     id.startsWith("node:") -> store.servers.firstOrNull { it.id == id.removePrefix("node:") }?.name
+                                     id.startsWith("group:") -> (store.localGroups.firstOrNull { it.id == id.removePrefix("group:") }?.name ?: store.subscriptions.firstOrNull { it.id == id.removePrefix("group:") }?.name)
+                                     else -> null
+                                 }
+                             }
+                             val missingTarget = rule.outboundTargetId != null && (targetName == null || RoutingOutboundTargets.resolve(rule.outboundTargetId, store) == null)
+                             val actionLabel = T(when (rule.action) { RouteAction.PROXY -> "route.targetProxy"; RouteAction.DIRECT -> "route.targetDirect"; RouteAction.BLOCK -> "route.targetBlock" })
+                             Text(if (missingTarget) T("route.targetMissing") else targetName ?: actionLabel, color = if (missingTarget || rule.action == RouteAction.BLOCK) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                              TextButton(enabled = index > 0, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index - 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text(T("route.moveUp"), style = MaterialTheme.typography.labelSmall) }
                              TextButton(enabled = index < settings.routingRules.lastIndex, onClick = { val list = settings.routingRules.toMutableList(); java.util.Collections.swap(list, index, index + 1); commit(list) }, contentPadding = PaddingValues(4.dp)) { Text(T("route.moveDown"), style = MaterialTheme.typography.labelSmall) }
                             IconButton({ deleting = rule }, Modifier.size(32.dp)) { Icon(Icons.Default.Delete, "删除${rule.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) }
@@ -139,9 +155,9 @@ import kotlinx.coroutines.withContext
     }
 }
 
-@Composable internal fun RuleEditor(initial: RoutingRule, close: () -> Unit, save: (RoutingRule) -> Unit) {
+@Composable internal fun RuleEditor(initial: RoutingRule, store: ServerStore, close: () -> Unit, save: (RoutingRule) -> Unit) {
     var name by rememberSaveable(initial.id) { mutableStateOf(initial.name) }
-    var action by rememberSaveable(initial.id) { mutableStateOf(initial.action.name) }
+    var target by rememberSaveable(initial.id) { mutableStateOf(initial.outboundTargetId ?: ("action:" + initial.action.name)) }
     var domains by rememberSaveable(initial.id) { mutableStateOf(initial.domains.joinToString(10.toChar().toString())) }
     var ips by rememberSaveable(initial.id) { mutableStateOf(initial.ips.joinToString(10.toChar().toString())) }
     var port by rememberSaveable(initial.id) { mutableStateOf(initial.port) }
@@ -152,7 +168,23 @@ import kotlinx.coroutines.withContext
     var error by remember { mutableStateOf<String?>(null) }
     var discard by remember { mutableStateOf(false) }
     fun lines(value: String) = value.lines().map { it.trim() }.filter { it.isNotEmpty() }.distinct()
-    fun current() = initial.copy(name = name.trim(), action = RouteAction.valueOf(action), domains = lines(domains), ips = lines(ips), port = port.trim(), source = lines(source), sourcePort = sourcePort.trim(), network = network.trim(), protocols = protocol.split(',').map { it.trim() }.filter { it.isNotEmpty() })
+    val targetChoices = buildList {
+        add("action:PROXY" to T("route.targetProxy")); add("action:DIRECT" to T("route.targetDirect")); add("action:BLOCK" to T("route.targetBlock"))
+        store.servers.forEach { node ->
+            val id = "node:" + node.id
+            if (RoutingOutboundTargets.resolve(id, store) != null) add(id to (T("route.targetNode") + ": " + node.name))
+        }
+        (store.localGroups.map { it.id to it.name } + store.subscriptions.map { it.id to it.name }).forEach { (id, label) ->
+            val targetId = "group:" + id
+            if (RoutingOutboundTargets.resolve(targetId, store) != null) add(targetId to (T("route.targetGroup") + ": " + label))
+        }
+        val exists = initial.outboundTargetId?.let { RoutingOutboundTargets.resolve(it, store) != null } ?: true
+        if (!exists) add(initial.outboundTargetId!! to (T("route.targetMissing") + ": " + initial.outboundTargetId))
+    }
+    fun current(): RoutingRule {
+        val selectedAction = target.takeIf { it.startsWith("action:") }?.removePrefix("action:")?.let(RouteAction::valueOf) ?: RouteAction.PROXY
+        return initial.copy(name = name.trim(), action = selectedAction, outboundTargetId = target.takeUnless { it.startsWith("action:") }, domains = lines(domains), ips = lines(ips), port = port.trim(), source = lines(source), sourcePort = sourcePort.trim(), network = network.trim(), protocols = protocol.split(',').map { it.trim() }.filter { it.isNotEmpty() })
+    }
     fun back() { if (current() == initial) close() else discard = true }
     BackHandler { back() }
     Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
@@ -160,7 +192,7 @@ import kotlinx.coroutines.withContext
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EditorInput("规则名称", name, { name = it })
-            EditorChoice("路由目标", RouteAction.valueOf(action).label, RouteAction.entries.map { it.label }) { action = RouteAction.entries[it].name }
+            EditorChoice(T("route.target"), targetChoices.firstOrNull { it.first == target }?.second ?: T("route.targetMissing"), targetChoices.map { it.second }) { target = targetChoices[it].first }
             Text("不同条件之间是「且」，同一条件内多项是「或」。域名 / IP 每行一项。", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             EditorInput("域名", domains, { domains = it }, "domain:example.com / full:www.example.com / geosite:cn / regexp:…", true)
             EditorInput("IP / CIDR", ips, { ips = it }, "192.168.0.0/16 / geoip:cn", true)

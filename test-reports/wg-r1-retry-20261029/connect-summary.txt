@@ -1,5 +1,0 @@
-﻿E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-after-connect-tap.txt:274:10-29 12:46:42.871  3785  3856 I GoLog   : time="2026-10-29T04:46:42.871259038Z" level=info msg="Initial configuration complete, total time: 209ms"
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-after-connect-tap.txt:275:10-29 12:46:42.871  3785  3811 I IceFlowVpnService: [TIMING] buildConfig: 243ms
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-after-connect-tap.txt:282:10-29 12:46:42.873  3785  3862 I GoLog   : time="2026-10-29T04:46:42.873212907Z" level=info msg="Initial configuration complete, total time: 0ms"
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-after-connect-tap.txt:302:10-29 12:46:42.929  3785  3811 I IceFlowVpnService: [TIMING] rust.startTun: 301ms
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-after-connect-tap.txt:304:10-29 12:46:42.931  3785  3811 I IceFlowVpnService: VPN started: R1-WireGuard-real-fixture

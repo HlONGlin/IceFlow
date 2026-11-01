@@ -39,6 +39,35 @@ internal object MihomoConfigBuilder {
             val proxies = chain.mapIndexed { index, p ->
                 JsonObject(outbound(p, names[index]) + if (balancing == null && index > 0) mapOf("dialer-proxy" to JsonPrimitive(names[index - 1])) else emptyMap())
             }
+            val ruleTargets = RoutingOutboundTargets.referenced(settings, store)
+            val targetNames = mutableMapOf<String, String>()
+            val ruleTargetProxies = mutableListOf<JsonObject>()
+            val ruleTargetGroups = mutableListOf<JsonObject>()
+            ruleTargets.forEach { target ->
+                val memberNames = target.members.mapIndexed { memberIndex, member ->
+                    val hopNames = member.indices.map { hopIndex -> target.tag + "-" + memberIndex + "-" + hopIndex }
+                    member.forEachIndexed { hopIndex, node ->
+                        val extra = if (hopIndex == 0) emptyMap() else mapOf("dialer-proxy" to JsonPrimitive(hopNames[hopIndex - 1]))
+                        ruleTargetProxies += JsonObject(outbound(node, hopNames[hopIndex]) + extra)
+                    }
+                    hopNames.last()
+                }
+                if (target.group && memberNames.size > 1) {
+                    targetNames[target.id] = target.tag
+                    ruleTargetGroups += buildJsonObject {
+                        put("name", target.tag); put("type", "load-balance")
+                        put("strategy", when (target.strategy) {
+                            LoadBalanceStrategy.CONSISTENT_HASHING -> "consistent-hashing"
+                            LoadBalanceStrategy.STICKY_SESSIONS -> "sticky-sessions"
+                            LoadBalanceStrategy.ROUND_ROBIN, null -> "round-robin"
+                            else -> fail("routingTarget.strategy", "Mihomo 不支持该规则分组策略 / Mihomo does not support this routing group strategy")
+                        })
+                        put("url", target.testUrl.takeIf { it.isNotBlank() } ?: settings.testUrl)
+                        put("interval", target.intervalSeconds)
+                        put("proxies", JsonArray(memberNames.map(::JsonPrimitive)))
+                    }
+                } else targetNames[target.id] = memberNames.first()
+            }
             val selectedIndex = chain.indexOfFirst { it.id == profile.id }.takeIf { it >= 0 } ?: 0
             val selectedOutbound = if (balancing != null) PROXY else names[selectedIndex]
             val mihomoStrategy = when (balancing) {
@@ -58,9 +87,9 @@ internal object MihomoConfigBuilder {
                     put("dns-hijack", JsonArray(listOf(JsonPrimitive("any:53"))))
                     put("inet6-address", JsonArray(if (settings.ipv6Enabled) listOf(JsonPrimitive("fdfe:dcba:9876::1/126")) else emptyList()))
                 }
-                put("proxies", JsonArray(proxies))
-                if (mihomoStrategy != null) putJsonArray("proxy-groups") {
-                    addJsonObject {
+                put("proxies", JsonArray(proxies + ruleTargetProxies))
+                if (mihomoStrategy != null || ruleTargetGroups.isNotEmpty()) putJsonArray("proxy-groups") {
+                    if (mihomoStrategy != null) addJsonObject {
                         put("name", PROXY)
                         put("type", "load-balance")
                         put("strategy", mihomoStrategy)
@@ -68,10 +97,11 @@ internal object MihomoConfigBuilder {
                         put("interval", composition?.intervalSeconds ?: localGroup?.balanceIntervalSeconds ?: 300)
                         put("proxies", JsonArray(names.map(::JsonPrimitive)))
                     }
+                    ruleTargetGroups.forEach { add(it) }
                 }
                 // Wrapper-only metadata: session persistence belongs to the selected node.
                 put("iceflow-selected-outbound", selectedOutbound)
-                put("rules", JsonArray(rules(settings).map(::JsonPrimitive)))
+                put("rules", JsonArray(rules(settings, targetNames).map(::JsonPrimitive)))
                 put("dns", dns(settings))
                 if (includeInbound) put("listeners", JsonArray(listeners(settings, tunnelPort, tunnelAuth)))
             }.toString()
@@ -352,17 +382,28 @@ internal object MihomoConfigBuilder {
     }
 
     private fun listeners(s: AppSettings, tunnelPort: Int?, auth: Pair<String, String>?): List<JsonObject> = buildList {
-        fun listener(name: String, port: Int, udp: Boolean, credentials: Pair<String, String>?): JsonObject = buildJsonObject {
-            put("type", "socks"); put("name", name); put("listen", "127.0.0.1"); put("port", port); put("udp", udp)
+        fun listener(type: String, name: String, port: Int, udp: Boolean, credentials: Pair<String, String>?): JsonObject = buildJsonObject {
+            put("type", type); put("name", name); put("listen", if (s.allowLan && name != "tun-in") "0.0.0.0" else "127.0.0.1"); put("port", port)
+            if (type == "socks") put("udp", udp)
             put("users", JsonArray(if (credentials == null) emptyList() else listOf(buildJsonObject { put("username", credentials.first); put("password", credentials.second) })))
         }
-        if (tunnelPort != null) add(listener("tun-in", tunnelPort, true, auth))
-        if (s.socksEnabled) add(listener("socks-in", s.socksPort, s.socksUdp,
+        if (tunnelPort != null) add(listener("socks", "tun-in", tunnelPort, true, auth))
+        if (s.socksEnabled) add(listener("socks", "socks-in", s.socksPort, s.socksUdp,
+            if (s.socksUsername.isNotBlank() && s.socksPassword.isNotBlank()) s.socksUsername to s.socksPassword else null))
+        if (s.httpEnabled) add(listener("http", "http-in", s.httpPort, false,
             if (s.socksUsername.isNotBlank() && s.socksPassword.isNotBlank()) s.socksUsername to s.socksPassword else null))
     }
 
     private fun dns(s: AppSettings): JsonObject = buildJsonObject {
-        fun server(ip: String, proxy: Boolean) = (if (proxy) "tcp://" else "udp://") + (if (':' in ip) "[$ip]" else ip) + (if (proxy) "#proxy" else "#DIRECT")
+        fun server(ip: String, proxy: Boolean): String {
+            val raw = ip.trim()
+            val value = when {
+                raw.startsWith("h3://", true) -> "https://${raw.substring(6)}"
+                raw.startsWith("https://", true) || raw.startsWith("tls://", true) || raw.startsWith("quic://", true) -> raw
+                else -> (if (proxy) "tcp://" else "udp://") + (if (':' in raw) "[$raw]" else raw)
+            }
+            return value + if (proxy) "#proxy" else "#DIRECT"
+        }
         put("enable", true); put("ipv6", s.ipv6Enabled)
         put("enhanced-mode", if (s.dnsProxyEnabled && s.fakeDns) "fake-ip" else "redir-host")
         put("fake-ip-range", "198.18.0.1/16"); put("fake-ip-range6", "fc00::/18")
@@ -370,20 +411,20 @@ internal object MihomoConfigBuilder {
         put("proxy-server-nameserver", strings(s.domesticDns)); put("direct-nameserver", strings(s.domesticDns))
         if (s.dnsProxyEnabled) putJsonObject("nameserver-policy") {
             if (s.routingMode == RoutingMode.RULE) put("geosite:cn", JsonArray(listOf(JsonPrimitive(server(s.domesticDns, false)))))
-            s.routingRules.filter { it.enabled && it.action == RouteAction.DIRECT }.flatMap { it.domains }.forEach { domain ->
+            s.effectiveRoutingRules.filter { it.enabled && it.action == RouteAction.DIRECT && it.outboundTargetId == null }.flatMap { it.domains }.forEach { domain ->
                 val key = when { domain.startsWith("full:") -> domain.removePrefix("full:"); domain.startsWith("domain:") -> "+." + domain.removePrefix("domain:"); domain.startsWith("geosite:") -> domain; else -> fail("dns.domains", "该域名条件的 DNS policy 等价性待核定") }
                 put(key, JsonArray(listOf(JsonPrimitive(server(s.domesticDns, false)))))
             }
         }
     }
 
-    internal fun rules(s: AppSettings): List<String> = when (s.routingMode) {
+    internal fun rules(s: AppSettings, targetNames: Map<String, String> = emptyMap()): List<String> = when (s.routingMode) {
         RoutingMode.GLOBAL -> listOf("MATCH,proxy")
         RoutingMode.DIRECT -> listOf("MATCH,DIRECT")
-        RoutingMode.RULE -> s.routingRules.filter { it.enabled && (it.id != "builtin:private" || s.bypassLan) }.map(::rule) + "MATCH,proxy"
+        RoutingMode.RULE -> s.effectiveRoutingRules.filter { it.enabled && (it.id != "builtin:private" || s.bypassLan) }.map { rule(it, it.outboundTargetId?.let(targetNames::get) ?: if (it.outboundTargetId != null) PROXY else null) } + "MATCH,proxy"
     }
 
-    internal fun rule(r: RoutingRule): String {
+    internal fun rule(r: RoutingRule, targetOverride: String? = null): String {
         r.validate()
         if (r.protocols.isNotEmpty()) fail("protocols", "不支持嗅探协议条件：等待 shim 等价验证；未改动现行 bittorrent/destOverride")
         fun atom(type: String, payload: String): String {
@@ -414,7 +455,7 @@ internal object MihomoConfigBuilder {
             if (r.network.isNotBlank()) add(any(r.network.split(',').map { atom("NETWORK", it.uppercase()) }))
         }
         val condition = if (fields.size == 1) fields.single() else "AND,(" + fields.joinToString(",") { "($it)" } + ")"
-        val target = when (r.action) { RouteAction.PROXY -> "proxy"; RouteAction.DIRECT -> "DIRECT"; RouteAction.BLOCK -> "REJECT" }
+        val target = targetOverride ?: when (r.action) { RouteAction.PROXY -> "proxy"; RouteAction.DIRECT -> "DIRECT"; RouteAction.BLOCK -> "REJECT" }
         return "$condition,$target"
     }
 

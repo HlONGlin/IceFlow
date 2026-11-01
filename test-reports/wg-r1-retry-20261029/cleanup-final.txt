@@ -1,6 +1,0 @@
-﻿# Final local cleanup checks
-
-- `adb reverse --list`: empty after `adb reverse --remove-all`.
-- `tun0`: `adb shell ip addr show tun0` reported `Device "tun0" does not exist.`
-- `com.iceflow` app PID: empty after force-stop.
-- Restored node store: JSON-equal to the pre-test snapshot; canonical SHA-256 is in `restore-compare.txt`.

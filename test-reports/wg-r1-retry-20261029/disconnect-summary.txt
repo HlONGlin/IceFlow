@@ -1,7 +1,0 @@
-﻿E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:285:10-29 12:46:42.924  1589  1611 I EthernetTracker: interfaceLinkStateChanged, iface: tun0, up: false
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:297:10-29 12:46:42.927  1424  1533 I Netd    : Destroyed 4 sockets for UidRanges{ 0-10063 10065-99999 } skip={1016 10064} in 0.2 ms
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:737:10-29 12:53:35.570  3785  3785 I IceFlowVpnService: [TIMING] service.onStartCommand action=com.iceflow.action.STOP
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:740:10-29 12:53:35.574  3785  3862 I GoLog   : time="2026-10-29T04:53:35.574254622Z" level=warning msg="Mihomo shutting down"
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:741:10-29 12:53:35.574  1589  1611 I EthernetTracker: interfaceLinkStateChanged, iface: tun0, up: false
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:744:10-29 12:53:35.576  1589  1611 D Vpn     : setting state=DISCONNECTED, reason=agentDisconnect
-E:\IceFlow-core-variants\test-reports\wg-r1-retry-20261029\logcat-disconnect.txt:746:10-29 12:53:35.578  1424  1533 I Netd    : Destroyed 1 sockets for UidRanges{ 0-10063 10065-99999 } skip={1016 10064} in 0.2 ms

@@ -16,6 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import com.iceflow.core.XrayBridge
+import com.iceflow.data.DeepLinkParser
 import com.iceflow.service.VpnController
 import com.iceflow.service.VpnEntryPoint
 import com.iceflow.service.AppLog
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val EXTRA_CONNECT_FROM_TILE = "com.iceflow.extra.CONNECT_FROM_TILE"
         const val EXTRA_OPEN_LOGS = "com.iceflow.extra.OPEN_LOGS"
+        private const val EXTRA_DEEP_LINK_CONSUMED = "com.iceflow.extra.DEEP_LINK_CONSUMED"
     }
 
     private val vm: MainViewModel by viewModels()
@@ -65,13 +68,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        if (savedInstanceState == null) handleTileIntent(intent)
+        if (savedInstanceState == null) {
+            handleTileIntent(intent)
+            handleDeepLinkIntent(intent)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleTileIntent(intent)
+        handleDeepLinkIntent(intent)
     }
 
     private fun handleTileIntent(intent: Intent) {
@@ -83,6 +90,38 @@ class MainActivity : ComponentActivity() {
         intent.removeExtra(EXTRA_CONNECT_FROM_TILE)
         toggleVpn(VpnEntryPoint.ACTIVITY)
     }
+
+    /**
+     * 深链接 / 分享导入入口：只把解析结果交给 ViewModel 弹出确认框，
+     * 不写入配置、不自动连接。处理完立刻清空 data、文本与 clipData，
+     * 并打上消费标记，旋转、重建或重复 onNewIntent 都不会重复消费同一个 Intent。
+     */
+    private fun handleDeepLinkIntent(intent: Intent) {
+        val action = intent.action
+        if (action != Intent.ACTION_VIEW && action != Intent.ACTION_SEND) return
+        if (intent.getBooleanExtra(EXTRA_DEEP_LINK_CONSUMED, false)) return
+        val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+            ?: intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString()
+        val payload = DeepLinkParser.Payload(
+            action = action,
+            uri = intent.dataString,
+            mimeType = intent.type,
+            text = text,
+            displayName = intent.data?.takeIf { it.scheme == "content" }?.let(::queryDisplayName),
+        )
+        intent.putExtra(EXTRA_DEEP_LINK_CONSUMED, true)
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        intent.clipData = null
+        intent.data = null
+        vm.submitDeepLink(DeepLinkParser.parse(payload, supportsMieruProtobuf = XrayBridge.isAvailable))
+    }
+
+    /** content:// 的显示名，用于校验配置文件扩展名。 */
+    private fun queryDisplayName(uri: android.net.Uri): String? = runCatching {
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+    }.getOrNull()
 
     private fun toggleVpn(entryPoint: VpnEntryPoint = VpnEntryPoint.ACTIVITY) {
         VpnController.dispatchEntryAction(this, entryPoint, connect = {

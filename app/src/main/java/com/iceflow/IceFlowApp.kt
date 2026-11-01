@@ -7,8 +7,10 @@ import android.content.Context
 import com.iceflow.data.repository.ServerRepository
 import com.iceflow.data.repository.SettingsRepository
 import com.iceflow.data.repository.UpdatePreferences
+import com.iceflow.data.repository.RemoteRoutingRuleSetRepository
 import com.iceflow.service.IceFlowVpnService
 import com.iceflow.service.SubscriptionScheduler
+import com.iceflow.service.RemoteRuleSetScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +23,7 @@ class AppContainer(context: Context) {
     val settings = SettingsRepository(context)
     val updates = UpdatePreferences(context)
     val routingResources = com.iceflow.data.repository.RoutingResources(context)
+    val routingRuleSets = RemoteRoutingRuleSetRepository(context)
 }
 
 class IceFlowApp : Application() {
@@ -34,8 +37,10 @@ class IceFlowApp : Application() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             runCatching { container.routingResources.prepare() }
                 .onFailure { android.util.Log.e("IceFlowApp", "Failed to prepare routing assets", it) }
+            runCatching { container.settings.update { it.copy(expandedRemoteRules = container.routingRuleSets.loadEnabled(it.remoteRuleSets)) } }
         }
         container.servers.store.value.subscriptions.forEach { SubscriptionScheduler.schedule(this, it) }
+        container.settings.settings.value.remoteRuleSets.forEach { RemoteRuleSetScheduler.schedule(this, it) }
         val channel = NotificationChannel(
             IceFlowVpnService.CHANNEL_ID,
             getString(R.string.notification_channel),

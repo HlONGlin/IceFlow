@@ -1,5 +1,8 @@
 # Single 配置映射全量消费入口清查（阶段 2 / 第 2 步草稿）
 
+> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 test-reports/README.md。历史结论与未验证项不变。
+
+
 状态：批量清查已完成；有消费证据的映射与拒绝护栏已实现并单测。缺口尚待一次性处置，不能据此宣布第 2 步整体验收完成。生成器仅在 single source set，尚未接 bridge；未上设备。main、dual、wrapper、schema 与上游源码均未改动。
 
 工作树：E:/IceFlow-core-variants，分支 feat/core-variants。pin：mihomo v1.19.32；Xray v1.260327.0。源码来自本机 Go module cache；下列 mihomo 相对路径均相对该 pin 根目录。落点 B = app/src/single/java/com/iceflow/data/MihomoConfigBuilder.kt；S = MihomoOptionSchema.kt；T = app/src/testSingle/java/com/iceflow/data/MihomoConfigBuilderTest.kt。表中的“消费”是实际 option/receiver 读取或传给 transport 的入口，不仅是 struct 声明。传入 transport 不代表全部组合已做运行时等价验证。条件消费须同时满足第 5 节限制。

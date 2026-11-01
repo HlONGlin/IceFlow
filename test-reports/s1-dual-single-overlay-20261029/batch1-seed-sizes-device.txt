@@ -1,4 +1,0 @@
-﻿2996 files/servers.json
-2996 files/servers.json.bak
-1475 shared_prefs/settings.xml
-7467 total

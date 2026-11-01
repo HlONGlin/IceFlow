@@ -1,5 +1,8 @@
 # 阶段 2 收尾报告（S4）
 
+> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 test-reports/README.md。历史结论与未验证项不变。
+
+
 日期：2026-10-29。工作树：E:/IceFlow-core-variants，分支 feat/core-variants。
 验证限定：仅 x86_64 模拟器（emulator-5556）；**ARM 真机未验证**（长期限定，所有结论仅适用 x86_64 模拟器）。
 

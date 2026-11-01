@@ -68,6 +68,13 @@ class XrayConfigBuilderTest {
         assertTrue(inbound.obj("settings").getValue("udp").jsonPrimitive.boolean)
     }
 
+    @Test fun `http inbound and lan binding use credentials`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings(httpEnabled = true, allowLan = true, socksUsername = "u", socksPassword = "p")))
+        val inbound = cfg.getValue("inbounds").jsonArray.first { it.jsonObject.str("tag") == "http-in" }.jsonObject
+        assertEquals("0.0.0.0", inbound.str("listen")); assertEquals(10809, inbound.getValue("port").jsonPrimitive.int)
+        assertEquals("u", inbound.obj("settings").getValue("accounts").jsonArray.single().jsonObject.str("user"))
+    }
+
     @Test
     fun `socks routing and udp are enabled by default`() {
         val settings = AppSettings()

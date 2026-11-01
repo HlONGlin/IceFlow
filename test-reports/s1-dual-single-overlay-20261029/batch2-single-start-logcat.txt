@@ -1,7 +1,0 @@
-﻿
-10-29 11:53:51.981  3056  3079 W XrayBridge: xray-core unavailable: java.lang.ClassNotFoundException: libxray.Libxray
-10-29 11:53:55.643  3089  3089 D AndroidRuntime: >>>>>> START com.android.internal.os.RuntimeInit uid 2000 <<<<<<
-10-29 11:53:55.681  3089  3089 D AndroidRuntime: Calling main entry com.android.commands.uiautomator.Launcher
-10-29 11:53:56.743  3089  3089 D AndroidRuntime: Shutting down VM
-
-
