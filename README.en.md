@@ -1,6 +1,8 @@
 <div align="center">
 
-# ❄️ IceFlow
+<img src="preview/app-icon-current.png" width="88" alt="IceFlow app icon">
+
+# IceFlow
 
 **A modern Android proxy client · dual and single core variants**
 
@@ -21,28 +23,62 @@ IceFlow is an Android proxy client built with Jetpack Compose. It combines node 
 
 **Current release** v0.1.5.1 · **versionCode** 113 · **Android** 8.0+
 
-## Real Device Preview
+## App Module Preview
 
-These screenshots were captured on `emulator-5566`: Pixel Tablet, Android 15 (API 35). They show an active connection, the offline waiting state, and automatic reconnection after the network returns.
+These screens were captured while IceFlow single v0.1.5.1 was running on `emulator-5566` (Pixel Tablet, Android 15 / API 35). The gallery focuses on nodes, groups, routing, settings and import. Click any image to open the full emulator capture.
 
 <table>
   <tr>
-    <td align="center" width="33%">
-      <img src="screenshots/emulator/v0.1.5.1/connected.png" width="260" alt="Connected state">
-      <br><sub><b>Connected</b><br>Connection and traffic status are visible</sub>
+    <td align="center" width="50%">
+      <b>Node Management</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="screenshots/emulator/v0.1.5.1/modules/nodes-module.png" width="420" alt="Node list and node actions"></a><br>
+      <sub>Review node protocols and manage entries in a group.</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="260" alt="Network waiting state">
-      <br><sub><b>Network lost</b><br>A clear waiting state appears during the outage</sub>
+    <td align="center" width="50%">
+      <b>Groups</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="screenshots/emulator/v0.1.5.1/modules/groups-module.png" width="420" alt="Group list and group actions"></a><br>
+      <sub>See local groups and their node counts.</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="screenshots/emulator/v0.1.5.1/restored.png" width="260" alt="Restored connection state">
-      <br><sub><b>Network restored</b><br>The app reconnects automatically</sub>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>Rule-Based Routing</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="screenshots/emulator/v0.1.5.1/modules/routing-module.png" width="420" alt="Routing rules and proxy policies"></a><br>
+      <sub>Adjust rule order, match conditions and traffic outlets.</sub>
+    </td>
+    <td align="center" width="50%">
+      <b>Proxy Settings</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="screenshots/emulator/v0.1.5.1/modules/settings-module.png" width="420" alt="Theme, routing and local SOCKS5 settings"></a><br>
+      <sub>Theme, night mode, routing mode and local proxy options.</sub>
     </td>
   </tr>
 </table>
 
-> The screenshots document UI states and recovery behavior. Testing used a `127.0.0.1:1080` SOCKS5 profile without an available upstream, so they do not represent real proxy throughput.
+### Import Confirmation
+
+External node imports show a review step first. Confirming adds the entry to the current group without starting a connection.
+
+<table>
+  <tr>
+    <td align="center" width="50%"><b>Confirm Import</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-confirm-crop.png" width="380" alt="Confirm node import dialog"></a></td>
+    <td align="center" width="50%"><b>Import Complete</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-complete-crop.png" width="380" alt="Node import completed toast"></a></td>
+  </tr>
+</table>
+
+> `127.0.0.1:1080` in the node list is a local SOCKS5 demo entry, not a public working node. These screenshots show the app UI and do not represent an upstream proxy or real-world throughput.
+
+<details>
+<summary>Network interruption and recovery screens</summary>
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/connected.png" width="220" alt="Connected"><br><sub>Connected</sub></td>
+    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="220" alt="Waiting during network loss"><br><sub>Waiting for the network</sub></td>
+    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/restored.png" width="220" alt="Connection restored"><br><sub>Automatic reconnection</sub></td>
+  </tr>
+</table>
+
+</details>
 
 ## What's New in v0.1.5.1
 
@@ -181,9 +217,9 @@ cargo install cargo-ndk
 <details>
 <summary><b>Testing and Validation</b></summary>
 
-- pp/src/test and pp/src/testSingle: JVM unit tests for dual and single.
-- pp/src/androidTest: Android instrumentation tests.
-- ust-core: Rust unit tests (cargo test).
+- app/src/test and app/src/testSingle: JVM unit tests for dual and single.
+- app/src/androidTest: Android instrumentation tests.
+- `rust-core/`: Rust unit tests (`cargo test`).
 - xray-wrapper: Go unit tests (go test ./...).
 
 ~~~powershell

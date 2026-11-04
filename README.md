@@ -1,6 +1,8 @@
 <div align="center">
 
-# ❄️ IceFlow
+<img src="preview/app-icon-current.png" width="88" alt="IceFlow app icon">
+
+# IceFlow
 
 **现代化 Android 代理客户端 · dual / single 双核心变体**
 
@@ -21,28 +23,62 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 
 **当前版本** v0.1.5.1 · **versionCode** 113 · **Android** 8.0 及以上
 
-## 实机效果
+## 应用模块实机预览
 
-以下截图来自 `emulator-5566`：Pixel Tablet、Android 15（API 35）。展示连接正常、网络中断等待、网络恢复后自动重连三个状态。
+以下画面来自 IceFlow single v0.1.5.1，在 `emulator-5566`（Pixel Tablet、Android 15 / API 35）运行时截取。主展示覆盖节点、分组、路由、设置和导入模块；点击各图可查看完整模拟器截图。
 
 <table>
   <tr>
-    <td align="center" width="33%">
-      <img src="screenshots/emulator/v0.1.5.1/connected.png" width="260" alt="正常连接状态">
-      <br><sub><b>正常连接</b><br>连接和流量状态正常显示</sub>
+    <td align="center" width="50%">
+      <b>节点管理</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="screenshots/emulator/v0.1.5.1/modules/nodes-module.png" width="420" alt="节点列表与节点操作"></a><br>
+      <sub>查看节点协议、分组并管理节点。</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="260" alt="断网等待状态">
-      <br><sub><b>网络中断</b><br>显示等待提示，恢复后自动重连</sub>
+    <td align="center" width="50%">
+      <b>分组管理</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="screenshots/emulator/v0.1.5.1/modules/groups-module.png" width="420" alt="分组列表与分组操作"></a><br>
+      <sub>集中查看本地分组及其节点数量。</sub>
     </td>
-    <td align="center" width="33%">
-      <img src="screenshots/emulator/v0.1.5.1/restored.png" width="260" alt="网络恢复状态">
-      <br><sub><b>网络恢复</b><br>自动回到连接状态</sub>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>规则路由</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="screenshots/emulator/v0.1.5.1/modules/routing-module.png" width="420" alt="路由规则与代理策略"></a><br>
+      <sub>调整规则顺序、匹配条件和流量出口。</sub>
+    </td>
+    <td align="center" width="50%">
+      <b>代理设置</b><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="screenshots/emulator/v0.1.5.1/modules/settings-module.png" width="420" alt="主题、路由和本地 SOCKS5 设置"></a><br>
+      <sub>主题、夜间模式、路由方式及本地代理选项。</sub>
     </td>
   </tr>
 </table>
 
-> 截图展示界面和恢复流程。测试使用 `127.0.0.1:1080` SOCKS5 配置，环境中没有可用的外部上游，因此不代表代理服务的实际吞吐速度。
+### 导入确认
+
+外部节点导入前会先展示内容供确认；确认后写入当前分组，不会自动连接。
+
+<table>
+  <tr>
+    <td align="center" width="50%"><b>确认导入</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-confirm-crop.png" width="380" alt="导入节点确认对话框"></a></td>
+    <td align="center" width="50%"><b>导入完成</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-complete-crop.png" width="380" alt="节点导入完成提示"></a></td>
+  </tr>
+</table>
+
+> 节点列表中的 `127.0.0.1:1080` 是演示用本地 SOCKS5 条目，不是可用的公共节点；截图仅展示界面模块，不代表代理上游或实际吞吐速度。
+
+<details>
+<summary>查看网络中断与恢复画面</summary>
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/connected.png" width="220" alt="正常连接"><br><sub>正常连接</sub></td>
+    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="220" alt="网络中断等待"><br><sub>网络中断时等待恢复</sub></td>
+    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/restored.png" width="220" alt="网络恢复"><br><sub>网络恢复后自动重连</sub></td>
+  </tr>
+</table>
+
+</details>
 
 ## v0.1.5.1
 
@@ -181,9 +217,9 @@ cargo install cargo-ndk
 <details>
 <summary><b>测试与验证</b></summary>
 
-- pp/src/test 与 pp/src/testSingle：dual/single JVM 单元测试。
-- pp/src/androidTest：Android 仪器测试。
-- ust-core：Rust 单元测试（cargo test）。
+- app/src/test 与 app/src/testSingle：dual/single JVM 单元测试。
+- app/src/androidTest：Android 仪器测试。
+- `rust-core/`：Rust 单元测试（`cargo test`）。
 - xray-wrapper：Go 单元测试（go test ./...）。
 
 ~~~powershell
