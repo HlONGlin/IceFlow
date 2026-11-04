@@ -31,24 +31,24 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
   <tr>
     <td align="center" width="50%">
       <b>节点管理</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="screenshots/emulator/v0.1.5.1/modules/nodes-module.png" width="420" alt="节点列表与节点操作"></a><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="screenshots/emulator/v0.1.5.1/modules/nodes.png" width="360" alt="节点列表与节点操作，完整模拟器页面"></a><br>
       <sub>查看节点协议、分组并管理节点。</sub>
     </td>
     <td align="center" width="50%">
       <b>分组管理</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="screenshots/emulator/v0.1.5.1/modules/groups-module.png" width="420" alt="分组列表与分组操作"></a><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="screenshots/emulator/v0.1.5.1/modules/groups.png" width="360" alt="分组列表与分组操作，完整模拟器页面"></a><br>
       <sub>集中查看本地分组及其节点数量。</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <b>规则路由</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="screenshots/emulator/v0.1.5.1/modules/routing-module.png" width="420" alt="路由规则与代理策略"></a><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="screenshots/emulator/v0.1.5.1/modules/routing.png" width="360" alt="路由规则与代理策略，完整模拟器页面"></a><br>
       <sub>调整规则顺序、匹配条件和流量出口。</sub>
     </td>
     <td align="center" width="50%">
       <b>代理设置</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="screenshots/emulator/v0.1.5.1/modules/settings-module.png" width="420" alt="主题、路由和本地 SOCKS5 设置"></a><br>
+      <a href="screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="screenshots/emulator/v0.1.5.1/modules/settings.png" width="360" alt="主题、路由和本地 SOCKS5 设置，完整模拟器页面"></a><br>
       <sub>主题、夜间模式、路由方式及本地代理选项。</sub>
     </td>
   </tr>
@@ -60,8 +60,8 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 
 <table>
   <tr>
-    <td align="center" width="50%"><b>确认导入</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-confirm-crop.png" width="380" alt="导入节点确认对话框"></a></td>
-    <td align="center" width="50%"><b>导入完成</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-complete-crop.png" width="380" alt="节点导入完成提示"></a></td>
+    <td align="center" width="50%"><b>确认导入</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-confirm.png" width="300" alt="导入节点确认对话框，完整模拟器页面"></a></td>
+    <td align="center" width="50%"><b>导入完成</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-complete.png" width="300" alt="节点导入完成提示，完整模拟器页面"></a></td>
   </tr>
 </table>
 
