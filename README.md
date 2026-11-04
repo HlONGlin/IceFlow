@@ -2,288 +2,218 @@
 
 # ❄️ IceFlow
 
-<p align="center">
-  <b>基于 xray + mihomo 双核心变体的 Android 代理客户端</b>
+**现代化 Android 代理客户端 · dual / single 双核心变体**
+
+<p>
+  <a href="https://github.com/HlONGlin/IceFlow/releases/latest"><img src="https://img.shields.io/github/v/release/HlONGlin/IceFlow?display_name=tag&style=flat-square&color=1677FF" alt="最新版本"></a>
+  <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/platform-Android%208.0%2B-blue?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/language-Kotlin-orange?style=flat-square" alt="Language">
-  <img src="https://img.shields.io/badge/UI-Jetpack%20Compose-green?style=flat-square" alt="UI">
-  <img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="License">
-</p>
-
-简体中文 | [English](README.en.md)
+[⬇️ 下载最新版本 v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/latest) · [English](README.en.md)
 
 </div>
 
 ---
 
-## 📖 简介
+IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节点与订阅管理、规则分流，以及网络中断后的自动恢复体验。dual 和 single 两种变体共享 UI、订阅与路由能力，并提供多种设备架构的 APK。
 
-IceFlow 是一款现代化的 Android 代理客户端，采用 Jetpack Compose 构建流畅的用户界面，提供 **dual（xray + mihomo）** 与 **single（mihomo）** 两种核心变体：两者共享同一套 UI、订阅与路由能力，dual 变体额外打包 xray 与 Rust TUN 层。支持 Android 8.0 及以上版本。
+**当前版本** v0.1.5.1 · **versionCode** 113 · **Android** 8.0 及以上
 
-### ✨ 主要特性
+## 实机效果
 
-- 🚀 **多协议支持** - VMess、VLESS (含 Reality)、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP、SOCKS、AnyTLS 和 Sudoku
-- 📱 **现代化 UI** - 基于 Jetpack Compose 的流畅用户界面
-- 🔄 **灵活导入** - 支持 Clash YAML、二维码扫描、订阅链接
-- 🔗 **深链接导入** - 浏览器或其它 App 点链接即可导入订阅/节点，导入前必须确认
-- 🎯 **智能分流** - 规则分流与分应用代理
-- 🔐 **隐私安全** - 本地数据加密，内部 TUN 入口随机凭据保护
-- 📊 **流量统计** - 按出站类型（代理/直连/阻止）的详细流量分析
-- 🌐 **DNS 优化** - 智能 DNS 分流，避免 CDN 污染
+以下截图来自 `emulator-5566`：Pixel Tablet、Android 15（API 35）。展示连接正常、网络中断等待、网络恢复后自动重连三个状态。
 
-## 🏗️ 架构设计
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="screenshots/emulator/v0.1.5.1/connected.png" width="260" alt="正常连接状态">
+      <br><sub><b>正常连接</b><br>连接和流量状态正常显示</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="260" alt="断网等待状态">
+      <br><sub><b>网络中断</b><br>显示等待提示，恢复后自动重连</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="screenshots/emulator/v0.1.5.1/restored.png" width="260" alt="网络恢复状态">
+      <br><sub><b>网络恢复</b><br>自动回到连接状态</sub>
+    </td>
+  </tr>
+</table>
 
-```
-┌─────────────────────────────────────────────────┐
-│         Jetpack Compose UI (Kotlin)             │
-│          用户界面 & 节点管理 & 设置              │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│         Android VpnService (TUN)                │
-│            TUN 虚拟网络接口                      │
-└────────────────┬────────────────────────────────┘
-                 │ File Descriptor
-                 ▼
-┌─────────────────────────────────────────────────┐
-│       rust-core (tun2proxy, JNI)                │
-│      TUN 流量捕获与 SOCKS5 转发                  │
-└────────────────┬────────────────────────────────┘
-                 │ SOCKS5 127.0.0.1:10808
-                 ▼
-┌─────────────────────────────────────────────────┐
-│     xray-core (Go, gomobile AAR)                │
-│          代理协议处理 & 流量转发                 │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-           🌐 远端代理服务器
-```
+> 截图展示界面和恢复流程。测试使用 `127.0.0.1:1080` SOCKS5 配置，环境中没有可用的外部上游，因此不代表代理服务的实际吞吐速度。
 
-> 上图对应 **dual** 变体（xray + mihomo）：TUN 由 `rust-core`（tun2proxy）接管，经内部 SOCKS5 交给核心处理。
-> **single** 变体只打包 mihomo，由 mihomo 自行接管 TUN 与协议处理，因此没有 Rust 层与 `libiceflow_core.so`。
+## v0.1.5.1
 
-## 📁 项目结构
+- 网络中断时显示专用等待提示，并隐藏过期的流量和测速信息。
+- 网络恢复后自动重新建立连接；等待期间仍可主动断开。
+- dual 与 single 变体同步支持网络恢复体验和多语言文案。
 
-| 目录 | 说明 |
-|------|------|
-| `app/` | Kotlin + Compose 应用层：UI、VpnService、快捷开关 |
-| `rust-core/` | Rust TUN 转发层（tun2proxy，JNI），仅 dual 变体打包 |
-| `xray-wrapper/` | xray-core 的 gomobile 封装，产物为 `app/libs/xray.aar`（dual） |
-| `mihomo-wrapper/` | mihomo 的 gomobile 封装，产物为 `app/libs/single/mihomo.aar`（single） |
-| `docs/` | 架构文档与设计说明 |
+查看[完整变更记录](CHANGELOG-v0.1.5.1.md)。
 
-## 🛠️ 构建指南
+## 下载
 
-### 前置要求
+从 [GitHub Release v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.1) 获取正式签名 APK。安装包沿用原签名，可覆盖安装并保留应用数据。
 
-- ☕ JDK 17
-- 📱 Android SDK 36 + NDK
-- 🦀 Rust (含 `cargo-ndk`)
-- 🐹 Go 1.26+
+| 变体 | 核心 | 推荐下载 | 说明 |
+| --- | --- | --- | --- |
+| **single** | mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-single-universal-release.apk) | 适合大多数设备，安装简单 |
+| **dual** | xray + mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-dual-universal-release.apk) | 需要双核心能力时选择 |
 
-### 构建步骤
+另有 `arm64-v8a`、`armeabi-v7a`、`x86_64` 架构包。校验文件：[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/ARTIFACT_MANIFEST.json)
 
-#### Windows
+## 功能一览
 
-```powershell
-# 1. 构建 Rust TUN 层 → app/src/dual/jniLibs/（仅 dual 变体使用）
-rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk
-.\rust-core\build-android.ps1
+| 类别 | 支持能力 |
+| --- | --- |
+| 协议 | VMess、VLESS（含 Reality）、Trojan、Shadowsocks、Mieru、Hysteria/Hysteria2、TUIC、WireGuard、SSR、HTTP、SOCKS、AnyTLS、Sudoku |
+| 导入 | Clash YAML、二维码、HTTPS 订阅、节点分享链接、深链接、配置文件 |
+| 路由 | 规则分流、分应用代理、DNS 分流、IPv6、代理链、按规则指定出口 |
+| 管理 | 节点分组、订阅更新、批量导入、延迟测试、流量统计、备份与恢复 |
+| 体验 | Material Design 3、深色模式、主题切换、响应式布局、断网自动恢复 |
 
-# 2. 构建 xray-core → app/libs/xray.aar（仅 dual 变体使用）
-.\xray-wrapper\build-aar.ps1
+## 核心变体
 
-# 2b. 构建 mihomo → app/libs/single/mihomo.aar（single 变体使用）
-.\mihomo-wrapper\build-aar.ps1
+- **dual**：包含 xray、mihomo 与 Rust TUN 层。
+- **single**：仅包含 mihomo。
 
-# 3. 构建 APK（dual 与 single 两种变体）
-.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
-```
+两个变体共享应用界面、节点管理、订阅和路由功能。依赖特定核心的协议能力会在应用中明确提示。
 
-#### Linux/macOS
+## 连接结构
 
-```bash
-# 1. 构建 Rust TUN 层 → app/src/dual/jniLibs/（仅 dual 变体使用）
-rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk
-./rust-core/build-android.sh
+~~~mermaid
+flowchart TB
+    UI["Jetpack Compose UI"] --> VPN["Android VpnService / TUN"]
+    VPN --> DUAL["dual · xray + mihomo + Rust TUN"]
+    VPN --> SINGLE["single · mihomo"]
+    DUAL --> ROUTE["协议处理与路由"]
+    SINGLE --> ROUTE
+    ROUTE --> SERVER["远端代理服务器"]
+~~~
 
-# 2. 构建 xray-core → app/libs/xray.aar（仅 dual 变体使用）
-./xray-wrapper/build-aar.sh
+## 快速开始
 
-# 2b. 构建 mihomo → app/libs/single/mihomo.aar（single 变体使用）
-./mihomo-wrapper/build-aar.sh
+1. 从 [Release](https://github.com/HlONGlin/IceFlow/releases/latest) 下载适合设备的 APK。
+2. 添加节点、导入 HTTPS 订阅，或从其他应用分享节点到 IceFlow。
+3. 选择节点并点击连接；首次连接时按 Android 提示授权 VPN。
+4. 连接期间若网络中断，等待网络恢复即可，应用会自动重连。
 
-# 3. 构建 APK（dual 与 single 两种变体）
-./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
-```
+## 深链接与导入
 
-### ⚠️ Windows 注意事项
-
-**中文路径问题**：项目路径含中文时，Gradle 单元测试会出现 `ClassNotFoundException`。
-
-**解决方案**：
-
-```powershell
-# 方法 1：映射盘符
-subst X: "E:\脚本编写存放\git"
-cd X:\IceFlow
-.\gradlew.bat testDebugUnitTest
-subst X: /D
-
-# 方法 2：使用纯英文路径
-```
-
-**环境变量配置**：
-
-```powershell
-$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH"
-```
-
-## 🧪 测试
-
-### 测试结构
-
-- **app/src/test** - JVM 单元测试：分享链接/深链接解析、配置生成、格式化（dual 与 single 共用）
-- **app/src/testSingle** - single（mihomo）变体专用 JVM 单元测试
-- **app/src/androidTest** - Android 仪器测试：Compose UI 测试、原生库加载验证
-- **rust-core** - Rust 单元测试：`cargo test`
-- **xray-wrapper** - Go 单元测试：`go test ./...`
-
-### 运行 Android 测试
-
-```powershell
-# 自动安装并测试（会卸载应用）
-.\gradlew.bat connectedDebugAndroidTest
-
-# 保留数据的手动测试
-.\gradlew.bat assembleDebug assembleDebugAndroidTest
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-adb install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
-adb shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
-
-# 指定设备测试
-adb -s emulator-5556 install -r app\build\outputs\apk\debug\app-debug.apk
-adb -s emulator-5556 install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
-adb -s emulator-5556 shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
-```
-
-## 🔗 深链接与分享导入
-
-浏览器或其它 App 可以直接把链接交给 IceFlow。所有外部导入都会先弹出确认框（展示订阅名称与完整地址，或节点摘要与数量），**确认前不写入任何配置、也不会自动连接**。
+外部导入会先显示确认框；确认前不会写入配置，也不会自动连接。
 
 | 入口 | 示例 |
-|------|------|
+| --- | --- |
 | Clash 订阅 | `clash://install-config?url=https%3A%2F%2Fexample.com%2Fsub` |
-| IceFlow 订阅 | `iceflow://install-config?url=https%3A%2F%2Fexample.com%2Fsub&name=My%20Sub`（也支持 `iceflow://import-config`） |
+| IceFlow 订阅 | `iceflow://install-config?url=https%3A%2F%2Fexample.com%2Fsub&name=My%20Sub` |
 | v2rayN 订阅 | `v2rayn://install-sub?url=https%3A%2F%2Fexample.com%2Fsub` |
-| sing-box 远程配置 | `sing-box://import-remote-profile?url=https%3A%2F%2Fexample.com%2Fsub` |
-| 单节点分享链接 | `vmess://`、`vless://`、`trojan://`、`ss://`、`ssr://`、`hysteria2://`、`hy2://`、`tuic://`、`wireguard://`、`anytls://`、`mierus://` |
-| 分享文本 | 其它 App「分享」→ IceFlow（`text/plain`） |
-| 打开配置文件 | 文件管理器打开 `.yaml` / `.yml` / `.json` / `.txt`（内容上限 4 MiB） |
+| sing-box 配置 | `sing-box://import-remote-profile?url=https%3A%2F%2Fexample.com%2Fsub` |
+| 节点链接 | `vmess://`、`vless://`、`trojan://`、`ss://`、`ssr://`、`hysteria2://`、`hy2://`、`tuic://`、`wireguard://`、`anytls://`、`mierus://` |
+| 配置文件 | 从文件管理器打开 `.yaml`、`.yml`、`.json` 或 `.txt`（最大 4 MiB） |
 
-- 订阅地址仅接受 HTTPS，`http://`、畸形或超长链接会被直接拒绝并提示原因。
-- 已存在相同地址的订阅只提示，不会重复添加。
-- `mieru://` 完整 Protobuf 链接依赖 xray 解码，仅 **dual** 变体支持；**single** 变体导入时会明确提示「当前内核不支持」，不会静默忽略。
-- 同一个 Intent 只会被消费一次，旋转屏幕、重建界面或重复 `onNewIntent` 都不会重复弹窗。
+订阅仅接受 HTTPS；相同地址不会重复添加。完整 `mieru://` Protobuf 链接需要 dual 变体解析。
 
-## 🔄 自动更新
+<details>
+<summary><b>从源码构建</b></summary>
 
-应用启动后会静默检查 GitHub Releases，发现新版本时弹窗提醒。
+### 环境要求
 
-### 配置选项
+- JDK 17
+- Android SDK 36 与 NDK
+- Rust 和 `cargo-ndk`
+- Go 1.26+
 
-- ✅ 自动检查更新（启动时）
-- 🔧 手动检查：设置 → 关于 → IceFlow
-- 🔕 禁用提醒：弹窗中勾选「不再自动提醒」
+### 项目结构
 
-### 私有仓库配置
+| 目录 | 用途 |
+| --- | --- |
+| `app/` | Android 应用、Compose 界面与 VPN 服务 |
+| `rust-core/` | dual 变体使用的 Rust TUN 转发层 |
+| `xray-wrapper/` | dual 变体的 xray gomobile 封装 |
+| `mihomo-wrapper/` | single 变体的 mihomo gomobile 封装 |
+| `docs/` | 架构、快速开始与设计说明 |
 
-私有仓库需要 GitHub Fine-grained token：
+### Release 签名
 
-1. 创建 token：Repository access 选择 `IceFlow`
-2. 权限设置：Contents: Read
-3. 首次检查失败时在弹窗中填入 token
-4. Token 仅保存在本地，不写入备份文件
+需要发布签名时，在本地设置以下环境变量；构建脚本要求四项全部提供或全部留空。不要将密钥或密码提交到仓库。
 
-### CI/CD
-
-推送 `v*` 标签自动触发 GitHub Actions：
-- ✅ 构建 debug 和 release APK
-- ✅ 生成 ABI 特定包和 universal 包
-- ✅ 自动创建 GitHub Release
-
-## ⚙️ 发布配置
-
-### 版本设置
-
-```powershell
-.\gradlew.bat assembleRelease -Piceflow.versionCode=2 -Piceflow.versionName=0.1.1
-```
-
-### 签名配置
-
-通过环境变量配置签名（不写入仓库）：
-
-```powershell
+~~~powershell
 $env:ICEFLOW_KEYSTORE_PATH="path/to/keystore.jks"
 $env:ICEFLOW_KEYSTORE_PASSWORD="keystore_password"
 $env:ICEFLOW_KEY_ALIAS="key_alias"
 $env:ICEFLOW_KEY_PASSWORD="key_password"
-```
+~~~
 
-## 📋 已知限制
+### Windows
 
-- 📦 **订阅限制** - 仅支持 HTTPS 地址，内容上限 4 MiB，路由数据库上限 64 MiB
-- 🎨 **动画** - Lottie 动画尚未集成
-- 💾 **备份** - 导出节点、订阅、分组、规则及设置（不含路由数据库）
-- 🔄 **自动重连** - 连接参数、节点或代理链改变时自动重连（外观设置不重连）
-- 🔒 **安全性** - 内部 TUN 使用随机凭据保护，防止其他应用滥用
-- ⚡ **测速** - 通过内部 SOCKS 入口，与节点测速共用实现
-- 🌐 **网络恢复** - 中断时保留 TUN，自动重试最多 5 次
-- 🛡️ **强制阻断** - 需启用系统「始终开启 VPN」和「阻止无 VPN 连接」
-- 🎯 **DNS 分流** - 直连域名用国内 DNS，代理域名用远端 DNS
+~~~powershell
+# Rust TUN 层，仅 dual 使用
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+.\rust-core\build-android.ps1
 
-## 📊 功能特性
+# xray AAR，仅 dual 使用
+.\xray-wrapper\build-aar.ps1
 
-### 节点管理
-- ✅ 多协议支持
-- ✅ 分组管理
-- ✅ 订阅更新
-- ✅ 二维码扫描
-- ✅ 深链接与分享导入（导入前确认）
-- ✅ 延迟测试
-- ✅ 批量导入
+# mihomo AAR，single 使用
+.\mihomo-wrapper\build-aar.ps1
 
-### 代理功能
-- ✅ 规则分流
-- ✅ 分应用代理
-- ✅ DNS 分流
-- ✅ IPv6 支持
-- ✅ 链式代理
-- ✅ 流量统计
+# 单元测试与 debug APK
+.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
+~~~
 
-### 用户界面
-- ✅ Material Design 3
-- ✅ 深色模式
-- ✅ 主题切换
-- ✅ 流畅动画
-- ✅ 响应式布局
+### Linux / macOS
 
-## 📄 许可证
+~~~bash
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+./rust-core/build-android.sh
+./xray-wrapper/build-aar.sh
+./mihomo-wrapper/build-aar.sh
+./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
+~~~
 
-本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+> Windows 下建议使用纯英文项目路径；非 ASCII 路径可能导致 Gradle 测试出现 `ClassNotFoundException`。
 
----
+</details>
+
+<details>
+<summary><b>测试与验证</b></summary>
+
+- pp/src/test 与 pp/src/testSingle：dual/single JVM 单元测试。
+- pp/src/androidTest：Android 仪器测试。
+- ust-core：Rust 单元测试（cargo test）。
+- xray-wrapper：Go 单元测试（go test ./...）。
+
+~~~powershell
+.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest
+.\gradlew.bat connectedDualDebugAndroidTest connectedSingleDebugAndroidTest
+~~~
+
+v0.1.5.1 已在 `emulator-5566`（Pixel Tablet、Android 15、API 35、x86_64）验证 dual/single 离线启动、single 网络中断等待与自动恢复，以及 dual 主动断开操作。
+
+</details>
+
+## 自动更新
+
+应用可在启动后静默检查 GitHub Releases；发现新版本时提醒更新。也可在「设置 → 关于 → IceFlow」手动检查，并关闭自动提醒。
+
+## 项目文档
+
+- [快速开始](docs/IceFlow-QuickStart.md)
+- [架构说明](docs/IceFlow-Architecture.md)
+- [网络恢复优化](RECONNECTION_OPTIMIZATION.md)
+- [测试报告目录](test-reports/README.md)
+
+## 已知限制
+
+- 订阅地址仅支持 HTTPS，订阅内容上限 4 MiB，路由数据库上限 64 MiB。
+- 系统级无 VPN 阻断需要在 Android 中开启「始终开启 VPN」和「阻止无 VPN 连接」。
+- 完整 `mieru://` Protobuf 链接需要 dual 变体。
 
 <div align="center">
 
-**如果觉得这个项目有帮助，欢迎 Star ⭐**
+**觉得项目有帮助？欢迎点亮 Star ⭐**
 
 </div>

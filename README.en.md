@@ -2,288 +2,218 @@
 
 # ❄️ IceFlow
 
-<p align="center">
-  <b>Android Proxy Client with dual xray + mihomo cores</b>
+**A modern Android proxy client · dual and single core variants**
+
+<p>
+  <a href="https://github.com/HlONGlin/IceFlow/releases/latest"><img src="https://img.shields.io/github/v/release/HlONGlin/IceFlow?display_name=tag&style=flat-square&color=1677FF" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+">
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white" alt="Kotlin">
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/platform-Android%208.0%2B-blue?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/language-Kotlin-orange?style=flat-square" alt="Language">
-  <img src="https://img.shields.io/badge/UI-Jetpack%20Compose-green?style=flat-square" alt="UI">
-  <img src="https://img.shields.io/badge/license-MIT-brightgreen?style=flat-square" alt="License">
-</p>
-
-[简体中文](README.md) | English
+[⬇️ Download v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/latest) · [简体中文](README.md)
 
 </div>
 
 ---
 
-## 📖 Introduction
+IceFlow is an Android proxy client built with Jetpack Compose. It combines node and subscription management, rule-based routing, and automatic recovery after network interruptions. The dual and single variants share the same UI, subscription and routing features, with APKs for multiple device architectures.
 
-IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI. It ships two core variants — **dual (xray + mihomo)** and **single (mihomo)** — that share the same UI, subscription and routing features; the dual variant additionally packages xray and the Rust TUN layer. Supports Android 8.0 and above.
+**Current release** v0.1.5.1 · **versionCode** 113 · **Android** 8.0+
 
-### ✨ Key Features
+## Real Device Preview
 
-- 🚀 **Multi-Protocol Support** - VMess, VLESS (with Reality), Trojan, Shadowsocks, Mieru, Hysteria/Hysteria2, TUIC, WireGuard, SSR, HTTP, SOCKS, AnyTLS and Sudoku
-- 📱 **Modern UI** - Smooth user interface built with Jetpack Compose
-- 🔄 **Flexible Import** - Supports Clash YAML, QR code scanning, subscription links
-- 🔗 **Deep Link Import** - Open a link from a browser or another app to import a subscription or node, always after confirmation
-- 🎯 **Smart Routing** - Rule-based routing and per-app proxy
-- 🔐 **Privacy & Security** - Local data encryption, protected internal TUN with random credentials
-- 📊 **Traffic Statistics** - Detailed traffic analysis by outbound type (proxy/direct/block)
-- 🌐 **DNS Optimization** - Smart DNS routing to avoid CDN pollution
+These screenshots were captured on `emulator-5566`: Pixel Tablet, Android 15 (API 35). They show an active connection, the offline waiting state, and automatic reconnection after the network returns.
 
-## 🏗️ Architecture
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="screenshots/emulator/v0.1.5.1/connected.png" width="260" alt="Connected state">
+      <br><sub><b>Connected</b><br>Connection and traffic status are visible</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="260" alt="Network waiting state">
+      <br><sub><b>Network lost</b><br>A clear waiting state appears during the outage</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="screenshots/emulator/v0.1.5.1/restored.png" width="260" alt="Restored connection state">
+      <br><sub><b>Network restored</b><br>The app reconnects automatically</sub>
+    </td>
+  </tr>
+</table>
 
-```
-┌─────────────────────────────────────────────────┐
-│         Jetpack Compose UI (Kotlin)             │
-│       User Interface & Node Management          │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────┐
-│         Android VpnService (TUN)                │
-│           TUN Virtual Network Interface         │
-└────────────────┬────────────────────────────────┘
-                 │ File Descriptor
-                 ▼
-┌─────────────────────────────────────────────────┐
-│       rust-core (tun2proxy, JNI)                │
-│      TUN Traffic Capture & SOCKS5 Forward       │
-└────────────────┬────────────────────────────────┘
-                 │ SOCKS5 127.0.0.1:10808
-                 ▼
-┌─────────────────────────────────────────────────┐
-│     xray-core (Go, gomobile AAR)                │
-│       Proxy Protocol Handling & Forward         │
-└────────────────┬────────────────────────────────┘
-                 │
-                 ▼
-           🌐 Remote Proxy Server
-```
+> The screenshots document UI states and recovery behavior. Testing used a `127.0.0.1:1080` SOCKS5 profile without an available upstream, so they do not represent real proxy throughput.
 
-> The diagram above describes the **dual** variant (xray + mihomo): the TUN device is owned by `rust-core` (tun2proxy) and handed to the core through an internal SOCKS5 listener.
-> The **single** variant only packages mihomo, which drives TUN and protocol handling itself, so it carries no Rust layer and no `libiceflow_core.so`.
+## What's New in v0.1.5.1
 
-## 📁 Project Structure
+- A dedicated waiting state appears when the network drops, hiding stale traffic and speed data.
+- IceFlow reconnects automatically when the network returns; users can still disconnect while waiting.
+- Both dual and single variants include the recovery behavior and localized strings.
 
-| Directory | Description |
-|------|------|
-| `app/` | Kotlin + Compose application layer: UI, VpnService, quick toggle |
-| `rust-core/` | Rust TUN forwarding layer (tun2proxy, JNI), packaged by the dual variant only |
-| `xray-wrapper/` | gomobile wrapper for xray-core, outputs `app/libs/xray.aar` (dual) |
-| `mihomo-wrapper/` | gomobile wrapper for mihomo, outputs `app/libs/single/mihomo.aar` (single) |
-| `docs/` | Architecture documentation and design specifications |
+See the [full change log](CHANGELOG-v0.1.5.1.md).
 
-## 🛠️ Build Guide
+## Downloads
 
-### Prerequisites
+Get signed APKs from [GitHub Release v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.1). The existing production signing key is retained, so the APK can update an existing installation while preserving app data.
 
-- ☕ JDK 17
-- 📱 Android SDK 36 + NDK
-- 🦀 Rust (with `cargo-ndk`)
-- 🐹 Go 1.26+
+| Variant | Core | Recommended download | Description |
+| --- | --- | --- | --- |
+| **single** | mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-single-universal-release.apk) | Simple installation for most devices |
+| **dual** | xray + mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-dual-universal-release.apk) | For devices that need dual-core features |
 
-### Build Steps
+`arm64-v8a`, `armeabi-v7a` and `x86_64` packages are also available. Checksums: [SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/ARTIFACT_MANIFEST.json)
 
-#### Windows
+## Features
 
-```powershell
-# 1. Build the Rust TUN layer → app/src/dual/jniLibs/ (dual variant only)
-rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk
-.\rust-core\build-android.ps1
+| Area | Capabilities |
+| --- | --- |
+| Protocols | VMess, VLESS with Reality, Trojan, Shadowsocks, Mieru, Hysteria/Hysteria2, TUIC, WireGuard, SSR, HTTP, SOCKS, AnyTLS and Sudoku |
+| Import | Clash YAML, QR codes, HTTPS subscriptions, node links, deep links and config files |
+| Routing | Rule-based routing, per-app proxy, DNS routing, IPv6, proxy chains and rule-specific outbound selection |
+| Management | Node groups, subscription updates, batch import, latency tests, traffic statistics, backup and restore |
+| Experience | Material Design 3, dark mode, themes, responsive layout and automatic network recovery |
 
-# 2. Build xray-core → app/libs/xray.aar (dual variant only)
-.\xray-wrapper\build-aar.ps1
+## Core Variants
 
-# 2b. Build mihomo → app/libs/single/mihomo.aar (single variant)
-.\mihomo-wrapper\build-aar.ps1
+- **dual** packages xray, mihomo and the Rust TUN layer.
+- **single** packages mihomo only.
 
-# 3. Build APKs (both dual and single variants)
-.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
-```
+Both variants share the app UI, node management, subscriptions and routing. The app clearly reports capabilities that depend on a particular core.
 
-#### Linux/macOS
+## Connection Flow
 
-```bash
-# 1. Build the Rust TUN layer → app/src/dual/jniLibs/ (dual variant only)
-rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-cargo install cargo-ndk
-./rust-core/build-android.sh
+~~~mermaid
+flowchart TB
+    UI["Jetpack Compose UI"] --> VPN["Android VpnService / TUN"]
+    VPN --> DUAL["dual · xray + mihomo + Rust TUN"]
+    VPN --> SINGLE["single · mihomo"]
+    DUAL --> ROUTE["Protocol handling and routing"]
+    SINGLE --> ROUTE
+    ROUTE --> SERVER["Remote proxy server"]
+~~~
 
-# 2. Build xray-core → app/libs/xray.aar (dual variant only)
-./xray-wrapper/build-aar.sh
+## Quick Start
 
-# 2b. Build mihomo → app/libs/single/mihomo.aar (single variant)
-./mihomo-wrapper/build-aar.sh
+1. Download the APK for your device from [Releases](https://github.com/HlONGlin/IceFlow/releases/latest).
+2. Add a node, import an HTTPS subscription, or share a node to IceFlow from another app.
+3. Select a node and tap connect. Approve Android's VPN permission on the first connection.
+4. If the network drops while connected, wait for it to return; IceFlow reconnects automatically.
 
-# 3. Build APKs (both dual and single variants)
-./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
-```
+## Deep Links and Imports
 
-### ⚠️ Windows Notes
-
-**Non-ASCII Path Issue**: Gradle unit tests will encounter `ClassNotFoundException` if the project path contains non-ASCII characters.
-
-**Solutions**:
-
-```powershell
-# Method 1: Map drive letter
-subst X: "E:\脚本编写存放\git"
-cd X:\IceFlow
-.\gradlew.bat testDebugUnitTest
-subst X: /D
-
-# Method 2: Use ASCII-only path
-```
-
-**Environment Variables**:
-
-```powershell
-$env:PATH = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH"
-```
-
-## 🧪 Testing
-
-### Test Structure
-
-- **app/src/test** - JVM unit tests: share/deep link parsing, config generation, formatting (shared by dual and single)
-- **app/src/testSingle** - JVM unit tests specific to the single (mihomo) variant
-- **app/src/androidTest** - Android instrumentation tests: Compose UI tests, native library validation
-- **rust-core** - Rust unit tests: `cargo test`
-- **xray-wrapper** - Go unit tests: `go test ./...`
-
-### Run Android Tests
-
-```powershell
-# Auto install and test (will uninstall app)
-.\gradlew.bat connectedDebugAndroidTest
-
-# Manual test preserving data
-.\gradlew.bat assembleDebug assembleDebugAndroidTest
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-adb install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
-adb shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
-
-# Test on specific device
-adb -s emulator-5556 install -r app\build\outputs\apk\debug\app-debug.apk
-adb -s emulator-5556 install -r -t app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk
-adb -s emulator-5556 shell am instrument -w com.iceflow.test/androidx.test.runner.AndroidJUnitRunner
-```
-
-## 🔗 Deep Links & Shared Text
-
-Browsers and other apps can hand links straight to IceFlow. Every external import first shows a confirmation dialog (subscription name plus the full URL, or a node summary and count) — **nothing is written and no connection is started before you confirm**.
+External imports show a confirmation dialog first. Nothing is written and no connection starts before confirmation.
 
 | Entry point | Example |
-|------|------|
+| --- | --- |
 | Clash subscription | `clash://install-config?url=https%3A%2F%2Fexample.com%2Fsub` |
-| IceFlow subscription | `iceflow://install-config?url=https%3A%2F%2Fexample.com%2Fsub&name=My%20Sub` (`iceflow://import-config` also works) |
+| IceFlow subscription | `iceflow://install-config?url=https%3A%2F%2Fexample.com%2Fsub&name=My%20Sub` |
 | v2rayN subscription | `v2rayn://install-sub?url=https%3A%2F%2Fexample.com%2Fsub` |
-| sing-box remote profile | `sing-box://import-remote-profile?url=https%3A%2F%2Fexample.com%2Fsub` |
-| Single node share link | `vmess://`, `vless://`, `trojan://`, `ss://`, `ssr://`, `hysteria2://`, `hy2://`, `tuic://`, `wireguard://`, `anytls://`, `mierus://` |
-| Shared text | Another app's "Share" → IceFlow (`text/plain`) |
-| Config file | Open `.yaml` / `.yml` / `.json` / `.txt` from a file manager (4 MiB limit) |
+| sing-box profile | `sing-box://import-remote-profile?url=https%3A%2F%2Fexample.com%2Fsub` |
+| Node links | `vmess://`, `vless://`, `trojan://`, `ss://`, `ssr://`, `hysteria2://`, `hy2://`, `tuic://`, `wireguard://`, `anytls://`, `mierus://` |
+| Config files | Open `.yaml`, `.yml`, `.json` or `.txt` from a file manager (4 MiB limit) |
 
-- Subscription URLs must be HTTPS; `http://`, malformed or oversized links are rejected with an explicit reason.
-- A subscription with the same URL is reported, never added twice.
-- Full `mieru://` Protobuf links need xray to decode, so only the **dual** variant accepts them; the **single** variant shows an explicit "this core cannot open the link" message instead of silently ignoring it.
-- Each Intent is consumed once: rotation, activity re-creation and repeated `onNewIntent` never re-open the dialog.
+Subscriptions require HTTPS. Duplicate URLs are not added twice. Full `mieru://` Protobuf links require the dual variant.
 
-## 🔄 Auto Update
+<details>
+<summary><b>Build from Source</b></summary>
 
-The app silently checks GitHub Releases on startup and prompts when a new version is available.
+### Requirements
 
-### Configuration Options
+- JDK 17
+- Android SDK 36 and NDK
+- Rust with `cargo-ndk`
+- Go 1.26+
 
-- ✅ Auto check on startup
-- 🔧 Manual check: Settings → About → IceFlow
-- 🔕 Disable reminders: Check "Don't remind me again" in dialog
+### Project Structure
 
-### Private Repository Setup
+| Directory | Purpose |
+| --- | --- |
+| `app/` | Android app, Compose UI and VPN service |
+| `rust-core/` | Rust TUN forwarding layer used by dual |
+| `xray-wrapper/` | xray gomobile wrapper used by dual |
+| `mihomo-wrapper/` | mihomo gomobile wrapper used by single |
+| `docs/` | Architecture, quick start and design notes |
 
-Private repositories require a GitHub Fine-grained token:
+### Release Signing
 
-1. Create token: Repository access → `IceFlow`
-2. Permissions: Contents: Read
-3. Enter token in dialog on first failed check
-4. Token is stored locally only, not in backups
+For a signed release build, set all four environment variables locally or leave all four unset. Never commit signing keys or passwords.
 
-### CI/CD
-
-Pushing `v*` tags automatically triggers GitHub Actions:
-- ✅ Build debug and release APKs
-- ✅ Generate ABI-specific and universal packages
-- ✅ Auto-create GitHub Release
-
-## ⚙️ Release Configuration
-
-### Version Settings
-
-```powershell
-.\gradlew.bat assembleRelease -Piceflow.versionCode=2 -Piceflow.versionName=0.1.1
-```
-
-### Signing Configuration
-
-Configure signing via environment variables (not stored in repository):
-
-```powershell
+~~~powershell
 $env:ICEFLOW_KEYSTORE_PATH="path/to/keystore.jks"
 $env:ICEFLOW_KEYSTORE_PASSWORD="keystore_password"
 $env:ICEFLOW_KEY_ALIAS="key_alias"
 $env:ICEFLOW_KEY_PASSWORD="key_password"
-```
+~~~
 
-## 📋 Known Limitations
+### Windows
 
-- 📦 **Subscription Limits** - HTTPS only, 4 MiB content limit, 64 MiB routing database limit
-- 🎨 **Animation** - Lottie animations not yet integrated
-- 💾 **Backup** - Exports nodes, subscriptions, groups, rules and settings (routing database excluded)
-- 🔄 **Auto Reconnect** - Reconnects on connection parameter, node or chain changes (not on appearance settings)
-- 🔒 **Security** - Internal TUN protected with random credentials to prevent abuse
-- ⚡ **Speed Test** - Via internal SOCKS inbound, shares implementation with node testing
-- 🌐 **Network Recovery** - TUN preserved during interruptions, auto-retry up to 5 times
-- 🛡️ **Force Block** - Requires system "Always-on VPN" and "Block connections without VPN"
-- 🎯 **DNS Routing** - Direct domains use domestic DNS, proxied domains use remote DNS
+~~~powershell
+# Rust TUN layer, dual only
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+.\rust-core\build-android.ps1
 
-## 📊 Features
+# xray AAR, dual only
+.\xray-wrapper\build-aar.ps1
 
-### Node Management
-- ✅ Multi-protocol support
-- ✅ Group management
-- ✅ Subscription updates
-- ✅ QR code scanning
-- ✅ Deep link & shared-text import (confirmation required)
-- ✅ Latency testing
-- ✅ Batch import
+# mihomo AAR, single
+.\mihomo-wrapper\build-aar.ps1
 
-### Proxy Features
-- ✅ Rule-based routing
-- ✅ Per-app proxy
-- ✅ DNS routing
-- ✅ IPv6 support
-- ✅ Proxy chaining
-- ✅ Traffic statistics
+# Unit tests and debug APKs
+.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
+~~~
 
-### User Interface
-- ✅ Material Design 3
-- ✅ Dark mode
-- ✅ Theme switching
-- ✅ Smooth animations
-- ✅ Responsive layout
+### Linux / macOS
 
-## 📄 License
+~~~bash
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+./rust-core/build-android.sh
+./xray-wrapper/build-aar.sh
+./mihomo-wrapper/build-aar.sh
+./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
+~~~
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+> On Windows, an ASCII-only project path is recommended. Non-ASCII paths may cause Gradle tests to fail with `ClassNotFoundException`.
 
----
+</details>
+
+<details>
+<summary><b>Testing and Validation</b></summary>
+
+- pp/src/test and pp/src/testSingle: JVM unit tests for dual and single.
+- pp/src/androidTest: Android instrumentation tests.
+- ust-core: Rust unit tests (cargo test).
+- xray-wrapper: Go unit tests (go test ./...).
+
+~~~powershell
+.\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest
+.\gradlew.bat connectedDualDebugAndroidTest connectedSingleDebugAndroidTest
+~~~
+
+Version 0.1.5.1 was validated on `emulator-5566` (Pixel Tablet, Android 15, API 35, x86_64) for dual/single offline startup, single network-loss waiting and automatic recovery, and the dual disconnect action.
+
+</details>
+
+## Updates
+
+IceFlow can quietly check GitHub Releases after startup and notify you when an update is available. You can also check manually under **Settings → About → IceFlow** or turn off automatic reminders.
+
+## Documentation
+
+- [Quick Start](docs/IceFlow-QuickStart.md)
+- [Architecture](docs/IceFlow-Architecture.md)
+- [Network Recovery](RECONNECTION_OPTIMIZATION.md)
+- [Test Reports](test-reports/README.md)
+
+## Known Limitations
+
+- Subscription URLs must use HTTPS. Subscription content is limited to 4 MiB and the routing database to 64 MiB.
+- Android's Always-on VPN and Block connections without VPN settings are required for system-level blocking.
+- Full `mieru://` Protobuf links require the dual variant.
 
 <div align="center">
 
-**If you find this project helpful, please give it a Star ⭐**
+**If IceFlow helps you, consider giving it a Star ⭐**
 
 </div>
