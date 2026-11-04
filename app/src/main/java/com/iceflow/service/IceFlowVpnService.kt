@@ -101,6 +101,14 @@ class IceFlowVpnService : VpnService() {
         override fun onLost(network: Network) { commands.trySend(Command.Lost(network)) }
     }
 
+    private fun hasUnderlyingNetwork(): Boolean {
+        if (networks.isNotEmpty()) return true
+        val network = connectivity.activeNetwork ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+    }
+
     @OptIn(FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
@@ -310,6 +318,7 @@ class IceFlowVpnService : VpnService() {
 
     private fun startVpn() {
         if (!desiredRunning || destroyed) return
+        val hasUnderlyingNetworkAtStart = hasUnderlyingNetwork()
         val t0 = SystemClock.elapsedRealtime()
         fun mark(stage: String) {
             val dt = SystemClock.elapsedRealtime() - t0
@@ -438,12 +447,18 @@ class IceFlowVpnService : VpnService() {
             persistedUp = 0
             persistedDown = 0
             persistedAt = SystemClock.elapsedRealtime()
-            VpnController.setState(VpnState.Connected(profile.name, System.currentTimeMillis(), tunnelPort, tunnelUser, tunnelPass, profile.id))
-            getSystemService(NotificationManager::class.java).notify(
-                NOTIFICATION_ID,
-                buildNotification(getString(R.string.notification_connected, profile.name)),
-            )
-            statsJob = scope.launch { statsLoop() }
+            val connectedState = VpnState.Connected(profile.name, System.currentTimeMillis(), tunnelPort, tunnelUser, tunnelPass, profile.id)
+            val nextState = VpnNetworkPolicy.stateAfterStartup(connectedState, hasUnderlyingNetworkAtStart)
+            VpnController.setState(nextState)
+            if (nextState is VpnState.Connected) {
+                getSystemService(NotificationManager::class.java).notify(
+                    NOTIFICATION_ID,
+                    buildNotification(getString(R.string.notification_connected, profile.name)),
+                )
+                statsJob = scope.launch { statsLoop() }
+            } else {
+                updateNotification("等待网络恢复")
+            }
             Log.i(TAG, "VPN started: ${profile.name}")
             AppLog.write(this, "INFO", "VPN 已连接: ${profile.name}")
             // 端到端感知耗时：从用户点击「连接」到此刻（含调度、xray 启动、TUN 建立）

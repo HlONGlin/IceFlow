@@ -75,6 +75,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.WifiOff
@@ -150,6 +151,7 @@ import com.iceflow.ui.component.latencyText
 import com.iceflow.ui.screen.AppSelectorScreen
 import com.iceflow.ui.screen.SettingsScreen
 import com.iceflow.ui.theme.IceRadius
+import com.iceflow.ui.theme.IceFlowTheme
 import com.iceflow.data.model.AppLanguage
 import com.iceflow.i18n.T
 import com.iceflow.i18n.stringsOf
@@ -553,13 +555,20 @@ private fun EmptyStateMessage(text: String, modifier: Modifier = Modifier) {
             exit = shrinkVertically(shrinkTowards = Alignment.Bottom, animationSpec = tween(220)),
         ) {
             val panelState = if (!running) lastRunningState else state
-            ConnectionPanel(panelState, traffic, now, connectionTest, onTestConnection)
+            ConnectionPanel(
+                panelState,
+                traffic,
+                now,
+                connectionTest,
+                onTestConnection,
+                onStopWaiting = {
+                    VpnController.dispatchEntryAction(context, VpnEntryPoint.HOME, secondary = true)
+                },
+            )
         }
         // The control floats over the panel edge instead of leaving an empty gap.
         Row(Modifier.align(Alignment.BottomCenter).offset(y = (-28).dp), verticalAlignment = Alignment.CenterVertically) {
-            ConnectOrb(state, onToggle, 54.dp) {
-                VpnController.dispatchEntryAction(context, VpnEntryPoint.HOME, secondary = true)
-            }
+            ConnectOrb(state, onToggle, 54.dp)
             if (state == VpnState.Stopping) Text(T("state.stopping"), modifier = Modifier.padding(start = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
         }
         if (toast != null) Text(toast, color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f), CircleShape).padding(horizontal = 18.dp, vertical = 9.dp))
@@ -583,7 +592,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
     }
 }
 
-@Composable internal fun ConnectOrb(state: VpnState, onClick: () -> Unit, size: Dp = 54.dp, onStopWaiting: () -> Unit = {}) {
+@Composable internal fun ConnectOrb(state: VpnState, onClick: () -> Unit, size: Dp = 54.dp) {
     val connected = state is VpnState.Connected
     val waitingNetwork = state == VpnState.WaitingNetwork
     // 等待网络恢复时不是"正在连接"，用不同的图标，避免无限转圈造成的误解
@@ -620,7 +629,7 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
                 label = "connectStatus",
             ) { loading ->
                 when (loading) {
-                    2 -> Icon(Icons.Filled.WifiOff, T("state.waitingNetwork"), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(size * .40f))
+                    2 -> Icon(Icons.Filled.WifiOff, T("network.lost.title"), tint = IceFlowTheme.extColors.warning, modifier = Modifier.size(size * .40f))
                     3 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
                     1 -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(size * .42f), strokeWidth = 2.5.dp)
                     else -> Icon(Icons.Filled.Send, if (connected) T("connect.disconnect") else T("connect.title"), tint = iconColor, modifier = Modifier.size(size * .44f).graphicsLayer { rotationZ = if (connected) -12f else 0f })
@@ -628,15 +637,75 @@ private fun VpnErrorBanner(presentation: VpnErrorPresentation, onAction: () -> U
             }
         }
     }
-    if (waitingNetwork) {
-        TextButton(onClick = onStopWaiting) { Text(T("notification_disconnect")) }
-    }
 }
 
-@Composable internal fun ConnectionPanel(state: VpnState, traffic: TrafficSnapshot, now: Long, test: ConnectionTestState, onTest: () -> Unit, modifier: Modifier = Modifier) {
+@Composable internal fun ConnectionPanel(
+    state: VpnState,
+    traffic: TrafficSnapshot,
+    now: Long,
+    test: ConnectionTestState,
+    onTest: () -> Unit,
+    onStopWaiting: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    if (state == VpnState.WaitingNetwork) {
+        val shape = RoundedCornerShape(12.dp)
+        val warning = IceFlowTheme.extColors.warning
+        Row(
+            modifier.fillMaxWidth().padding(top = 8.dp)
+                .shadow(3.dp, shape)
+                .background(MaterialTheme.colorScheme.surfaceVariant, shape)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .height(64.dp)
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            ) {
+                Box(
+                    Modifier.size(34.dp).background(warning.copy(alpha = .14f), CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.WifiOff, contentDescription = null, tint = warning, modifier = Modifier.size(19.dp))
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        T("network.lost.title"),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        T("network.lost.autoReconnect"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Spacer(Modifier.width(64.dp))
+            TextButton(
+                onClick = onStopWaiting,
+                contentPadding = PaddingValues(horizontal = 6.dp),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                Icon(Icons.Filled.PowerSettingsNew, contentDescription = null, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(T("connect.disconnect"), maxLines = 1)
+            }
+        }
+        return
+    }
+
     val connected = state is VpnState.Connected
     // 断开时不显示busy状态，让UI立即响应
-    val busy = state == VpnState.Connecting || state == VpnState.WaitingNetwork
+    val busy = state == VpnState.Connecting
     val panelColor by animateColorAsState(if (connected) MaterialTheme.colorScheme.primary else if (busy) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.surface, tween(420), label = "panelColor")
     val textColor = if (connected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
     val secondaryColor = if (connected) MaterialTheme.colorScheme.onPrimary.copy(alpha = .78f) else MaterialTheme.colorScheme.onSurfaceVariant

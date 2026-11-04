@@ -9,6 +9,7 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.iceflow.IceFlowApp
 import com.iceflow.data.NodeEditing
 import com.iceflow.data.model.*
 import com.iceflow.data.repository.RoutingResources
@@ -28,8 +29,10 @@ class RoutingEditorTest {
     @Test fun routingBulkClipboardAndResourcesWork() {
         val state = mutableStateOf(AppSettings())
         val resources = RoutingResources(context).also { it.prepare() }
+        val app = context.applicationContext as IceFlowApp
+        val store = app.container.servers.store.value
         val clipboard = context.getSystemService(ClipboardManager::class.java)
-        rule.setContent { IceFlowTheme { RoutingPage(state.value, { change -> state.value = change(state.value) }, resources, {}) } }
+        rule.setContent { IceFlowTheme { RoutingPage(state.value, store, { change -> state.value = change(state.value) }, resources, app.container.routingRuleSets, {}) } }
         rule.onNodeWithContentDescription("路由操作").performClick()
         rule.onNodeWithText("禁用所有规则").performClick()
         rule.runOnIdle { assertTrue(state.value.routingRules.none { it.enabled }); assertFalse(state.value.bypassLan) }

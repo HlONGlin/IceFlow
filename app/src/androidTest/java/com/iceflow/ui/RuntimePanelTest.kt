@@ -91,6 +91,29 @@ class RuntimePanelTest {
         rule.onNodeWithText("超时 · 重试").assertIsDisplayed()
     }
 
+    @Test fun waitingNetworkShowsRecoveryStatusAndStopActionInsteadOfTrafficStats() {
+        var stopClicks = 0
+        rule.setContent {
+            IceFlowTheme {
+                ConnectionPanel(
+                    VpnState.WaitingNetwork,
+                    TrafficSnapshot(upSpeed = 2048, downSpeed = 4096),
+                    6000,
+                    ConnectionTestState(),
+                    {},
+                    onStopWaiting = { stopClicks++ },
+                )
+            }
+        }
+
+        rule.onNodeWithText("网络中断").assertIsDisplayed()
+        rule.onNodeWithText("恢复后自动重连").assertIsDisplayed()
+        rule.onNodeWithText("↑ 2.0 KB/s", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("↓ 4.0 KB/s", useUnmergedTree = true).assertDoesNotExist()
+        rule.onNodeWithText("断开连接").performClick()
+        assertEquals(1, stopClicks)
+    }
+
     @Test fun logPageRefreshesAndCloses() {
         var source = "2026-10-22 [INFO] first log line\n2026-10-22 [ERROR] second log line"
         var back = 0
