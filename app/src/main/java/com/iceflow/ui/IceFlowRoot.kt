@@ -282,6 +282,9 @@ fun IceFlowRoot(vm: MainViewModel, onToggleVpn: () -> Unit, openLogsRequested: B
                     proxyMode = settings.appProxyMode,
                     selectedApps = settings.bypassApps,
                     onSelectionChange = { apps -> vm.updateSettings { it.copy(bypassApps = apps) } },
+                    onImport = { proxyMode, apps ->
+                        vm.updateSettings { it.copy(appProxyMode = proxyMode, proxyAppsOnly = proxyMode, bypassApps = apps) }
+                    },
                     onDismiss = { appsOpen = false }
                 )
             } else {
