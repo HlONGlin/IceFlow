@@ -56,7 +56,7 @@ private fun themedColorScheme(accent: Color, secondary: Color, dark: Boolean): C
     surfaceVariant = Color(0xFF1F1F1F),
     primary = accent,
     primaryContainer = when (accent) {
-        LightBlueColors.primary -> LightBlueColors.primarySoft
+        LightBlueColors.primary -> Color(0xFF12324A)
         MintGreenColors.primary -> Color(0xFF123C31)
         SakuraPinkColors.primary -> Color(0xFF472333)
         PeachOrangeColors.primary -> Color(0xFF4A2D1A)
