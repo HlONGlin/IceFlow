@@ -5,7 +5,7 @@
 - 盘点分支：`feat/core-variants`。
 - 盘点 HEAD：`47f95f059db2ca7e69ebc08526e852d47024d381`，与正式版基线提交 `47f95f0` 一致；当前 HEAD 也带有 `v0.1.3.0` 标签。
 - 正式版基线：`versionName 0.1.3.0`、`versionCode 104`，使用仓库根目录正式签名密钥发布。本文不读取、不记录任何签名值。
-- 当前架构：Xray 负责原生协议、SOCKS 入站、DNS、路由和统计；Mihomo v1.19.32 通过 `xray-wrapper` adapter 负责扩展协议；Rust `tun2proxy 0.8.6` 负责 TUN 到 SOCKS 的流量层。
+- 当前架构：Xray 负责原生协议、SOCKS 入站、DNS、路由和统计；Mihomo v1.19.32 通过 `native/xray-wrapper` adapter 负责扩展协议；Rust `tun2proxy 0.8.6` 负责 TUN 到 SOCKS 的流量层。
 - 相关 pin：xray-core `v1.260327.0`、Mihomo `v1.19.32`、mieru `v3.38.0`。
 
 “Mihomo 落点”使用以下四种值：
@@ -179,13 +179,13 @@ Mihomo 具备 SOCKS/mixed 入站和认证能力，但单核需要把本地监听
 
 ### 6.6 mieru MTU
 
-- **现状**：双核的 `xray-wrapper/libxray/mieru.go` 已调用官方 mieru client API，读取 MTU，创建 `ClientConfig`，在链式场景注入 stream/packet dialer，并通过 `mieruMTUProxy` 覆盖 TCP/UDP 拨号；Mihomo 常规 options 不足以表达这一逻辑。
+- **现状**：双核的 `native/xray-wrapper/libxray/mieru.go` 已调用官方 mieru client API，读取 MTU，创建 `ClientConfig`，在链式场景注入 stream/packet dialer，并通过 `mieruMTUProxy` 覆盖 TCP/UDP 拨号；Mihomo 常规 options 不足以表达这一逻辑。
 - **风险**：只把 `mtu` 作为 Mihomo 字段传入会被忽略，导致特定网络下分片、握手或 UDP 行为变化。
 - **方案**：把官方客户端逻辑移植到单核 shim/adapter：MTU 0/1280–1500 校验、TCP/UDP、port range、复用/握手/traffic pattern、前置 dialer、packet dialer 和 Stop 生命周期全部覆盖；对无效 MTU 保持当前失败分类。以 mieru 官方 API 为源，不在 Kotlin 侧重写协议。
 
 ### 6.7 HTTP Upgrade 的映射范围与 fast-open 语义
 
-- **pin 证据**：仓库 `xray-wrapper/go.mod:7` 固定 Mihomo `v1.19.32`。该版本的 `adapter/outbound/vmess.go:170-185` 定义 WS 两个选项并传入共享配置；`vless.go:155-166,225` 和 `trojan.go:78-90,147` 同样在 `network == "ws"` 分支构造该配置并调用共享 transport。因此 VMess/VLESS/Trojan 的 WS outbound 确实共用 HTTP Upgrade 实现。
+- **pin 证据**：仓库 `native/xray-wrapper/go.mod:7` 固定 Mihomo `v1.19.32`。该版本的 `adapter/outbound/vmess.go:170-185` 定义 WS 两个选项并传入共享配置；`vless.go:155-166,225` 和 `trojan.go:78-90,147` 同样在 `network == "ws"` 分支构造该配置并调用共享 transport。因此 VMess/VLESS/Trojan 的 WS outbound 确实共用 HTTP Upgrade 实现。
 - **Shadowsocks 边界**：`adapter/outbound/shadowsocks.go:63-77,332-348` 仅在 `v2ray-plugin` 的 websocket obfs 选项里接收并转发两个标志；它不是 `ServerProfile.network=httpupgrade` 的通用映射。其他协议没有由上述标准 WS outbound 分支覆盖的等价入口，应按协议单独判为无等价，不能因为配置字段存在就推定支持。
 - **协议行为**：`transport/vmess/websocket.go:401-424` 构造 Upgrade 请求；启用 `V2rayHttpUpgrade` 时省略 `Sec-WebSocket-Key`/WebSocket challenge，`websocket.go:461-489` 在校验 101 响应后返回原始 buffered connection，而不是 WebSocket frame connection。这是当前 `httpupgradeSettings` 的转换候选：`network: ws` + `ws-opts.v2ray-http-upgrade: true`，并继续映射 path/Host/TLS。
 - **fast-open 行为**：只有 `V2rayHttpUpgrade` 与 `V2rayHttpUpgradeFastOpen` 同时开启才走 `websocket.go:446-458` 的 `NewEarlyConn`。它先写 Upgrade 请求并返回连接，把 101/Upgrade 响应读取和校验延迟到第一次 `Read`；`common/net/earlyconn.go:18-38,63-65` 证明读时仍执行校验。因此 fast-open 是延迟握手响应消费/校验，不是跳过握手或无条件接受连接。
@@ -206,7 +206,7 @@ Mihomo 具备 SOCKS/mixed 入站和认证能力，但单核需要把本地监听
 
 ### 6.10 HTTP/SOCKS5 ALPN（双核既有问题，非迁移差异）
 
-- **dual 路径核对**：dual CoreVariantBridge 委托 XrayConfigBuilder.build；`XrayConfigBuilder.kt:64-69` 对 HTTP/SOCKS5 手工节点使用 ExtendedConfigBuilder，其 `:21` 输出 alpn，原始 Clash 配置走原样 options 路径。`xray-wrapper/libxray/extended.go:41-45,60-78` 最终统一调用 pin 版 adapter.ParseProxy，HTTP/SOCKS5 没有额外 ALPN 适配；:82-87 的专用适配仅针对 mieru。
+- **dual 路径核对**：dual CoreVariantBridge 委托 XrayConfigBuilder.build；`XrayConfigBuilder.kt:64-69` 对 HTTP/SOCKS5 手工节点使用 ExtendedConfigBuilder，其 `:21` 输出 alpn，原始 Clash 配置走原样 options 路径。`native/xray-wrapper/libxray/extended.go:41-45,60-78` 最终统一调用 pin 版 adapter.ParseProxy，HTTP/SOCKS5 没有额外 ALPN 适配；:82-87 的专用适配仅针对 mieru。
 - **无消费入口证据**：Mihomo v1.19.32 `adapter/outbound/http.go:28-43`、`socks5.go:30-44` 及继承的 `base.go:193-207` 无 ALPN 字段，NewHttp（:147-168）和 NewSocks5（:173-189）的 TLS 构造没有用户配置的 NextProtos 输入。因此 dual 输出的 HTTP/SOCKS5 alpn 同样未消费。
 - **single 口径**：与 dual 保持相同行为，照常输出 alpn，不因该字段拒绝节点，不声称它被消费。落点表消费入口明确填写“无（双核既有问题，见登记）”。本登记不适用于 VMess/VLESS/Trojan 等正常消费 ALPN 的协议。
 - **范围**：真正增加 HTTP/SOCKS5 ALPN 消费入口属于另行立项的内核补丁；本阶段不修改 dual 或上游。
@@ -222,8 +222,8 @@ FEATURE_MAP 1.2 的逐字段保留清单不包含 spiderX：SNI、ALPN、fingerp
 | 层级 | 命令/范围 | 结果 | 验证类型 |
 | --- | --- | --- | --- |
 | Kotlin/JVM | `testDebugUnitTest`，23 个测试类 | 128/128 通过，0 失败，0 error，0 skipped | 仅单测 |
-| Go | `xray-wrapper` `go test ./...` | 57/57 通过 | 仅单测 |
-| Rust | `rust-core` `cargo test` | 7/7 通过；doc-test 0 项 | 仅单测 |
+| Go | `native/xray-wrapper` `go test ./...` | 57/57 通过 | 仅单测 |
+| Rust | `native/rust-core` `cargo test` | 7/7 通过；doc-test 0 项 | 仅单测 |
 | Android instrumentation | 未执行 | 无数据 | 未验证 |
 | 真机协议矩阵 | 未执行 | 无数据 | 未验证 |
 | 模拟器协议矩阵 | 未执行 | 无数据 | 未验证 |

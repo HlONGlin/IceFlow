@@ -21,9 +21,9 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "gobind build failed ($LASTEXITCODE)" }
     $env:PATH = "$toolDir;$originalPath"
 
-    New-Item -ItemType Directory -Force ..\app\libs | Out-Null
+    New-Item -ItemType Directory -Force ..\..\app\libs | Out-Null
     go tool gomobile bind -v -target 'android/arm64,android/arm,android/amd64' -androidapi 26 `
-        -ldflags '-s -w -buildid=' -trimpath -o ..\app\libs\xray.aar ./libxray
+        -ldflags '-s -w -buildid=' -trimpath -o ..\..\app\libs\xray.aar ./libxray
     if ($LASTEXITCODE -ne 0) { throw "gomobile bind failed ($LASTEXITCODE)" }
     Write-Host 'xray.aar build complete'
 } finally {

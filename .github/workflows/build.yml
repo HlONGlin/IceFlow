@@ -40,34 +40,34 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Rust tests
-        working-directory: rust-core
+        working-directory: native/rust-core
         run: cargo test
 
       - name: Build Rust core
         run: |
           cargo install cargo-ndk --locked
-          bash rust-core/build-android.sh
+          bash native/rust-core/build-android.sh
 
       - name: Remove Rust build intermediates
         run: |
-          rm -rf rust-core/target
+          rm -rf native/rust-core/target
           df -h /
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: xray-wrapper/go.mod
-          cache-dependency-path: xray-wrapper/go.sum
+          go-version-file: native/xray-wrapper/go.mod
+          cache-dependency-path: native/xray-wrapper/go.sum
 
       - name: Go tests
-        working-directory: xray-wrapper
+        working-directory: native/xray-wrapper
         run: go test ./...
 
       - name: Build mihomo AAR
         run: bash mihomo-wrapper/build-aar.sh
 
       - name: Build xray-core AAR
-        run: bash xray-wrapper/build-aar.sh
+        run: bash native/xray-wrapper/build-aar.sh
 
       - name: Free Go build cache before Android builds
         run: |
@@ -190,7 +190,7 @@ jobs:
           arch: x86_64
           disable-animations: true
           ram-size: 2048M
-          script: bash scripts/run-android-instrumentation.sh
+          script: bash dev/scripts/run-android-instrumentation.sh
 
       - uses: actions/upload-artifact@v4
         if: always()

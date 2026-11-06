@@ -1,6 +1,6 @@
 # Single 配置映射全量消费入口清查（阶段 2 / 第 2 步草稿）
 
-> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 test-reports/README.md。历史结论与未验证项不变。
+> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 docs/test-reports/README.md。历史结论与未验证项不变。
 
 
 状态：批量清查已完成；有消费证据的映射与拒绝护栏已实现并单测。缺口尚待一次性处置，不能据此宣布第 2 步整体验收完成。生成器仅在 single source set，尚未接 bridge；未上设备。main、dual、wrapper、schema 与上游源码均未改动。
@@ -18,7 +18,7 @@
 
 ### HTTP/SOCKS5 ALPN 前提核对：成立
 
-- dual CoreVariantBridge.buildConfig → XrayConfigBuilder；XrayConfigBuilder.kt:64-69 → ExtendedConfigBuilder；ExtendedConfigBuilder.kt:21 输出 alpn；xray-wrapper/libxray/extended.go:41-45,60-78 → adapter.ParseProxy，:82-87 专用适配仅 mieru。
+- dual CoreVariantBridge.buildConfig → XrayConfigBuilder；XrayConfigBuilder.kt:64-69 → ExtendedConfigBuilder；ExtendedConfigBuilder.kt:21 输出 alpn；native/xray-wrapper/libxray/extended.go:41-45,60-78 → adapter.ParseProxy，:82-87 专用适配仅 mieru。
 - adapter/parser.go:44-57 对 HTTP/SOCKS5 走 Decode + New；HttpOption（http.go:28-43）、Socks5Option（socks5.go:30-44）及 BasicOption（base.go:193-207）均无 ALPN 字段；http.go:148-168、socks5.go:173-189 TLS 构造没有用户 NextProtos。
 - 定性：双核既有同病，非迁移差异。single 与 dual 一样输出 alpn、不拒绝、不声称消费；只此经批准的例外。真正 ALPN 消费入口属于另立内核补丁，FEATURE_MAP 风险 6.10 登记。其他协议按真实消费分支处理。
 - T：httpAlpnMatchesExistingDualOutput / socksAlpnMatchesExistingDualOutput。

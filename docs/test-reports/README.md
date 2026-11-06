@@ -18,7 +18,7 @@
 - s3-release-rebuild-20261029/REPORT.md：历史8包验签和原生库核对。
 - wg-r1-retry-20261029/REPORT.md：WireGuard历史真实夹具验证。
 - r2-dual-publicip-speed-20261029/REPORT.md：历史测速/公网IP问题结论。
-- ../docs/core-migration/GAP_REGISTRY.md、PHASE2_CLOSEOUT.md：保留的技术结论与未关闭缺口。
+- ../core-migration/GAP_REGISTRY.md、PHASE2_CLOSEOUT.md：保留的技术结论与未关闭缺口。
 
 ## 原件位置
 

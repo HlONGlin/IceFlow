@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="preview/app-icon-current.png" width="88" alt="IceFlow app icon">
+<img src="assets/preview/app-icon-current.png" width="88" alt="IceFlow app icon">
 
 # IceFlow
 
@@ -31,24 +31,24 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
   <tr>
     <td align="center" width="50%">
       <b>节点管理</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="screenshots/emulator/v0.1.5.1/modules/nodes.png" width="360" alt="节点列表与节点操作，完整模拟器页面"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/nodes.png" width="360" alt="节点列表与节点操作，完整模拟器页面"></a><br>
       <sub>查看节点协议、分组并管理节点。</sub>
     </td>
     <td align="center" width="50%">
       <b>分组管理</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="screenshots/emulator/v0.1.5.1/modules/groups.png" width="360" alt="分组列表与分组操作，完整模拟器页面"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/groups.png" width="360" alt="分组列表与分组操作，完整模拟器页面"></a><br>
       <sub>集中查看本地分组及其节点数量。</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <b>规则路由</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="screenshots/emulator/v0.1.5.1/modules/routing.png" width="360" alt="路由规则与代理策略，完整模拟器页面"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/routing.png" width="360" alt="路由规则与代理策略，完整模拟器页面"></a><br>
       <sub>调整规则顺序、匹配条件和流量出口。</sub>
     </td>
     <td align="center" width="50%">
       <b>代理设置</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="screenshots/emulator/v0.1.5.1/modules/settings.png" width="360" alt="主题、路由和本地 SOCKS5 设置，完整模拟器页面"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/settings.png" width="360" alt="主题、路由和本地 SOCKS5 设置，完整模拟器页面"></a><br>
       <sub>主题、夜间模式、路由方式及本地代理选项。</sub>
     </td>
   </tr>
@@ -60,8 +60,8 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 
 <table>
   <tr>
-    <td align="center" width="50%"><b>确认导入</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-confirm.png" width="300" alt="导入节点确认对话框，完整模拟器页面"></a></td>
-    <td align="center" width="50%"><b>导入完成</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-complete.png" width="300" alt="节点导入完成提示，完整模拟器页面"></a></td>
+    <td align="center" width="50%"><b>确认导入</b><br><a href="assets/screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/import-confirm.png" width="300" alt="导入节点确认对话框，完整模拟器页面"></a></td>
+    <td align="center" width="50%"><b>导入完成</b><br><a href="assets/screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/import-complete.png" width="300" alt="节点导入完成提示，完整模拟器页面"></a></td>
   </tr>
 </table>
 
@@ -72,9 +72,9 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/connected.png" width="220" alt="正常连接"><br><sub>正常连接</sub></td>
-    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="220" alt="网络中断等待"><br><sub>网络中断时等待恢复</sub></td>
-    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/restored.png" width="220" alt="网络恢复"><br><sub>网络恢复后自动重连</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/emulator/v0.1.5.1/connected.png" width="220" alt="正常连接"><br><sub>正常连接</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/emulator/v0.1.5.1/network-waiting.png" width="220" alt="网络中断等待"><br><sub>网络中断时等待恢复</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/emulator/v0.1.5.1/restored.png" width="220" alt="网络恢复"><br><sub>网络恢复后自动重连</sub></td>
   </tr>
 </table>
 
@@ -86,7 +86,7 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 - 网络恢复后自动重新建立连接；等待期间仍可主动断开。
 - dual 与 single 变体同步支持网络恢复体验和多语言文案。
 
-查看[完整变更记录](CHANGELOG-v0.1.5.1.md)。
+查看[完整变更记录](docs/CHANGELOG-v0.1.5.1.md)。
 
 ## 下载
 
@@ -165,8 +165,8 @@ flowchart TB
 | 目录 | 用途 |
 | --- | --- |
 | `app/` | Android 应用、Compose 界面与 VPN 服务 |
-| `rust-core/` | dual 变体使用的 Rust TUN 转发层 |
-| `xray-wrapper/` | dual 变体的 xray gomobile 封装 |
+| `native/rust-core/` | dual 变体使用的 Rust TUN 转发层 |
+| `native/xray-wrapper/` | dual 变体的 xray gomobile 封装 |
 | `mihomo-wrapper/` | single 变体的 mihomo gomobile 封装 |
 | `docs/` | 架构、快速开始与设计说明 |
 
@@ -187,10 +187,10 @@ $env:ICEFLOW_KEY_PASSWORD="key_password"
 # Rust TUN 层，仅 dual 使用
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-.\rust-core\build-android.ps1
+.\native\rust-core\build-android.ps1
 
 # xray AAR，仅 dual 使用
-.\xray-wrapper\build-aar.ps1
+.\native\xray-wrapper\build-aar.ps1
 
 # mihomo AAR，single 使用
 .\mihomo-wrapper\build-aar.ps1
@@ -204,8 +204,8 @@ cargo install cargo-ndk
 ~~~bash
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-./rust-core/build-android.sh
-./xray-wrapper/build-aar.sh
+./native/rust-core/build-android.sh
+./native/xray-wrapper/build-aar.sh
 ./mihomo-wrapper/build-aar.sh
 ./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
 ~~~
@@ -219,7 +219,7 @@ cargo install cargo-ndk
 
 - app/src/test 与 app/src/testSingle：dual/single JVM 单元测试。
 - app/src/androidTest：Android 仪器测试。
-- `rust-core/`：Rust 单元测试（`cargo test`）。
+- `native/rust-core/`：Rust 单元测试（`cargo test`）。
 - xray-wrapper：Go 单元测试（go test ./...）。
 
 ~~~powershell
@@ -239,8 +239,8 @@ v0.1.5.1 已在 `emulator-5566`（Pixel Tablet、Android 15、API 35、x86_64）
 
 - [快速开始](docs/IceFlow-QuickStart.md)
 - [架构说明](docs/IceFlow-Architecture.md)
-- [网络恢复优化](RECONNECTION_OPTIMIZATION.md)
-- [测试报告目录](test-reports/README.md)
+- [网络恢复优化](docs/RECONNECTION_OPTIMIZATION.md)
+- [测试报告目录](docs/core-migration/FEATURE_MAP.md)
 
 ## 已知限制
 

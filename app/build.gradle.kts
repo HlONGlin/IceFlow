@@ -128,7 +128,7 @@ listOf("dual", "single").forEach { flavor ->
 
             if (flavor == "dual") {
                 val aar = file("libs/xray.aar")
-                check(aar.isFile) { "Missing app/libs/xray.aar; run xray-wrapper/build-aar.ps1." }
+                check(aar.isFile) { "Missing app/libs/xray.aar; run native/xray-wrapper/build-aar.ps1." }
                 ZipFile(aar).use { archive ->
                     val goAbis = nativeAbis(archive, "jni", "libgojni.so")
                     check(goAbis == releaseAbis.toSet()) {

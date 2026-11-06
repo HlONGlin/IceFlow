@@ -1,6 +1,6 @@
 # 阶段 2 收尾报告（S4）
 
-> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 test-reports/README.md。历史结论与未验证项不变。
+> 2026-10-31 归档说明：本文件引用的历史 test-reports 原始证据已移至 E:/IceFlow-probe-evidence/release-repack-20261031/archived-repository-reports/，保留原相对路径；精简入口见 docs/test-reports/README.md。历史结论与未验证项不变。
 
 
 日期：2026-10-29。工作树：E:/IceFlow-core-variants，分支 feat/core-variants。

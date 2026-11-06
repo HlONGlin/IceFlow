@@ -12,7 +12,7 @@ import math
 import os
 
 OUT = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "res", "drawable")
+    os.path.join(os.path.dirname(__file__), "..", "..", "app", "src", "main", "res", "drawable")
 )
 
 # ---- 配色：白底 + 深蓝主色 + 橙色点缀 ----

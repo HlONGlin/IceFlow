@@ -56,14 +56,14 @@ mkdir IceFlow && cd IceFlow
 # 手动创建完整结构
 mkdir -p app/src/main/{java/com/iceflow,cpp,res}
 mkdir -p app/libs
-mkdir -p rust-core/src
-mkdir -p xray-wrapper
+mkdir -p native/rust-core/src
+mkdir -p native/xray-wrapper
 ```
 
 ### 第二步：初始化 Rust 模块
 
 ```bash
-cd rust-core
+cd native/rust-core
 cargo init --lib
 
 # 修改 Cargo.toml
@@ -95,7 +95,7 @@ EOF
 ### 第三步：编写 Rust JNI 桥接
 
 ```rust
-// rust-core/src/lib.rs
+// native/rust-core/src/lib.rs
 use jni::JNIEnv;
 use jni::objects::{JClass, JString};
 use jni::sys::{jstring, jint};
@@ -135,7 +135,7 @@ pub extern "C" fn Java_com_iceflow_core_RustBridge_stopTunDevice(
 ### 第四步：编译 Rust 库
 
 ```bash
-cd rust-core
+cd native/rust-core
 
 # 创建编译脚本
 cat > build-android.sh << 'EOF'
@@ -445,7 +445,7 @@ class MainActivity : ComponentActivity() {
 
 ```bash
 # 1. 确保 Rust 库已编译
-cd rust-core && ./build-android.sh && cd ..
+./native/rust-core/build-android.sh
 
 # 2. 同步 Gradle
 ./gradlew clean
@@ -483,7 +483,7 @@ I/IceFlowVpnService: Rust core started: TUN device started on fd 42
 
 ```bash
 # 1. Clone xray-core
-cd xray-wrapper
+cd native/xray-wrapper
 git clone https://github.com/XTLS/Xray-core.git
 
 # 2. 创建 Go 封装

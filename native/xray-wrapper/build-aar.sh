@@ -13,8 +13,8 @@ trap 'rm -rf "$tool_dir"' EXIT
 go build -o "$tool_dir/gobind" golang.org/x/mobile/cmd/gobind
 export PATH="$tool_dir:$PATH"
 
-mkdir -p ../app/libs
+mkdir -p ../../app/libs
 go tool gomobile bind -v -target android/arm64,android/arm,android/amd64 -androidapi 26 \
-  -ldflags '-s -w -buildid=' -trimpath -o ../app/libs/xray.aar ./libxray
+  -ldflags '-s -w -buildid=' -trimpath -o ../../app/libs/xray.aar ./libxray
 
 echo "xray.aar build complete"

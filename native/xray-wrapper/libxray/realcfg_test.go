@@ -40,7 +40,7 @@ const realAppConfig = `{
 }`
 
 func TestRealAppConfigWithCache(t *testing.T) {
-	assetDir := "../../app/src/main/assets/routing"
+	assetDir := "../../../app/src/main/assets/routing"
 	if _, err := os.Stat(filepath.Join(assetDir, "geosite.dat")); err != nil {
 		t.Skip("no geosite")
 	}

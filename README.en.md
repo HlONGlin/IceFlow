@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="preview/app-icon-current.png" width="88" alt="IceFlow app icon">
+<img src="assets/preview/app-icon-current.png" width="88" alt="IceFlow app icon">
 
 # IceFlow
 
@@ -31,24 +31,24 @@ These screens were captured while IceFlow single v0.1.5.1 was running on `emulat
   <tr>
     <td align="center" width="50%">
       <b>Node Management</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="screenshots/emulator/v0.1.5.1/modules/nodes.png" width="360" alt="Node list and actions in the full emulator screen"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/nodes.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/nodes.png" width="360" alt="Node list and actions in the full emulator screen"></a><br>
       <sub>Review node protocols and manage entries in a group.</sub>
     </td>
     <td align="center" width="50%">
       <b>Groups</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="screenshots/emulator/v0.1.5.1/modules/groups.png" width="360" alt="Group list and actions in the full emulator screen"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/groups.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/groups.png" width="360" alt="Group list and actions in the full emulator screen"></a><br>
       <sub>See local groups and their node counts.</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <b>Rule-Based Routing</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="screenshots/emulator/v0.1.5.1/modules/routing.png" width="360" alt="Routing rules and policies in the full emulator screen"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/routing.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/routing.png" width="360" alt="Routing rules and policies in the full emulator screen"></a><br>
       <sub>Adjust rule order, match conditions and traffic outlets.</sub>
     </td>
     <td align="center" width="50%">
       <b>Proxy Settings</b><br>
-      <a href="screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="screenshots/emulator/v0.1.5.1/modules/settings.png" width="360" alt="Theme, routing and local SOCKS5 settings in the full emulator screen"></a><br>
+      <a href="assets/screenshots/emulator/v0.1.5.1/modules/settings.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/settings.png" width="360" alt="Theme, routing and local SOCKS5 settings in the full emulator screen"></a><br>
       <sub>Theme, night mode, routing mode and local proxy options.</sub>
     </td>
   </tr>
@@ -60,8 +60,8 @@ External node imports show a review step first. Confirming adds the entry to the
 
 <table>
   <tr>
-    <td align="center" width="50%"><b>Confirm Import</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-confirm.png" width="300" alt="Node import dialog in the full emulator screen"></a></td>
-    <td align="center" width="50%"><b>Import Complete</b><br><a href="screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="screenshots/emulator/v0.1.5.1/modules/import-complete.png" width="300" alt="Import completion notice in the full emulator screen"></a></td>
+    <td align="center" width="50%"><b>Confirm Import</b><br><a href="assets/screenshots/emulator/v0.1.5.1/modules/import-confirm.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/import-confirm.png" width="300" alt="Node import dialog in the full emulator screen"></a></td>
+    <td align="center" width="50%"><b>Import Complete</b><br><a href="assets/screenshots/emulator/v0.1.5.1/modules/import-complete.png"><img src="assets/screenshots/emulator/v0.1.5.1/modules/import-complete.png" width="300" alt="Import completion notice in the full emulator screen"></a></td>
   </tr>
 </table>
 
@@ -72,9 +72,9 @@ External node imports show a review step first. Confirming adds the entry to the
 
 <table>
   <tr>
-    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/connected.png" width="220" alt="Connected"><br><sub>Connected</sub></td>
-    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/network-waiting.png" width="220" alt="Waiting during network loss"><br><sub>Waiting for the network</sub></td>
-    <td align="center" width="33%"><img src="screenshots/emulator/v0.1.5.1/restored.png" width="220" alt="Connection restored"><br><sub>Automatic reconnection</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/emulator/v0.1.5.1/connected.png" width="220" alt="Connected"><br><sub>Connected</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/emulator/v0.1.5.1/network-waiting.png" width="220" alt="Waiting during network loss"><br><sub>Waiting for the network</sub></td>
+    <td align="center" width="33%"><img src="assets/screenshots/emulator/v0.1.5.1/restored.png" width="220" alt="Connection restored"><br><sub>Automatic reconnection</sub></td>
   </tr>
 </table>
 
@@ -86,7 +86,7 @@ External node imports show a review step first. Confirming adds the entry to the
 - IceFlow reconnects automatically when the network returns; users can still disconnect while waiting.
 - Both dual and single variants include the recovery behavior and localized strings.
 
-See the [full change log](CHANGELOG-v0.1.5.1.md).
+See the [full change log](docs/CHANGELOG-v0.1.5.1.md).
 
 ## Downloads
 
@@ -165,8 +165,8 @@ Subscriptions require HTTPS. Duplicate URLs are not added twice. Full `mieru://`
 | Directory | Purpose |
 | --- | --- |
 | `app/` | Android app, Compose UI and VPN service |
-| `rust-core/` | Rust TUN forwarding layer used by dual |
-| `xray-wrapper/` | xray gomobile wrapper used by dual |
+| `native/rust-core/` | Rust TUN forwarding layer used by dual |
+| `native/xray-wrapper/` | xray gomobile wrapper used by dual |
 | `mihomo-wrapper/` | mihomo gomobile wrapper used by single |
 | `docs/` | Architecture, quick start and design notes |
 
@@ -187,10 +187,10 @@ $env:ICEFLOW_KEY_PASSWORD="key_password"
 # Rust TUN layer, dual only
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-.\rust-core\build-android.ps1
+.\native\rust-core\build-android.ps1
 
 # xray AAR, dual only
-.\xray-wrapper\build-aar.ps1
+.\native\xray-wrapper\build-aar.ps1
 
 # mihomo AAR, single
 .\mihomo-wrapper\build-aar.ps1
@@ -204,8 +204,8 @@ cargo install cargo-ndk
 ~~~bash
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-./rust-core/build-android.sh
-./xray-wrapper/build-aar.sh
+./native/rust-core/build-android.sh
+./native/xray-wrapper/build-aar.sh
 ./mihomo-wrapper/build-aar.sh
 ./gradlew testDualDebugUnitTest testSingleDebugUnitTest assembleDualDebug assembleSingleDebug
 ~~~
@@ -219,7 +219,7 @@ cargo install cargo-ndk
 
 - app/src/test and app/src/testSingle: JVM unit tests for dual and single.
 - app/src/androidTest: Android instrumentation tests.
-- `rust-core/`: Rust unit tests (`cargo test`).
+- `native/rust-core/`: Rust unit tests (`cargo test`).
 - xray-wrapper: Go unit tests (go test ./...).
 
 ~~~powershell
@@ -239,8 +239,8 @@ IceFlow can quietly check GitHub Releases after startup and notify you when an u
 
 - [Quick Start](docs/IceFlow-QuickStart.md)
 - [Architecture](docs/IceFlow-Architecture.md)
-- [Network Recovery](RECONNECTION_OPTIMIZATION.md)
-- [Test Reports](test-reports/README.md)
+- [Network Recovery](docs/RECONNECTION_OPTIMIZATION.md)
+- [Test Reports](docs/core-migration/FEATURE_MAP.md)
 
 ## Known Limitations
 

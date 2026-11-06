@@ -11,7 +11,7 @@
 **现状**
 
 - 配置层已实现：`MihomoConfigBuilder.kt:418` 输出 `hysteria`，protocolOptions 白名单见 `MihomoConfigBuilder.kt:398`；单测 `hysteriaAliasesAndObfsConvert`（app/src/testSingle/java/com/iceflow/data/MihomoConfigBuilderTest.kt:241）与 raw Clash 用例（:294）仅验证配置生成/别名/覆盖语义。
-- dual wrapper 侧 `xray-wrapper/libxray/extended_test.go:78-79` 仅覆盖 adapter.ParseProxy 解析路径。
+- dual wrapper 侧 `native/xray-wrapper/libxray/extended_test.go:78-79` 仅覆盖 adapter.ParseProxy 解析路径。
 - 全仓 test-reports/ 中没有任何 Hysteria v1 服务端夹具或真实建连记录；phase2-step4 的夹具仅 xray 与 mihomo。
 
 **未验证原因**
