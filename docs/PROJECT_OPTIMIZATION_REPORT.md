@@ -14,7 +14,7 @@
 #### 文件组织
 - ✅ 移除根目录的临时发布文件（5个文件）
 - ✅ 移除测试数据文件（`servers_*.json`, `node.json`, `build.log`）
-- ✅ 将截图文件移到 `screenshots/` 目录（9个PNG文件）
+- ✅ 将截图文件移到 `assets/screenshots/` 目录（9个PNG文件）
 - ✅ 将中文文档移到 `docs/` 目录
   - `优化说明.md` → `docs/优化说明.md`
   - `重连优化说明.txt` → `docs/重连优化说明.txt`
@@ -35,7 +35,7 @@ servers_now.json
 node.json
 build.log
 
-# 截图（应放在 screenshots/ 或 preview/ 目录）
+# 截图（应放在 assets/screenshots/ 或 assets/preview/ 目录）
 /*.png
 ```
 
@@ -253,11 +253,11 @@ chore: 构建/工具链
 
 目录结构：
 ├── app/              # Android 应用
-├── rust-core/        # Rust TUN处理
-├── xray-wrapper/     # xray-core 封装
+├── native/rust-core/        # Rust TUN处理
+├── native/xray-wrapper/     # xray-core 封装
 ├── docs/             # 技术文档
 ├── scripts/          # 构建脚本
-└── screenshots/      # 截图资源
+└── assets/screenshots/      # 截图资源
 ```
 
 ## ✨ 总结

@@ -3,10 +3,10 @@ package com.iceflow.core
 import android.util.Log
 
 /**
- * Rust 流量层（rust-core，基于 tun2proxy）的 JNI 入口。
+ * Rust 流量层（native/rust-core，基于 tun2proxy）的 JNI 入口。
  * 负责 TUN fd → SOCKS5 (xray-core) 的转发与流量统计。
  *
- * 若 libiceflow_core.so 未打包（未执行 rust-core/build-android.*），[isAvailable] 为 false。
+ * 若 libiceflow_core.so 未打包（未执行 native/rust-core/build-android.*），[isAvailable] 为 false。
  */
 object RustBridge {
 

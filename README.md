@@ -49,7 +49,7 @@ IceFlow 是一款现代化的 Android 代理客户端，采用 Jetpack Compose �
                  │ File Descriptor
                  ▼
 ┌─────────────────────────────────────────────────┐
-│       rust-core (tun2proxy, JNI)                │
+│       native/rust-core (tun2proxy, JNI)                │
 │      TUN 流量捕获与 SOCKS5 转发                  │
 └────────────────┬────────────────────────────────┘
                  │ SOCKS5 127.0.0.1:10808
@@ -68,8 +68,8 @@ IceFlow 是一款现代化的 Android 代理客户端，采用 Jetpack Compose �
 | 目录 | 说明 |
 |------|------|
 | `app/` | Kotlin + Compose 应用层：UI、VpnService、快捷开关 |
-| `rust-core/` | Rust 流量处理层，基于 tun2proxy，JNI 接口 |
-| `xray-wrapper/` | xray-core 的 gomobile 封装，产物为 `app/libs/xray.aar` |
+| `native/rust-core/` | Rust 流量处理层，基于 tun2proxy，JNI 接口 |
+| `native/xray-wrapper/` | xray-core 的 gomobile 封装，产物为 `app/libs/xray.aar` |
 | `docs/` | 架构文档与设计说明 |
 
 ## 🛠️ 构建指南
@@ -89,10 +89,10 @@ IceFlow 是一款现代化的 Android 代理客户端，采用 Jetpack Compose �
 # 1. 构建 Rust 核心 → app/src/main/jniLibs/
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-.\rust-core\build-android.ps1
+.\native\rust-core\build-android.ps1
 
 # 2. 构建 xray-core → app/libs/xray.aar
-.\xray-wrapper\build-aar.ps1
+.\native\xray-wrapper\build-aar.ps1
 
 # 3. 构建 APK
 .\gradlew.bat testDebugUnitTest assembleDebug assembleRelease
@@ -104,10 +104,10 @@ cargo install cargo-ndk
 # 1. 构建 Rust 核心
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-./rust-core/build-android.sh
+./native/rust-core/build-android.sh
 
 # 2. 构建 xray-core
-./xray-wrapper/build-aar.sh
+./native/xray-wrapper/build-aar.sh
 
 # 3. 构建 APK
 ./gradlew testDebugUnitTest assembleDebug assembleRelease
@@ -141,8 +141,8 @@ $env:PATH = “$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH”
 
 - **app/src/test** - JVM 单元测试：分享链接解析、xray 配置生成、格式化
 - **app/src/androidTest** - Android 仪器测试：Compose UI 测试、原生库加载验证
-- **rust-core** - Rust 单元测试：`cargo test`
-- **xray-wrapper** - Go 单元测试：`go test ./...`
+- **native/rust-core** - Rust 单元测试：`cargo test`
+- **native/xray-wrapper** - Go 单元测试：`go test ./...`
 
 ### 运行 Android 测试
 

@@ -84,11 +84,11 @@
 ### 构建命令
 ```bash
 # xray.aar
-cd xray-wrapper
+cd native/xray-wrapper
 powershell -ExecutionPolicy Bypass -File build-aar.ps1
 
 # libiceflow_core.so
-cd rust-core
+cd native/rust-core
 powershell -ExecutionPolicy Bypass -File build-android.ps1
 
 # APK
@@ -108,9 +108,9 @@ IceFlow/
 │       │   └── libiceflow_core.so
 │       └── x86_64/
 │           └── libiceflow_core.so
-├── xray-wrapper/
+├── native/xray-wrapper/
 │   └── (Go 源码)
-├── rust-core/
+├── native/rust-core/
 │   └── (Rust 源码)
 └── local.properties (新增)
 ```

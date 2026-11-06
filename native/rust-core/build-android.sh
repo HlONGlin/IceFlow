@@ -11,10 +11,10 @@ cd "$(dirname "$0")"
 cargo ndk \
   -t arm64-v8a -t armeabi-v7a -t x86_64 \
   -P 26 \
-  -o ../app/src/dual/jniLibs \
+  -o ../../app/src/dual/jniLibs \
   build --release
 
 # tun2proxy 自身的 cdylib 会被一并复制；它已静态链接进 libiceflow_core.so，删除冗余文件
-find ../app/src/dual/jniLibs -name 'libtun2proxy-*.so' -delete
+find ../../app/src/dual/jniLibs -name 'libtun2proxy-*.so' -delete
 
 echo "Rust core build complete"

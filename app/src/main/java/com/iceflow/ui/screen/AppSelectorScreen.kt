@@ -1,5 +1,7 @@
 package com.iceflow.ui.screen
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -12,6 +14,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,11 +27,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.iceflow.ui.component.SegmentedSelector
+import com.iceflow.data.AppRoutingClipboard
+import com.iceflow.ui.IceDropdownMenu
+import com.iceflow.ui.IceMenuItem
 import com.iceflow.ui.theme.IceRadius
 import com.iceflow.i18n.T
 import com.iceflow.i18n.Tf
 import androidx.core.graphics.drawable.toBitmap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class AppInfo(
@@ -45,9 +54,14 @@ fun AppSelectorScreen(
     proxyMode: Boolean,
     selectedApps: List<String>,
     onSelectionChange: (List<String>) -> Unit,
+    onImport: (Boolean, List<String>) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var menuExpanded by remember { mutableStateOf(false) }
     var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
@@ -62,6 +76,22 @@ fun AppSelectorScreen(
     val filterLabels = listOf(T("apps.all"), T("apps.selected"), T("apps.unselected"))
     val selectAllLabel = T("apps.selectAll")
     val notFoundLabel = T("apps.notFound")
+    val actionsLabel = T("apps.actions")
+    val exportLabel = T("apps.exportClipboard")
+    val importLabel = T("apps.importClipboard")
+    val exportSuccess = T("apps.exportSuccess")
+    val exportFailed = T("apps.exportFailed")
+    val importSuccess = T("apps.importSuccess")
+    val importFailed = T("apps.importFailed")
+    val importSaveFailed = T("apps.importSaveFailed")
+    val emptyClipboard = T("apps.emptyClipboard")
+
+    fun showNotice(message: String) {
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            snackbar.showSnackbar(message)
+        }
+    }
 
     LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
@@ -102,6 +132,16 @@ fun AppSelectorScreen(
     val selectedCount = Tf("apps.selectedCount", selectedApps.size, filteredApps.size)
 
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbar) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    actionColor = MaterialTheme.colorScheme.primary,
+                )
+            }
+        },
         topBar = {
             Row(
                 Modifier.fillMaxWidth().height(64.dp).background(MaterialTheme.colorScheme.background).padding(horizontal = 12.dp),
@@ -109,6 +149,44 @@ fun AppSelectorScreen(
             ) {
                 IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, backLabel, tint = MaterialTheme.colorScheme.primary) }
                 Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(Icons.Default.MoreVert, actionsLabel, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IceDropdownMenu(menuExpanded, { menuExpanded = false }) {
+                        IceMenuItem(exportLabel, Icons.Default.ContentCopy) {
+                            menuExpanded = false
+                            val result = runCatching {
+                                checkNotNull(clipboard).setPrimaryClip(
+                                    ClipData.newPlainText(title, AppRoutingClipboard.encode(proxyMode, selectedApps))
+                                )
+                            }
+                            showNotice(if (result.isSuccess) String.format(exportSuccess, selected.size) else exportFailed)
+                        }
+                        IceMenuItem(importLabel, Icons.Default.ContentPaste) {
+                            menuExpanded = false
+                            val result = runCatching {
+                                val clip = clipboard?.primaryClip
+                                if (clip == null || clip.itemCount == 0) ""
+                                else clip.getItemAt(0).coerceToText(context)?.toString().orEmpty()
+                            }
+                            if (result.isFailure) {
+                                showNotice(importFailed)
+                            } else if (result.getOrThrow().isBlank()) {
+                                showNotice(emptyClipboard)
+                            } else {
+                                runCatching { AppRoutingClipboard.decode(result.getOrThrow()) }
+                                    .onSuccess { imported ->
+                                        val packages = imported.packages.filterNot { it == context.packageName }
+                                        runCatching { onImport(imported.proxyMode, packages) }
+                                            .onSuccess { showNotice(String.format(importSuccess, packages.size)) }
+                                            .onFailure { showNotice(importSaveFailed) }
+                                    }
+                                    .onFailure { showNotice(importFailed) }
+                            }
+                        }
+                    }
+                }
                 TextButton(onClick = onDismiss) { Text(doneLabel, color = MaterialTheme.colorScheme.primary) }
             }
         }

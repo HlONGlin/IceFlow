@@ -93,7 +93,7 @@ fun GlassmorphicCard(
 
 **模块结构：**
 ```
-rust-core/
+native/rust-core/
 ├── src/
 │   ├── tun/          # TUN 设备管理
 │   ├── socks/        # SOCKS5 服务器
@@ -200,7 +200,7 @@ message Config {
 
 **Rust 侧实现（性能热路径）：**
 ```rust
-// rust-core/src/mieru/session.rs
+// native/rust-core/src/mieru/session.rs
 use tokio::net::UdpSocket;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 
@@ -623,7 +623,7 @@ android {
 }
 
 cargo {
-    module = "./rust-core"
+    module = "./native/rust-core"
     libname = "iceflow_core"
     targets = listOf("arm64", "arm", "x86_64")
     profile = "release"
@@ -650,7 +650,7 @@ dependencies {
 ### Rust 编译配置
 
 ```toml
-# rust-core/Cargo.toml
+# native/rust-core/Cargo.toml
 [package]
 name = "iceflow_core"
 version = "1.0.0"
@@ -810,13 +810,13 @@ jobs:
           
       - name: Build Rust Core
         run: |
-          cd rust-core
+          cd native/rust-core
           cargo ndk build --release --target aarch64-linux-android
           
       - name: Build xray-core AAR
         run: |
-          cd xray-wrapper
-          gomobile bind -target=android -o=../app/libs/xray.aar
+          cd native/xray-wrapper
+          gomobile bind -target=android -o=../../app/libs/xray.aar
           
       - name: Build APK
         run: ./gradlew assembleRelease

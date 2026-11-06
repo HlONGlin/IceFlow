@@ -47,7 +47,7 @@
 - 统计页面展示各出站的流量明细
 
 **新增文件**：
-- `xray-wrapper/libxray/stats.go`
+- `native/xray-wrapper/libxray/stats.go`
 - `app/src/main/java/com/iceflow/data/XrayStats.kt`
 
 **影响文件**：
@@ -93,10 +93,10 @@
 
 ## 构建说明
 
-本次改动包含 xray-wrapper 的新文件，需要重新编译 xray.aar：
+本次改动包含 native/xray-wrapper 的新文件，需要重新编译 xray.aar：
 
 ```powershell
-.\xray-wrapper\build-aar.ps1
+.\native/xray-wrapper\build-aar.ps1
 .\gradlew.bat assembleDebug
 ```
 

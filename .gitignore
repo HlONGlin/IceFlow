@@ -20,10 +20,10 @@ app/libs/*.aar
 app/libs/*.jar
 
 # Rust
-rust-core/target/
+native/rust-core/target/
 
 # Go
-xray-wrapper/build/
+native/xray-wrapper/build/
 
 # OS
 .DS_Store
@@ -45,5 +45,6 @@ servers_now.json
 node.json
 build.log
 
-# 截图（应放在 screenshots/ 或 preview/ 目录）
 /*.png
+artifacts/
+dev/tools/__pycache__/

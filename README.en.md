@@ -49,7 +49,7 @@ IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI an
                  │ File Descriptor
                  ▼
 ┌─────────────────────────────────────────────────┐
-│       rust-core (tun2proxy, JNI)                │
+│       native/rust-core (tun2proxy, JNI)                │
 │      TUN Traffic Capture & SOCKS5 Forward       │
 └────────────────┬────────────────────────────────┘
                  │ SOCKS5 127.0.0.1:10808
@@ -68,8 +68,8 @@ IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI an
 | Directory | Description |
 |------|------|
 | `app/` | Kotlin + Compose application layer: UI, VpnService, quick toggle |
-| `rust-core/` | Rust traffic processing layer based on tun2proxy with JNI interface |
-| `xray-wrapper/` | gomobile wrapper for xray-core, outputs `app/libs/xray.aar` |
+| `native/rust-core/` | Rust traffic processing layer based on tun2proxy with JNI interface |
+| `native/xray-wrapper/` | gomobile wrapper for xray-core, outputs `app/libs/xray.aar` |
 | `docs/` | Architecture documentation and design specifications |
 
 ## 🛠️ Build Guide
@@ -89,10 +89,10 @@ IceFlow is a modern Android proxy client featuring a fluid Jetpack Compose UI an
 # 1. Build Rust core → app/src/main/jniLibs/
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-.\rust-core\build-android.ps1
+.\native\rust-core\build-android.ps1
 
 # 2. Build xray-core → app/libs/xray.aar
-.\xray-wrapper\build-aar.ps1
+.\native\xray-wrapper\build-aar.ps1
 
 # 3. Build APK
 .\gradlew.bat testDebugUnitTest assembleDebug assembleRelease
@@ -104,10 +104,10 @@ cargo install cargo-ndk
 # 1. Build Rust core
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 cargo install cargo-ndk
-./rust-core/build-android.sh
+./native/rust-core/build-android.sh
 
 # 2. Build xray-core
-./xray-wrapper/build-aar.sh
+./native/xray-wrapper/build-aar.sh
 
 # 3. Build APK
 ./gradlew testDebugUnitTest assembleDebug assembleRelease
@@ -141,8 +141,8 @@ $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\go\bin;$env:PATH"
 
 - **app/src/test** - JVM unit tests: share link parsing, xray config generation, formatting
 - **app/src/androidTest** - Android instrumentation tests: Compose UI tests, native library validation
-- **rust-core** - Rust unit tests: `cargo test`
-- **xray-wrapper** - Go unit tests: `go test ./...`
+- **native/rust-core** - Rust unit tests: `cargo test`
+- **native/xray-wrapper** - Go unit tests: `go test ./...`
 
 ### Run Android Tests
 

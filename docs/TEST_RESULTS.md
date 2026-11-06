@@ -14,7 +14,7 @@
   - armeabi-v7a: 2.6 MB  
   - x86_64: 4.3 MB
 
-- **xray-wrapper**：重新编译成功
+- **native/xray-wrapper**：重新编译成功
   - 包含新增的 stats.go
   - 生成 xray.aar (70.6 MB)
   - 包含 3 个 ABI 的 libgojni.so
@@ -92,7 +92,7 @@
 $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
 
 # 重新编译 xray.aar（如果修改了 Go 代码）
-.\xray-wrapper\build-aar.ps1
+.\native/xray-wrapper\build-aar.ps1
 
 # 构建 APK
 .\gradlew.bat assembleDebug

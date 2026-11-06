@@ -173,8 +173,8 @@ def render(vector_path, out_png, size=256, bg=(10, 22, 38, 255), bg_alpha=255):
 
 if __name__ == "__main__":
     import sys
-    res = os.path.join(os.path.dirname(__file__), "..", "app", "src", "main", "res", "drawable")
-    out = os.path.join(os.path.dirname(__file__), "..", "preview")
+    res = os.path.join(os.path.dirname(__file__), "..", "..", "app", "src", "main", "res", "drawable")
+    out = os.path.join(os.path.dirname(__file__), "..", "..", "assets", "preview")
     os.makedirs(out, exist_ok=True)
     for name in ("ic_launcher_foreground", "ic_tile", "ic_tile_active"):
         render(os.path.join(res, name + ".xml"), os.path.join(out, name + ".png"))

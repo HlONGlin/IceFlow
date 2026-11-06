@@ -10,8 +10,8 @@ cd "$(dirname "$0")"
 # Use the tool versions pinned in go.mod rather than installing @latest.
 go tool gomobile init
 
-mkdir -p ../app/libs
+mkdir -p ../../app/libs
 go tool gomobile bind -v -target android/arm64,android/arm,android/amd64 -androidapi 26 \
-  -ldflags '-s -w -buildid=' -trimpath -o ../app/libs/xray.aar ./libxray
+  -ldflags '-s -w -buildid=' -trimpath -o ../../app/libs/xray.aar ./libxray
 
 echo "xray.aar build complete"

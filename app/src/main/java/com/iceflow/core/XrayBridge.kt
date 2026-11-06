@@ -7,7 +7,7 @@ import java.lang.reflect.InvocationTargetException
  * xray-core（gomobile 生成的 libxray.Libxray）的封装。
  *
  * 通过反射调用，使 app 在未放入 xray.aar 时仍能编译运行（此时 [isAvailable] 为 false）。
- * Go 侧签名见 xray-wrapper/libxray.go。
+ * Go 侧签名见 native/xray-wrapper/libxray/libxray.go。
  */
 object XrayBridge {
 

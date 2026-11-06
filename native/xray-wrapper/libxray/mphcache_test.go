@@ -96,7 +96,7 @@ func pickRoutes(t *testing.T, configJSON string) map[string]string {
 }
 
 func TestMphCacheRoutingEquivalence(t *testing.T) {
-	assetDir := "../../app/src/main/assets/routing"
+	assetDir := "../../../app/src/main/assets/routing"
 	if _, err := os.Stat(filepath.Join(assetDir, "geosite.dat")); err != nil {
 		t.Skip("geosite.dat not available")
 	}

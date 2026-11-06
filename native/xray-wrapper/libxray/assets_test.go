@@ -8,7 +8,7 @@ import (
 
 func TestBundledRoutingResourcesValidateAndRejectMalformedData(t *testing.T) {
 	for _, name := range []string{"geosite.dat", "geoip.dat"} {
-		if err := ValidateRoutingAsset(filepath.Join("..", "..", "app", "src", "main", "assets", "routing", name), name); err != nil {
+		if err := ValidateRoutingAsset(filepath.Join("..", "..", "..", "app", "src", "main", "assets", "routing", name), name); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		malformed := filepath.Join(t.TempDir(), name)

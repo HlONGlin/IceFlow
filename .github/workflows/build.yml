@@ -35,26 +35,26 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
 
       - name: Rust tests
-        working-directory: rust-core
+        working-directory: native/rust-core
         run: cargo test
 
       - name: Build Rust core
         run: |
           cargo install cargo-ndk --locked
-          bash rust-core/build-android.sh
+          bash native/rust-core/build-android.sh
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: xray-wrapper/go.mod
-          cache-dependency-path: xray-wrapper/go.sum
+          go-version-file: native/xray-wrapper/go.mod
+          cache-dependency-path: native/xray-wrapper/go.sum
 
       - name: Go tests
-        working-directory: xray-wrapper
+        working-directory: native/xray-wrapper
         run: go test ./...
 
       - name: Build xray-core AAR
-        run: bash xray-wrapper/build-aar.sh
+        run: bash native/xray-wrapper/build-aar.sh
 
       - name: Resolve app version
         shell: bash
