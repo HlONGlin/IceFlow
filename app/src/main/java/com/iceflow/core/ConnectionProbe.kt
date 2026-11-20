@@ -19,11 +19,13 @@ import javax.net.ssl.SSLSocketFactory
 /** Tests the running outbound through a local proxy inbound. */
 object ConnectionProbe {
     fun publicIp(socksPort: Int, username: String = "", password: String = ""): String {
-        return withSocksSocket(socksPort, username, password, "api.ipify.org", 443, 5000) { socket, _, _ ->
-            val tls = (SSLSocketFactory.getDefault() as SSLSocketFactory).createSocket(socket, "api.ipify.org", 443, true) as SSLSocket
+        // api64 exposes both address families; the IPv4-only endpoint can fail on otherwise healthy IPv6 routes.
+        val host = "api64.ipify.org"
+        return withSocksSocket(socksPort, username, password, host, 443, 5000) { socket, _, _ ->
+            val tls = (SSLSocketFactory.getDefault() as SSLSocketFactory).createSocket(socket, host, 443, true) as SSLSocket
             tls.use { secure ->
-                secure.soTimeout = 5000; configureTlsSocket(secure, "api.ipify.org"); secure.startHandshake()
-                outputRequest(secure.outputStream, "GET / HTTP/1.1\r\nHost: api.ipify.org\r\nAccept: text/plain\r\nConnection: close\r\n\r\n")
+                secure.soTimeout = 5000; configureTlsSocket(secure, host); secure.startHandshake()
+                outputRequest(secure.outputStream, "GET / HTTP/1.1\r\nHost: $host\r\nAccept: text/plain\r\nConnection: close\r\n\r\n")
                 val input = BufferedInputStream(secure.inputStream); val status = input.readAsciiLine()
                 check(status.startsWith("HTTP/1.") && status.substringAfter(' ').trim().take(3) == "200") { "Public IP lookup failed" }
                 var chunked = false

@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
 </p>
 
-[⬇️ Download v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/latest) · [简体中文](README.md)
+[Download the stable release](https://github.com/HlONGlin/IceFlow/releases/latest) · [简体中文](README.md)
 
 </div>
 
@@ -21,7 +21,26 @@
 
 IceFlow is an Android proxy client built with Jetpack Compose. It combines node and subscription management, rule-based routing, and automatic recovery after network interruptions. The dual and single variants share the same UI, subscription and routing features, with APKs for multiple device architectures.
 
-**Current release** v0.1.5.1 · **versionCode** 113 · **Android** 8.0+
+**Release** `v0.1.5.3` · **Version code** `115` · **Android** 8.0+
+
+## Downloads
+
+| Variant | Core | Download |
+| --- | --- | --- |
+| **single** | Mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-single-universal-release.apk) |
+| **dual** | Xray + Mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-dual-universal-release.apk) |
+
+The [v0.1.5.3 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.3) also offers `arm64-v8a`, `armeabi-v7a` and `x86_64` packages. Choose the universal APK if you are unsure which architecture your device uses. The signing certificate is unchanged, so you can update an existing release install without losing app data.
+
+[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/ARTIFACT_MANIFEST.json)
+
+### What's New in v0.1.5.3
+
+- Fixed a single-core issue where enabling the local HTTP proxy could make every node report "node or subscription configuration invalid".
+- Public IP lookup now uses an IPv4/IPv6 endpoint and retries after a failure. A failed lookup does not mean the VPN disconnected.
+- The single variant supports the Reality `support-x25519mlkem768` option. The dual variant does not apply this option.
+
+Already on `v0.1.5.3`? Download and install the refreshed APK over your existing install. The hotfix keeps the same version number, so the app does not flag it as an update. See the [change log](docs/CHANGELOG-v0.1.5.3.md#english).
 
 ## App Module Preview
 
@@ -79,25 +98,6 @@ External node imports show a review step first. Confirming adds the entry to the
 </table>
 
 </details>
-
-## What's New in v0.1.5.1
-
-- A dedicated waiting state appears when the network drops, hiding stale traffic and speed data.
-- IceFlow reconnects automatically when the network returns; users can still disconnect while waiting.
-- Both dual and single variants include the recovery behavior and localized strings.
-
-See the [full change log](docs/CHANGELOG-v0.1.5.1.md).
-
-## Downloads
-
-Get signed APKs from [GitHub Release v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.1). The existing production signing key is retained, so the APK can update an existing installation while preserving app data.
-
-| Variant | Core | Recommended download | Description |
-| --- | --- | --- | --- |
-| **single** | mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-single-universal-release.apk) | Simple installation for most devices |
-| **dual** | xray + mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-dual-universal-release.apk) | For devices that need dual-core features |
-
-`arm64-v8a`, `armeabi-v7a` and `x86_64` packages are also available. Checksums: [SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/ARTIFACT_MANIFEST.json)
 
 ## Features
 
@@ -220,7 +220,7 @@ cargo install cargo-ndk
 - app/src/test and app/src/testSingle: JVM unit tests for dual and single.
 - app/src/androidTest: Android instrumentation tests.
 - `native/rust-core/`: Rust unit tests (`cargo test`).
-- xray-wrapper: Go unit tests (go test ./...).
+- `mihomo-wrapper/` and `native/xray-wrapper/`: Go unit tests (run `go test ./...` in each directory).
 
 ~~~powershell
 .\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest
@@ -240,6 +240,7 @@ IceFlow can quietly check GitHub Releases after startup and notify you when an u
 - [Quick Start](docs/IceFlow-QuickStart.md)
 - [Architecture](docs/IceFlow-Architecture.md)
 - [Network Recovery](docs/RECONNECTION_OPTIMIZATION.md)
+- Previous changes: [v0.1.5.2](docs/CHANGELOG-v0.1.5.2.md) · [v0.1.5.1](docs/CHANGELOG-v0.1.5.1.md)
 - [Test Reports](docs/core-migration/FEATURE_MAP.md)
 
 ## Known Limitations

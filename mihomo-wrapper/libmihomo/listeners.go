@@ -16,9 +16,6 @@ func validateAppListeners(text string) error {
 	}
 	names, ports := map[string]bool{}, map[int]bool{}
 	for _, item := range root.Listeners {
-		if len(item) != 6 {
-			return errors.New("listeners: expected exact app SOCKS shape")
-		}
 		for key := range item {
 			switch key {
 			case "type", "name", "listen", "port", "udp", "users":
@@ -28,13 +25,30 @@ func validateAppListeners(text string) error {
 		}
 		var kind, name, host string
 		var port int
-		var udp bool
-		if json.Unmarshal(item["type"], &kind) != nil || kind != "socks" ||
-			json.Unmarshal(item["name"], &name) != nil || (name != "tun-in" && name != "socks-in") ||
-			json.Unmarshal(item["listen"], &host) != nil || host != "127.0.0.1" ||
-			json.Unmarshal(item["port"], &port) != nil || port < 1 || port > 65535 ||
-			json.Unmarshal(item["udp"], &udp) != nil || string(item["udp"]) == "null" || (name == "tun-in" && !udp) {
-			return errors.New("listeners: invalid app SOCKS options")
+		if json.Unmarshal(item["type"], &kind) != nil ||
+			json.Unmarshal(item["name"], &name) != nil ||
+			json.Unmarshal(item["listen"], &host) != nil ||
+			json.Unmarshal(item["port"], &port) != nil || port < 1 || port > 65535 {
+			return errors.New("listeners: invalid app listener options")
+		}
+		if name == "tun-in" {
+			var udp bool
+			if kind != "socks" || host != "127.0.0.1" || len(item) != 6 ||
+				json.Unmarshal(item["udp"], &udp) != nil || string(item["udp"]) == "null" || !udp {
+				return errors.New("listeners: invalid app TUN SOCKS options")
+			}
+		} else if name == "socks-in" {
+			var udp bool
+			if kind != "socks" || (host != "127.0.0.1" && host != "0.0.0.0") || len(item) != 6 ||
+				json.Unmarshal(item["udp"], &udp) != nil || string(item["udp"]) == "null" {
+				return errors.New("listeners: invalid app SOCKS options")
+			}
+		} else if name == "http-in" {
+			if kind != "http" || (host != "127.0.0.1" && host != "0.0.0.0") || len(item) != 5 || item["udp"] != nil {
+				return errors.New("listeners: invalid app HTTP options")
+			}
+		} else {
+			return errors.New("listeners: invalid app listener name")
 		}
 		if names[name] || ports[port] {
 			return errors.New("listeners: duplicate name or port")

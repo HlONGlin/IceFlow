@@ -25,12 +25,21 @@ import (
 func appListener(name string, port int, udp bool) map[string]any {
 	return map[string]any{"type": "socks", "name": name, "listen": "127.0.0.1", "port": port, "udp": udp, "users": []map[string]string{{"username": "u", "password": "p"}}}
 }
+func appHTTPListener(port int, host string) map[string]any {
+	return map[string]any{"type": "http", "name": "http-in", "listen": host, "port": port, "users": []map[string]string{{"username": "u", "password": "p"}}}
+}
 func listenerJSON(items ...map[string]any) string {
 	b, _ := json.Marshal(map[string]any{"listeners": items})
 	return string(b)
 }
 func TestAppListenersExactGeneratedShape(t *testing.T) {
 	text := listenerJSON(appListener("tun-in", 30001, true), appListener("socks-in", 30002, false))
+	if err := Validate(text); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestAppListenersAcceptHTTPAndLanBinding(t *testing.T) {
+	text := listenerJSON(appListener("tun-in", 30001, true), appListener("socks-in", 30002, false), appHTTPListener(30003, "0.0.0.0"))
 	if err := Validate(text); err != nil {
 		t.Fatal(err)
 	}

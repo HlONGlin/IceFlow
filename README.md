@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white" alt="Jetpack Compose">
 </p>
 
-[⬇️ 下载最新版本 v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/latest) · [English](README.en.md)
+[下载正式版](https://github.com/HlONGlin/IceFlow/releases/latest) · [English](README.en.md)
 
 </div>
 
@@ -21,7 +21,26 @@
 
 IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节点与订阅管理、规则分流，以及网络中断后的自动恢复体验。dual 和 single 两种变体共享 UI、订阅与路由能力，并提供多种设备架构的 APK。
 
-**当前版本** v0.1.5.1 · **versionCode** 113 · **Android** 8.0 及以上
+**版本** `v0.1.5.3` · **版本码** `115` · **Android** 8.0 及以上
+
+## 下载
+
+| 变体 | 核心 | 下载 |
+| --- | --- | --- |
+| **single** | Mihomo | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-single-universal-release.apk) |
+| **dual** | Xray + Mihomo + Rust TUN | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-dual-universal-release.apk) |
+
+[v0.1.5.3 Release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.3) 也提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 架构包。不确定设备架构时，选择通用 APK。正式签名未变，可以覆盖安装并保留数据。
+
+[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/ARTIFACT_MANIFEST.json)
+
+### v0.1.5.3 更新
+
+- 修复单核版启用本地 HTTP 代理后，所有节点可能提示“节点或订阅配置无效”的问题。
+- 公网 IP 查询改用支持 IPv4 和 IPv6 的端点，并在失败时重试。查询失败不等于 VPN 已断开。
+- 单核版支持 Reality 的 `support-x25519mlkem768` 选项；双核版当前不应用此选项。
+
+已安装 `v0.1.5.3` 的用户需手动下载覆盖安装。本次热修复沿用原版本号，应用不会提示更新。详见[变更记录](docs/CHANGELOG-v0.1.5.3.md)。
 
 ## 应用模块实机预览
 
@@ -79,25 +98,6 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 </table>
 
 </details>
-
-## v0.1.5.1
-
-- 网络中断时显示专用等待提示，并隐藏过期的流量和测速信息。
-- 网络恢复后自动重新建立连接；等待期间仍可主动断开。
-- dual 与 single 变体同步支持网络恢复体验和多语言文案。
-
-查看[完整变更记录](docs/CHANGELOG-v0.1.5.1.md)。
-
-## 下载
-
-从 [GitHub Release v0.1.5.1](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.1) 获取正式签名 APK。安装包沿用原签名，可覆盖安装并保留应用数据。
-
-| 变体 | 核心 | 推荐下载 | 说明 |
-| --- | --- | --- | --- |
-| **single** | mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-single-universal-release.apk) | 适合大多数设备，安装简单 |
-| **dual** | xray + mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/IceFlow-0.1.5.1-dual-universal-release.apk) | 需要双核心能力时选择 |
-
-另有 `arm64-v8a`、`armeabi-v7a`、`x86_64` 架构包。校验文件：[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.1/ARTIFACT_MANIFEST.json)
 
 ## 功能一览
 
@@ -220,7 +220,7 @@ cargo install cargo-ndk
 - app/src/test 与 app/src/testSingle：dual/single JVM 单元测试。
 - app/src/androidTest：Android 仪器测试。
 - `native/rust-core/`：Rust 单元测试（`cargo test`）。
-- xray-wrapper：Go 单元测试（go test ./...）。
+- `mihomo-wrapper/` 与 `native/xray-wrapper/`：Go 单元测试（分别运行 `go test ./...`）。
 
 ~~~powershell
 .\gradlew.bat testDualDebugUnitTest testSingleDebugUnitTest
@@ -240,6 +240,7 @@ v0.1.5.1 已在 `emulator-5566`（Pixel Tablet、Android 15、API 35、x86_64）
 - [快速开始](docs/IceFlow-QuickStart.md)
 - [架构说明](docs/IceFlow-Architecture.md)
 - [网络恢复优化](docs/RECONNECTION_OPTIMIZATION.md)
+- 历史变更：[v0.1.5.2](docs/CHANGELOG-v0.1.5.2.md) · [v0.1.5.1](docs/CHANGELOG-v0.1.5.1.md)
 - [测试报告目录](docs/core-migration/FEATURE_MAP.md)
 
 ## 已知限制

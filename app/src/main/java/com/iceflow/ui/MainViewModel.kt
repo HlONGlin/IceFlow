@@ -27,7 +27,9 @@ import com.iceflow.service.RemoteRuleSetScheduler
 import com.iceflow.service.AppLog
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -120,6 +122,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     val publicIp: StateFlow<PublicIpState> = publicIpLookup.state
 
+    // Core startup reports Connected before the first outbound is necessarily ready.
+    private suspend fun lookupPublicIp(session: VpnState.Connected): String {
+        var lastFailure: Throwable? = null
+        for (attempt in 0 until 3) {
+            try {
+                return withContext(Dispatchers.IO) {
+                    ConnectionProbe.publicIp(session.socksPort, session.tunnelUser, session.tunnelPass)
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Throwable) {
+                lastFailure = failure
+                if (attempt < 2) delay(1000L * (attempt + 1))
+            }
+        }
+        throw requireNotNull(lastFailure)
+    }
+
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
@@ -151,11 +171,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _connectionTest.value = ConnectionTestState()
                 publicIpLookup.reset()
                 if (session is VpnState.Connected) {
-                    publicIpLookup.query {
-                        withContext(Dispatchers.IO) {
-                            ConnectionProbe.publicIp(session.socksPort, session.tunnelUser, session.tunnelPass)
-                        }
-                    }
+                    publicIpLookup.query { lookupPublicIp(session) }
                 }
             }
         }
