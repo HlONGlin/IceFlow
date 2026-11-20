@@ -122,6 +122,10 @@ class MihomoConfigBuilderTest {
         val n = out(base.copy(tls = "reality", publicKey = "key", shortId = "ab", flow = "xtls-rprx-vision"))
         assertEquals("key", n.getValue("reality-opts").jsonObject.text("public-key")); assertEquals("xtls-rprx-vision", n.text("flow"))
     }
+    @Test fun realityPostQuantumOptionIsEmittedWhenEnabled() {
+        val reality = out(base.copy(tls = "reality", publicKey = "key", supportX25519Mlkem768 = true)).getValue("reality-opts").jsonObject
+        assertEquals(JsonPrimitive(true), reality["support-x25519mlkem768"])
+    }
     @Test fun unsupportedAlterIdRejected() { rejected("alterId") { out(base.copy(protocol = Protocol.VMESS, alterId = 1)) } }
     @Test fun nonVlessXhttpRejected() { rejected("network") { out(base.copy(protocol = Protocol.VMESS, network = "xhttp")) } }
     @Test fun tcpHttpHeaderRejected() { rejected("headerType") { out(base.copy(headerType = "http")) } }

@@ -173,7 +173,10 @@ internal object MihomoConfigBuilder {
             } else if (p.sni.isNotEmpty()) fail("sni", "关闭 TLS 时没有 SNI 消费入口")
             if (p.alpn.isNotBlank()) put("alpn", strings(p.alpn))
             if (p.fingerprint.isNotEmpty() || p.tls == "reality") put("client-fingerprint", p.fingerprint.ifEmpty { "chrome" })
-            if (p.tls == "reality") putJsonObject("reality-opts") { put("public-key", p.publicKey); put("short-id", p.shortId) }
+            if (p.tls == "reality") putJsonObject("reality-opts") {
+                put("public-key", p.publicKey); put("short-id", p.shortId)
+                if (p.supportX25519Mlkem768) put("support-x25519mlkem768", true)
+            }
             else if (p.publicKey.isNotEmpty() || p.shortId.isNotEmpty()) fail("publicKey/shortId", "非 Reality 配置的字段无消费入口")
             if (p.protocol != Protocol.VLESS && p.flow.isNotEmpty()) fail("flow", "该协议无 flow 消费入口")
             if (p.protocol != Protocol.VLESS && p.encryption !in setOf("", "none")) fail("encryption", "该协议无 encryption 消费入口")

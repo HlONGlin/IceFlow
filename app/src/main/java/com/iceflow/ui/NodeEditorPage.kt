@@ -243,6 +243,10 @@ internal enum class ManualAddPage { CHAIN_EDITOR, BALANCE_EDITOR }
                     if (profile.tls == "reality") {
                         EditorInput("Reality 公钥", profile.publicKey, { value -> edit { it.copy(publicKey = value) } })
                         EditorInput("Short ID", profile.shortId, { value -> edit { it.copy(shortId = value) } })
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("X25519MLKEM768 (post-quantum handshake; single-core only)", style = MaterialTheme.typography.bodySmall)
+                            Switch(profile.supportX25519Mlkem768, { value -> edit { it.copy(supportX25519Mlkem768 = value) } })
+                        }
                         EditorInput("Spider X", profile.spiderX, { value -> edit { it.copy(spiderX = value) } })
                     }
                 }

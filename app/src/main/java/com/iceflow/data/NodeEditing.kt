@@ -53,9 +53,10 @@ object NodeEditing {
             map["tls"] = JsonPrimitive(changed.tls != "none")
             if (changed.tls != "reality") map.remove("reality-opts")
         }
-        if (original.publicKey != changed.publicKey || original.shortId != changed.shortId) {
+        if (original.publicKey != changed.publicKey || original.shortId != changed.shortId || original.supportX25519Mlkem768 != changed.supportX25519Mlkem768) {
             val reality = (map["reality-opts"] as? JsonObject)?.toMutableMap() ?: mutableMapOf()
             reality["public-key"] = JsonPrimitive(changed.publicKey); reality["short-id"] = JsonPrimitive(changed.shortId)
+            if (changed.supportX25519Mlkem768) reality["support-x25519mlkem768"] = JsonPrimitive(true) else reality.remove("support-x25519mlkem768")
             map["reality-opts"] = JsonObject(reality)
         }
         if (original.network != changed.network) map["network"] = JsonPrimitive(changed.network)

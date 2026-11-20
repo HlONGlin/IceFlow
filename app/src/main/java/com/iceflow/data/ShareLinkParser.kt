@@ -111,7 +111,7 @@ object ShareLinkParser {
             }
             else -> error("Unsupported share protocol")
         }
-        add("type", profile.network); add("headerType", profile.headerType); add("host", profile.host); add("path", profile.path); add("serviceName", profile.serviceName); add("security", profile.tls); add("sni", profile.sni); add("alpn", profile.alpn); add("fp", profile.fingerprint); add("pbk", profile.publicKey); add("sid", profile.shortId); add("spx", profile.spiderX); if (profile.allowInsecure) add("allowInsecure", "1")
+        add("type", profile.network); add("headerType", profile.headerType); add("host", profile.host); add("path", profile.path); add("serviceName", profile.serviceName); add("security", profile.tls); add("sni", profile.sni); add("alpn", profile.alpn); add("fp", profile.fingerprint); add("pbk", profile.publicKey); add("sid", profile.shortId); add("spx", profile.spiderX); if (profile.supportX25519Mlkem768) add("x25519mlkem768", "1"); if (profile.allowInsecure) add("allowInsecure", "1")
         val auth = if (profile.protocol == Protocol.VLESS) profile.uuid else profile.password
         val scheme = if (profile.protocol == Protocol.VLESS) "vless" else "trojan"
         val queryText = query.entries.joinToString("&") { "${it.key}=${java.net.URLEncoder.encode(it.value, "UTF-8").replace("+", "%20")}" }
@@ -186,6 +186,7 @@ object ShareLinkParser {
             fingerprint = q("fp"),
             publicKey = q("pbk"),
             shortId = q("sid"),
+            supportX25519Mlkem768 = q("x25519mlkem768") == "1",
             spiderX = q("spx"),
             allowInsecure = q("allowInsecure") == "1" || q("insecure") == "1",
         )

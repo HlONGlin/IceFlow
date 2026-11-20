@@ -52,6 +52,15 @@ class ShareLinkParserTest {
     }
 
     @Test
+    fun `parse and encode vless reality post quantum option`() {
+        val link = "vless://11111111-2222-3333-4444-555555555555@1.2.3.4:443" +
+            "?security=reality&pbk=PUBKEY&sid=ab12&x25519mlkem768=1#Reality"
+        val parsed = ShareLinkParser.parse(link)!!
+        assertTrue(parsed.supportX25519Mlkem768)
+        assertTrue(ShareLinkParser.encodeV2rayN(parsed).contains("x25519mlkem768=1"))
+    }
+
+    @Test
     fun `parse vless ipv6 host`() {
         val p = ShareLinkParser.parse("vless://uuid@[2001:db8::1]:8443?type=ws&path=%2Fx#v6")!!
         assertEquals("2001:db8::1", p.address)

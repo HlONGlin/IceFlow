@@ -55,6 +55,8 @@ data class ServerProfile(
     val fingerprint: String = "",
     val publicKey: String = "",
     val shortId: String = "",
+    /** Enable the post-quantum X25519MLKEM768 Reality key exchange when supported. */
+    val supportX25519Mlkem768: Boolean = false,
     val spiderX: String = "",
     val allowInsecure: Boolean = false,
     val username: String = "",

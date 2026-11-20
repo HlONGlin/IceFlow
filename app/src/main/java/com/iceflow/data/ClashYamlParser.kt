@@ -70,6 +70,7 @@ internal object ClashYamlParser {
                 fingerprint = node.text("client-fingerprint"),
                 publicKey = reality?.text("public-key").orEmpty().ifEmpty { node.text("public-key") },
                 shortId = reality?.text("short-id").orEmpty(),
+                supportX25519Mlkem768 = reality?.get("support-x25519mlkem768")?.jsonPrimitive?.booleanOrNull == true,
                 allowInsecure = node.text("skip-cert-verify") == "true",
                 clashConfig = canonical,
             )

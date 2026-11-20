@@ -10,7 +10,20 @@ import org.junit.Assert.*
 import org.junit.Test
 import java.util.Base64
 
-class ClashYamlParserTest {
+class ClashYamlParserTest {    @Test fun parsesRealityPostQuantumOption() {
+        val node = ShareLinkParser.parseMany("""
+            proxies:
+              - name: reality
+                type: vless
+                server: example.com
+                port: 443
+                uuid: 11111111-2222-3333-4444-555555555555
+                tls: true
+                servername: www.example.com
+                reality-opts: {public-key: pub, short-id: ab, support-x25519mlkem768: true}
+        """.trimIndent()).single()
+        assertTrue(node.supportX25519Mlkem768)
+    }
     @Test fun fullConfigKeepsNestedTransportsAndIgnoresRoutingGroups() {
         val yaml = """
             mixed-port: 7890
