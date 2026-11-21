@@ -47,6 +47,13 @@ class MihomoConfigBuilderTest {
     }
     private fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
 
+    @Test fun vpnMtuMatchesTheAndroidTunSetting() {
+        for (mtu in listOf(1280, 1380, 1500)) {
+            val tun = config(s = AppSettings(tunMtu = mtu)).getValue("tun").jsonObject
+            assertEquals(JsonPrimitive(mtu), tun["mtu"])
+        }
+    }
+
     @Test fun explicitAndroidRouteOwnership() {
         for (s in listOf(AppSettings(), AppSettings(fakeDns = false), AppSettings(ipv6Enabled = false), AppSettings(dnsProxyEnabled = false))) {
             for (include in listOf(true, false)) {

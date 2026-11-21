@@ -21,18 +21,23 @@
 
 IceFlow is an Android proxy client built with Jetpack Compose. It combines node and subscription management, rule-based routing, and automatic recovery after network interruptions. The dual and single variants share the same UI, subscription and routing features, with APKs for multiple device architectures.
 
-**Release** `v0.1.5.4` · **Version code** `116` · **Android** 8.0+
+**Release** `v0.1.5.5` · **Version code** `117` · **Android** 8.0+
 
 ## Downloads
 
 | Variant | Core | Download |
 | --- | --- | --- |
-| **single** | Mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-single-universal-release.apk) |
-| **dual** | Xray + Mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-dual-universal-release.apk) |
+| **single** | Mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/IceFlow-0.1.5.5-single-universal-release.apk) |
+| **dual** | Xray + Mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/IceFlow-0.1.5.5-dual-universal-release.apk) |
 
-The [v0.1.5.4 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.4) also offers `arm64-v8a`, `armeabi-v7a` and `x86_64` packages. Choose the universal APK if you are unsure which architecture your device uses. The signing certificate is unchanged, so you can update an existing release install without losing app data.
+The [v0.1.5.5 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.5) also offers `arm64-v8a`, `armeabi-v7a` and `x86_64` packages. Choose the universal APK if you are unsure which architecture your device uses. The signing certificate is unchanged, so you can update an existing release install without losing app data.
 
-[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/ARTIFACT_MANIFEST.json)
+[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/ARTIFACT_MANIFEST.json)
+
+### What's New in v0.1.5.5
+
+- Set the VPN MTU under **Settings → DNS & Network** in both variants. The range is 1280–1500 bytes and the default is 1500. Saving a new value reconnects an active VPN.
+- Changing the app's text size keeps the current VPN session connected.
 
 ### What's New in v0.1.5.4
 

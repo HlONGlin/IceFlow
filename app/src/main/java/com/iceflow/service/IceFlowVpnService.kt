@@ -55,7 +55,6 @@ class IceFlowVpnService : VpnService() {
 
         private const val TAG = "IceFlowVpnService"
         private const val NOTIFICATION_ID = 1
-        private const val MTU = 1500
         private const val TUN_ADDRESS_V4 = "172.19.0.1"
         private const val TUN_ADDRESS_V6 = "fdfe:dcba:9876::1"
     }
@@ -342,7 +341,7 @@ class IceFlowVpnService : VpnService() {
             container.routingResources.prepare()
             mark("routingResources.prepare")
             val appProxyMode = if (settings.appRoutingEnabled) settings.appProxyMode else settings.proxyAppsOnly
-            AppLog.write(this, "INFO", "代理方案：${CoreVariantBridge.coreDisplayName} 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, 分应用代理=$appProxyMode")
+            AppLog.write(this, "INFO", "代理方案：${CoreVariantBridge.coreDisplayName} 核心 + TUN 转发，DNS=${settings.dnsServers.joinToString(",")}, IPv6=${settings.ipv6Enabled}, MTU=${settings.tunMtu}, 分应用代理=$appProxyMode")
             if (settings.bypassApps.isNotEmpty()) AppLog.write(this, "INFO", "应用策略包数量：${settings.bypassApps.size}")
             CoreVariantBridge.prepareAssets(filesDir.absolutePath)
             mark("validate+readSettings")
@@ -404,7 +403,7 @@ class IceFlowVpnService : VpnService() {
             failureType = VpnErrorType.CONFIGURATION_OR_SUBSCRIPTION
             val builder = Builder()
                 .setSession(profile.name)
-                .setMtu(MTU)
+                .setMtu(settings.tunMtu)
                 .addAddress(TUN_ADDRESS_V4, 30)
                 .addRoute("0.0.0.0", 0)
                 // 同时接管 IPv6，防止 IPv6 流量绕过隧道泄漏
@@ -436,7 +435,7 @@ class IceFlowVpnService : VpnService() {
 
             CoreVariantBridge.attachTun(
                 fd = pfd.fd,
-                mtu = MTU,
+                mtu = settings.tunMtu,
                 proxyUrl = "socks5://$tunnelUser:$tunnelPass@127.0.0.1:$tunnelPort",
                 settings = settings,
             )

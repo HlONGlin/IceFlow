@@ -41,9 +41,27 @@ class BackupCodecTest {
         assertThrows(IllegalArgumentException::class.java) { BackupCodec.decode(BackupCodec.encode(ServerStore(servers = listOf(node, node)), settings)) }
     }
 
+    @Test fun vpnMtuIsBackedUpAndOldBackupsKeepTheDefault() {
+        val store = ServerStore()
+        val backup = BackupCodec.encode(store, AppSettings(tunMtu = 1380))
+        assertEquals(1380, BackupCodec.decode(backup).settings.tunMtu)
+        val oldBackup = backup.replace(",\n        \"tunMtu\": 1380", "")
+        assertFalse(oldBackup.contains("tunMtu"))
+        assertEquals(1500, BackupCodec.decode(oldBackup).settings.tunMtu)
+        for (mtu in listOf(1280, 1500)) AppSettings(tunMtu = mtu).validate()
+        for (mtu in listOf(1279, 1501)) {
+            assertThrows(IllegalArgumentException::class.java) {
+                BackupCodec.decode(BackupCodec.encode(store, AppSettings(tunMtu = mtu)))
+            }
+        }
+    }
+
     @Test fun onlyConnectionChangesRequireRestartAndDnsMustBeNumeric() {
         val settings = AppSettings()
         assertTrue(settings.hasSameConnection(settings.copy(theme = AppTheme.MINT_GREEN, testUrl = "https://example.org/", showTrafficStats = true, showPublicIp = true)))
+        assertTrue(settings.hasSameConnection(settings.copy(textSize = TextSize.entries.first { it != settings.textSize })))
+        assertTrue(settings.hasSameConnection(settings.copy(tunMtu = 1500)))
+        assertFalse(settings.hasSameConnection(settings.copy(tunMtu = 1380)))
         assertFalse(settings.showPublicIp)
         assertFalse(settings.hasSameConnection(settings.copy(dnsProxyEnabled = false)))
         assertFalse(settings.hasSameConnection(settings.copy(socksPassword = "changed")))

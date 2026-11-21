@@ -20,6 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.iceflow.IceFlowApp
 import com.iceflow.data.ClashYamlParser
 import com.iceflow.data.model.*
+import com.iceflow.data.repository.SettingsRepository
 import com.iceflow.service.IceFlowVpnService
 import com.iceflow.service.VpnController
 import com.iceflow.service.VpnState
@@ -93,6 +94,28 @@ class VpnLifecycleTest {
         assertTrue("IPv6 did not traverse the VPN: $ipv6; destinations=${upstream.destinations}; errors=${upstream.errors}", ipv6.contains("iceflow-tun-ok"))
         await { VpnController.traffic.value.upTotal > 0 && VpnController.traffic.value.downTotal > 0 }
         assertTrue("Published traffic must include sampled history", VpnController.traffic.value.history.isNotEmpty())
+    }
+
+    @Test fun changingVpnMtuReestablishesTheTunAndKeepsIpv6TrafficWorking() {
+        val initial = connect()
+        assertEquals(1500, activeTunMtu())
+        container.settings.update { it.copy(tunMtu = 1280) }
+        val updated = awaitConnectionAfter(initial)
+        assertEquals(1280, activeTunMtu())
+        assertEquals(1280, SettingsRepository(context).settings.value.tunMtu)
+        val ipv6 = probeTun("2001:db8::1")
+        assertTrue("IPv6 traffic failed after changing the VPN MTU: $ipv6", ipv6.contains("iceflow-tun-ok"))
+        container.settings.update { it.copy(tunMtu = 1280) }
+        SystemClock.sleep(500)
+        assertEquals("Saving the same MTU must not reconnect the VPN", updated, VpnController.state.value)
+    }
+
+    private fun activeTunMtu(): Int {
+        val iface = shell("dumpsys connectivity").lineSequence()
+            .filter { it.contains("172.19.0.1/30") }
+            .firstNotNullOfOrNull { Regex("InterfaceName: (tun[0-9]+)").find(it)?.groupValues?.get(1) }
+        checkNotNull(iface) { "IceFlow TUN interface missing from connectivity state" }
+        return shell("cat /sys/class/net/$iface/mtu").trim().toInt()
     }
 
     @Test fun ipv6ClashUpstreamWorksWithIpv6TunEnabled() {

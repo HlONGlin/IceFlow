@@ -82,7 +82,7 @@ internal object MihomoConfigBuilder {
                 put("ipv6", settings.ipv6Enabled); put("geodata-mode", true)
                 // Every emitted configuration explicitly leaves Android route ownership with VpnService.
                 putJsonObject("tun") {
-                    put("enable", false); put("stack", "gvisor"); put("mtu", 1500)
+                    put("enable", false); put("stack", "gvisor"); put("mtu", settings.tunMtu)
                     put("auto-route", false); put("auto-detect-interface", false); put("auto-redirect", false)
                     put("dns-hijack", JsonArray(listOf(JsonPrimitive("any:53"))))
                     put("inet6-address", JsonArray(if (settings.ipv6Enabled) listOf(JsonPrimitive("fdfe:dcba:9876::1/126")) else emptyList()))

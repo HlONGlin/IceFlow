@@ -37,6 +37,7 @@ class SettingsRepository(context: Context) {
             putStringSet("bypass_apps", next.bypassApps.toSet())
             putBoolean("proxy_apps_only", next.proxyAppsOnly)
             putBoolean("ipv6_enabled", next.ipv6Enabled)
+            putInt(KEY_TUN_MTU, next.tunMtu)
             putString("dns_servers", next.dnsServers.joinToString("\n"))
             putBoolean("socks_enabled", next.socksEnabled)
             putBoolean("socks_udp", next.socksUdp)
@@ -78,6 +79,7 @@ class SettingsRepository(context: Context) {
             bypassApps = bypassApps,
             proxyAppsOnly = legacyProxyAppsOnly,
             ipv6Enabled = prefs.getBoolean("ipv6_enabled", true),
+            tunMtu = prefs.getInt(KEY_TUN_MTU, d.tunMtu).takeIf { it in AppSettings.TUN_MTU_RANGE } ?: d.tunMtu,
             dnsServers = prefs.getString("dns_servers", d.dnsServers.joinToString("\n"))!!.lines().map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { d.dnsServers },
             socksEnabled = prefs.getBoolean("socks_enabled", true),
             socksUdp = prefs.getBoolean("socks_udp", true),
@@ -102,6 +104,7 @@ class SettingsRepository(context: Context) {
     }
 
     private companion object {
+        const val KEY_TUN_MTU = "tun_mtu"
         const val KEY_SOCKS_PORT = "socks_port"
         const val KEY_REMOTE_DNS = "remote_dns"
         const val KEY_DOMESTIC_DNS = "domestic_dns"

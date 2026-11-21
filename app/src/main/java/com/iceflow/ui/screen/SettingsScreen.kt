@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Language
 import com.iceflow.data.model.AppLanguage
 import com.iceflow.i18n.T
+import com.iceflow.i18n.Tf
 import com.iceflow.i18n.stringsOf
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
@@ -287,6 +288,7 @@ private fun TextSettingsPage(
     onBack: () -> Unit,
     onSave: (String) -> String?,
     help: String? = null,
+    keyboardType: KeyboardType = if (title.contains("URL")) KeyboardType.Uri else KeyboardType.Text,
 ) {
     var value by rememberSaveable { mutableStateOf(initialValue) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
@@ -300,7 +302,7 @@ private fun TextSettingsPage(
                 singleLine = !multiline,
                 minLines = if (multiline) 3 else 1,
                 maxLines = if (multiline) 8 else 1,
-                keyboardOptions = KeyboardOptions(keyboardType = if (title.contains("URL")) KeyboardType.Uri else KeyboardType.Text),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                 isError = error != null,
                 supportingText = { error?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
             )
@@ -412,6 +414,26 @@ fun SettingsScreen(
                     detail = null
                 }.exceptionOrNull()?.message
             }, help = T("settings.dnsHelp"))
+            "tunMtu" -> {
+                val range = AppSettings.TUN_MTU_RANGE
+                val rangeError = Tf("settings.tunMtuRange", range.first, range.last)
+                TextSettingsPage(
+                    title = T("settings.tunMtu"),
+                    label = T("settings.tunMtuLabel"),
+                    initialValue = settings.tunMtu.toString(),
+                    onBack = { detail = null },
+                    onSave = { text ->
+                        runCatching {
+                            val mtu = text.trim().toIntOrNull()
+                            require(mtu != null && mtu in range) { rangeError }
+                            if (mtu != settings.tunMtu) onUpdate { it.copy(tunMtu = mtu) }
+                            detail = null
+                        }.exceptionOrNull()?.message
+                    },
+                    help = Tf("settings.tunMtuHelp", range.first, range.last, AppSettings.DEFAULT_TUN_MTU),
+                    keyboardType = KeyboardType.Number,
+                )
+            }
             "testUrl" -> TextSettingsPage(T("settings.testUrl"), T("settings.testUrlPlaceholder"), settings.testUrl, onBack = { detail = null }, onSave = { text ->
                 runCatching { com.iceflow.data.model.RoutingRules.validateTestUrl(text) }
                     .onSuccess { valid -> onUpdate { it.copy(testUrl = valid) }; detail = null }
@@ -502,6 +524,8 @@ fun SettingsScreen(
             ToggleRow(Icons.Outlined.FilterAlt, T("settings.fakeDns"), T("settings.fakeDnsHint"), settings.fakeDns) { v -> onUpdate { it.copy(fakeDns = v) } }
             RowDivider()
             ToggleRow(Icons.Outlined.Public, T("settings.ipv6"), T("settings.ipv6Hint"), settings.ipv6Enabled) { v -> onUpdate { it.copy(ipv6Enabled = v) } }
+            RowDivider()
+            SettingAction(Icons.Outlined.SettingsEthernet, T("settings.tunMtu"), "${settings.tunMtu} B") { detail = "tunMtu" }
         }
 
         // ── 应用路由 ──────────────────────────────────────────────────────────────

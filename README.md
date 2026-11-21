@@ -21,18 +21,23 @@
 
 IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节点与订阅管理、规则分流，以及网络中断后的自动恢复体验。dual 和 single 两种变体共享 UI、订阅与路由能力，并提供多种设备架构的 APK。
 
-**版本** `v0.1.5.4` · **版本码** `116` · **Android** 8.0 及以上
+**版本** `v0.1.5.5` · **版本码** `117` · **Android** 8.0 及以上
 
 ## 下载
 
 | 变体 | 核心 | 下载 |
 | --- | --- | --- |
-| **single** | Mihomo | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-single-universal-release.apk) |
-| **dual** | Xray + Mihomo + Rust TUN | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-dual-universal-release.apk) |
+| **single** | Mihomo | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/IceFlow-0.1.5.5-single-universal-release.apk) |
+| **dual** | Xray + Mihomo + Rust TUN | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/IceFlow-0.1.5.5-dual-universal-release.apk) |
 
-[v0.1.5.4 Release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.4) 也提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 架构包。不确定设备架构时，选择通用 APK。正式签名未变，可以覆盖安装并保留数据。
+[v0.1.5.5 Release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.5) 也提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 架构包。不确定设备架构时，选择通用 APK。正式签名未变，可以覆盖安装并保留数据。
 
-[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/ARTIFACT_MANIFEST.json)
+[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.5/ARTIFACT_MANIFEST.json)
+
+### v0.1.5.5 更新
+
+- 单核和双核版均可在 **设置 → DNS 与网络 → VPN MTU** 调整隧道 MTU，范围为 1280–1500 字节，默认 1500。VPN 已连接时，保存新值会自动重连。
+- 修改应用字号时，保留当前 VPN 连接。
 
 ### v0.1.5.4 更新
 

@@ -280,17 +280,25 @@ data class AppSettings(
     val appRoutingEnabled: Boolean = false,
     val appProxyMode: Boolean = false,
     val language: String = "zh-CN",
+    val tunMtu: Int = DEFAULT_TUN_MTU,
 ) {
+    companion object {
+        const val DEFAULT_TUN_MTU = 1500
+        // Keep the IPv6 minimum available even when IPv6 routing is currently off.
+        val TUN_MTU_RANGE = 1280..1500
+    }
+
     val effectiveRoutingRules: List<RoutingRule> get() = routingRules + expandedRemoteRules
 
     fun hasSameConnection(other: AppSettings): Boolean = copy(
-        theme = other.theme, nightMode = other.nightMode, language = other.language,
+        theme = other.theme, nightMode = other.nightMode, language = other.language, textSize = other.textSize,
         showTrafficStats = other.showTrafficStats, logRetentionDays = other.logRetentionDays,
         showNodeLatency = other.showNodeLatency, showPublicIp = other.showPublicIp,
         testUrl = other.testUrl,
     ) == other
 
     fun validate() {
+        require(tunMtu in TUN_MTU_RANGE) { "VPN MTU must be between ${TUN_MTU_RANGE.first} and ${TUN_MTU_RANGE.last}" }
         require(httpPort in 1024..65535) { "HTTP port must be between 1024 and 65535" }
         require(!(socksEnabled && httpEnabled && socksPort == httpPort)) { "SOCKS and HTTP ports must be different" }
         if (allowLan) {
