@@ -2,6 +2,7 @@ package libxray
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -96,6 +97,94 @@ func TestExtendedAdapterLifecycle(t *testing.T) {
 				t.Fatal("adapter instance not running")
 			}
 			if err := Stop(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestAdapterDialsIPv6Upstream(t *testing.T) {
+	listener, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	proxy := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		conn, rw, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+		_, _ = rw.WriteString("HTTP/1.1 200 Connection Established\r\n\r\n")
+		_ = rw.Flush()
+		if _, err := http.ReadRequest(rw.Reader); err != nil {
+			return
+		}
+		_, _ = rw.WriteString("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+		_ = rw.Flush()
+	}))
+	_ = proxy.Listener.Close()
+	proxy.Listener = listener
+	proxy.Start()
+	defer proxy.Close()
+
+	for _, host := range []string{"::1", "[::1]"} {
+		t.Run(host, func(t *testing.T) {
+			config := adapterConfig(map[string]any{"type": "http", "server": host, "port": listener.Addr().(*net.TCPAddr).Port})
+			if _, err := MeasureDelay(config, "http://iceflow.invalid/generate_204", 5000); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestShadowsocks2022OverIPv6(t *testing.T) {
+	listener, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback is unavailable: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+
+	const method = "2022-blake3-aes-256-gcm"
+	key := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	serverConfig := fmt.Sprintf(`{
+		"log":{"loglevel":"none"},
+		"inbounds":[{"listen":"::1","port":%d,"protocol":"shadowsocks",
+			"settings":{"method":%q,"password":%q,"network":"tcp"}}],
+		"outbounds":[{"protocol":"freedom"}]
+	}`, port, method, key)
+	server, err := newInstance(serverConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	if err := server.Start(); err != nil {
+		t.Fatal(err)
+	}
+
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer target.Close()
+
+	configs := map[string]string{
+		"clash-adapter": adapterConfig(map[string]any{
+			"type": "ss", "server": "::1", "port": port, "cipher": method, "password": key,
+		}),
+		"native-xray": fmt.Sprintf(`{
+			"log":{"loglevel":"none"},
+			"outbounds":[{"tag":"proxy","protocol":"shadowsocks",
+				"settings":{"servers":[{"address":"::1","port":%d,"method":%q,"password":%q}]}}]
+		}`, port, method, key),
+	}
+	for name, config := range configs {
+		t.Run(name, func(t *testing.T) {
+			if _, err := MeasureDelay(config, target.URL, 5000); err != nil {
 				t.Fatal(err)
 			}
 		})

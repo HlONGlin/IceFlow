@@ -21,26 +21,25 @@
 
 IceFlow is an Android proxy client built with Jetpack Compose. It combines node and subscription management, rule-based routing, and automatic recovery after network interruptions. The dual and single variants share the same UI, subscription and routing features, with APKs for multiple device architectures.
 
-**Release** `v0.1.5.3` · **Version code** `115` · **Android** 8.0+
+**Release** `v0.1.5.4` · **Version code** `116` · **Android** 8.0+
 
 ## Downloads
 
 | Variant | Core | Download |
 | --- | --- | --- |
-| **single** | Mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-single-universal-release.apk) |
-| **dual** | Xray + Mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-dual-universal-release.apk) |
+| **single** | Mihomo | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-single-universal-release.apk) |
+| **dual** | Xray + Mihomo + Rust TUN | [Universal APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-dual-universal-release.apk) |
 
-The [v0.1.5.3 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.3) also offers `arm64-v8a`, `armeabi-v7a` and `x86_64` packages. Choose the universal APK if you are unsure which architecture your device uses. The signing certificate is unchanged, so you can update an existing release install without losing app data.
+The [v0.1.5.4 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.4) also offers `arm64-v8a`, `armeabi-v7a` and `x86_64` packages. Choose the universal APK if you are unsure which architecture your device uses. The signing certificate is unchanged, so you can update an existing release install without losing app data.
 
-[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/ARTIFACT_MANIFEST.json)
+[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/SHA256SUMS.txt) · [Build manifest](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/ARTIFACT_MANIFEST.json)
 
-### What's New in v0.1.5.3
+### What's New in v0.1.5.4
 
-- Fixed a single-core issue where enabling the local HTTP proxy could make every node report "node or subscription configuration invalid".
-- Public IP lookup now uses an IPv4/IPv6 endpoint and retries after a failure. A failed lookup does not mean the VPN disconnected.
-- The single variant supports the Reality `support-x25519mlkem768` option. The dual variant does not apply this option.
-
-Already on `v0.1.5.3`? Download and install the refreshed APK over your existing install. The hotfix keeps the same version number, so the app does not flag it as an update. See the [change log](docs/CHANGELOG-v0.1.5.3.md#english).
+- The dual variant enables IPv6 dialing in its embedded Mihomo adapter and accepts bracketed IPv6 server addresses in Clash profiles.
+- In dual rule mode, the domestic resolver handles matching domains. Embedded adapters use TCP for remote DNS configured as an IP address, so DNS works on TCP-only proxies.
+- The single variant accepts AnyTLS nodes with a boolean `tls` field in Clash subscriptions, preventing the “node or subscription configuration invalid” error.
+- See the [v0.1.5.3 change log](docs/CHANGELOG-v0.1.5.3.md#english) for the previous release.
 
 ## App Module Preview
 

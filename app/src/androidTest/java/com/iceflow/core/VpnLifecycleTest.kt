@@ -18,6 +18,7 @@ import android.os.SystemClock
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.iceflow.IceFlowApp
+import com.iceflow.data.ClashYamlParser
 import com.iceflow.data.model.*
 import com.iceflow.service.IceFlowVpnService
 import com.iceflow.service.VpnController
@@ -92,6 +93,30 @@ class VpnLifecycleTest {
         assertTrue("IPv6 did not traverse the VPN: $ipv6; destinations=${upstream.destinations}; errors=${upstream.errors}", ipv6.contains("iceflow-tun-ok"))
         await { VpnController.traffic.value.upTotal > 0 && VpnController.traffic.value.downTotal > 0 }
         assertTrue("Published traffic must include sampled history", VpnController.traffic.value.history.isNotEmpty())
+    }
+
+    @Test fun ipv6ClashUpstreamWorksWithIpv6TunEnabled() {
+        SocksFixture("::1").use { ipv6Upstream ->
+            val profile = ClashYamlParser.parse("""
+                proxies:
+                  - name: IPv6 fixture
+                    type: socks5
+                    server: "[::1]"
+                    port: ${ipv6Upstream.port}
+            """.trimIndent()).single()
+            container.servers.replace(ServerStore(servers = listOf(profile), selectedId = profile.id))
+            container.settings.update { it.copy(ipv6Enabled = true) }
+            try {
+                val session = connect()
+                assertTrue(ConnectionProbe.measure(session.socksPort, username = session.tunnelUser,
+                    password = session.tunnelPass, url = "http://probe.invalid/generate_204") > 0)
+                val output = probeTun("198.51.100.1")
+                assertTrue("Traffic did not reach the IPv6 upstream: $output", output.contains("iceflow-tun-ok"))
+                assertTrue(ipv6Upstream.destinations.contains("198.51.100.1:80"))
+            } finally {
+                stopAndWait()
+            }
+        }
     }
 
     @Test fun appAllowlistRoutesTheSelectedPackageThroughTun() {
@@ -305,8 +330,8 @@ class VpnLifecycleTest {
         } finally { context.unbindService(connection) }
     }
 
-    private class SocksFixture : Closeable {
-        private val server = ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
+    private class SocksFixture(address: String = "127.0.0.1") : Closeable {
+        private val server = ServerSocket(0, 16, InetAddress.getByName(address))
         private val closed = AtomicBoolean(false)
         private val clients = CopyOnWriteArrayList<Socket>()
         val destinations = CopyOnWriteArrayList<String>()

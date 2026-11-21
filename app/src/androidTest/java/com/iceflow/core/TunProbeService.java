@@ -24,7 +24,7 @@ public class TunProbeService extends Service {
                 try (Socket socket = new Socket()) {
                     socket.setSoTimeout(5000);
                     socket.connect(new InetSocketAddress(host, 80), 5000);
-                    socket.getOutputStream().write("GET /tun HTTP/1.0\r\nHost: fixture\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
+                    socket.getOutputStream().write("GET /tun HTTP/1.0\r\nHost: probe.invalid\r\n\r\n".getBytes(StandardCharsets.US_ASCII));
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     byte[] buffer = new byte[1024];
                     int count;

@@ -233,6 +233,8 @@ object XrayConfigBuilder {
                             put("address", xrayDnsAddress(settings.domesticDns))
                             // tag 用于域匹配器缓存（MPH cache）的键，必须存在且唯一
                             put("tag", DOMESTIC_DNS_TAG)
+                            // Only the matched domestic domains should try this resolver first.
+                            put("skipFallback", true)
                             putJsonArray("domains") {
                                 directDomains.forEach { domain -> add(domain) }
                                 // 添加常见国内域名 geosite 分类
@@ -244,7 +246,12 @@ object XrayConfigBuilder {
                     }
                     // 远端 DNS：默认，用于代理域名
                     addJsonObject {
-                        put("address", xrayDnsAddress(settings.remoteDns))
+                        val remote = xrayDnsAddress(settings.remoteDns)
+                        // Some embedded adapters only forward TCP. Rule matching must still be
+                        // able to resolve names through the selected proxy in that case.
+                        val useTcp = settings.routingMode == RoutingMode.RULE && adapters.isNotEmpty() && !remote.contains("://")
+                        val host = remote.trim().removeSurrounding("[", "]")
+                        put("address", if (useTcp) "tcp://${if (':' in host) "[$host]" else host}" else remote)
                         put("tag", REMOTE_DNS_TAG)
                     }
                 }

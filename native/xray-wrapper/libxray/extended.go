@@ -11,6 +11,7 @@ import (
 
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/common/net/deadline"
+	"github.com/metacubex/mihomo/component/resolver"
 	C "github.com/metacubex/mihomo/constant"
 	"github.com/xtls/xray-core/common"
 	"github.com/xtls/xray-core/common/buf"
@@ -22,6 +23,12 @@ import (
 	"github.com/xtls/xray-core/features/outbound"
 	"github.com/xtls/xray-core/transport"
 )
+
+func init() {
+	// The embedded adapter never runs Mihomo's executor, which normally sets IPv6
+	// support. Upstream connections can use either family regardless of TUN routes.
+	resolver.DisableIPv6 = false
+}
 
 // installExtended replaces only the proxy outbound; Xray retains SOCKS, DNS and routing.
 func installExtended(inst *core.Instance, configJSON string) error {
@@ -59,6 +66,12 @@ func installExtended(inst *core.Instance, configJSON string) error {
 
 func installAdapter(inst *core.Instance, tag, upstream string, options map[string]any) error {
 	options = adapterNumbers(options).(map[string]any)
+	if server, ok := options["server"].(string); ok && strings.HasPrefix(server, "[") && strings.HasSuffix(server, "]") {
+		// Mihomo joins server and port itself. Older imports may keep URI brackets.
+		if ip, err := netip.ParseAddr(server[1 : len(server)-1]); err == nil && ip.Is6() {
+			options["server"] = server[1 : len(server)-1]
+		}
+	}
 	kind, _ := options["type"].(string)
 	switch kind {
 	case "vmess", "vless", "trojan", "ss", "hysteria", "hysteria2", "tuic", "wireguard", "ssr", "http", "socks5", "mieru", "anytls", "sudoku":

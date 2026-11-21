@@ -3,6 +3,7 @@ package com.iceflow.data
 import com.iceflow.data.model.AppSettings
 import com.iceflow.data.model.Protocol
 import com.iceflow.data.model.ServerProfile
+import com.iceflow.data.model.RoutingMode
 import com.iceflow.data.model.LocalGroup
 import com.iceflow.data.model.ServerStore
 import com.iceflow.data.model.LoadBalanceStrategy
@@ -170,6 +171,31 @@ class XrayConfigBuilderTest {
         val tags = servers.map { it.str("tag") }
         assertTrue("DNS 服务器必须包含 tag，实际为 $tags", tags.none { it.isBlank() })
         assertEquals("DNS tag 必须唯一，实际为 $tags", tags.size, tags.distinct().size)
+    }
+
+    @Test
+    fun `unmatched domains skip the domestic DNS resolver`() {
+        val cfg = parse(XrayConfigBuilder.build(vless, AppSettings(routingMode = RoutingMode.RULE)))
+        val servers = cfg.obj("dns").getValue("servers").jsonArray.map { it.jsonObject }.associateBy { it.str("tag") }
+        assertTrue(servers.getValue(XrayConfigBuilder.DOMESTIC_DNS_TAG).getValue("skipFallback").jsonPrimitive.boolean)
+        assertFalse(servers.getValue(XrayConfigBuilder.REMOTE_DNS_TAG).containsKey("skipFallback"))
+    }
+
+    @Test
+    fun `embedded proxies use TCP for plain remote DNS in rule mode`() {
+        val profile = ClashYamlParser.parse("""
+            proxies:
+              - {name: Example, type: socks5, server: "::1", port: 1080}
+        """.trimIndent()).single()
+        fun remote(settings: AppSettings): String = parse(XrayConfigBuilder.build(profile, settings))
+            .obj("dns").getValue("servers").jsonArray.map { it.jsonObject }
+            .single { it.str("tag") == XrayConfigBuilder.REMOTE_DNS_TAG }.str("address")
+
+        val settings = AppSettings(routingMode = RoutingMode.RULE)
+        assertEquals("tcp://1.1.1.1", remote(settings))
+        assertEquals("tcp://[2606:4700:4700::1111]", remote(settings.copy(remoteDns = "2606:4700:4700::1111")))
+        assertEquals("https://dns.example/dns-query", remote(settings.copy(remoteDns = "https://dns.example/dns-query")))
+        assertEquals("1.1.1.1", remote(settings.copy(routingMode = RoutingMode.GLOBAL)))
     }
 
     @Test

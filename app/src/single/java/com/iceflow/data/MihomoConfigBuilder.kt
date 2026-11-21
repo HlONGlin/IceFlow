@@ -251,7 +251,7 @@ internal object MihomoConfigBuilder {
     }
 
     /**
-     * Apply the two approved location conversions before schema validation.
+     * Normalize equivalent fields before schema validation.
      *
      * VLESS's legacy top-level ws-headers is only equivalent for a Host-only
      * object; the mihomo websocket consumer reads that value from ws-opts.headers.
@@ -259,6 +259,11 @@ internal object MihomoConfigBuilder {
      * list is moved to one explicit peer with the same endpoint and key material.
      */
     private fun normalizeApprovedGaps(node: MutableMap<String, JsonElement>, p: ServerProfile) {
+        // Mihomo AnyTLS always uses TLS; some Clash exporters add a generic boolean flag.
+        if (p.protocol == Protocol.ANYTLS && node["tls"] in setOf(JsonPrimitive(true), JsonPrimitive(false))) {
+            node.remove("tls")
+        }
+
         val wsHeaders = node["ws-headers"] as? JsonObject
         if (wsHeaders != null) {
             if (p.protocol != Protocol.VLESS || node.text("network") != "ws") {

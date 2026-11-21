@@ -21,26 +21,25 @@
 
 IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节点与订阅管理、规则分流，以及网络中断后的自动恢复体验。dual 和 single 两种变体共享 UI、订阅与路由能力，并提供多种设备架构的 APK。
 
-**版本** `v0.1.5.3` · **版本码** `115` · **Android** 8.0 及以上
+**版本** `v0.1.5.4` · **版本码** `116` · **Android** 8.0 及以上
 
 ## 下载
 
 | 变体 | 核心 | 下载 |
 | --- | --- | --- |
-| **single** | Mihomo | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-single-universal-release.apk) |
-| **dual** | Xray + Mihomo + Rust TUN | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/IceFlow-0.1.5.3-dual-universal-release.apk) |
+| **single** | Mihomo | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-single-universal-release.apk) |
+| **dual** | Xray + Mihomo + Rust TUN | [通用 APK](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/IceFlow-0.1.5.4-dual-universal-release.apk) |
 
-[v0.1.5.3 Release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.3) 也提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 架构包。不确定设备架构时，选择通用 APK。正式签名未变，可以覆盖安装并保留数据。
+[v0.1.5.4 Release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.4) 也提供 `arm64-v8a`、`armeabi-v7a` 和 `x86_64` 架构包。不确定设备架构时，选择通用 APK。正式签名未变，可以覆盖安装并保留数据。
 
-[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.3/ARTIFACT_MANIFEST.json)
+[SHA256SUMS.txt](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/SHA256SUMS.txt) · [构建清单](https://github.com/HlONGlin/IceFlow/releases/download/v0.1.5.4/ARTIFACT_MANIFEST.json)
 
-### v0.1.5.3 更新
+### v0.1.5.4 更新
 
-- 修复单核版启用本地 HTTP 代理后，所有节点可能提示“节点或订阅配置无效”的问题。
-- 公网 IP 查询改用支持 IPv4 和 IPv6 的端点，并在失败时重试。查询失败不等于 VPN 已断开。
-- 单核版支持 Reality 的 `support-x25519mlkem768` 选项；双核版当前不应用此选项。
-
-已安装 `v0.1.5.3` 的用户需手动下载覆盖安装。本次热修复沿用原版本号，应用不会提示更新。详见[变更记录](docs/CHANGELOG-v0.1.5.3.md)。
+- 双核版修复内嵌 Mihomo 拨号时禁用 IPv6 的问题，并兼容 Clash 配置中带方括号的 IPv6 服务器地址。
+- 双核规则模式下，国内 DNS 仅用于匹配的域名。使用内嵌代理且远程 DNS 配为 IP 地址时，改用 TCP 查询，避免 UDP 不可用时等待超时。
+- 单核版兼容 Clash 订阅中带布尔 `tls` 字段的 AnyTLS 节点，避免提示“节点或订阅配置无效”。
+- 上一版的变更见 [v0.1.5.3 更新记录](docs/CHANGELOG-v0.1.5.3.md)。
 
 ## 应用模块实机预览
 

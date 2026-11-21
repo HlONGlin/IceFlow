@@ -322,6 +322,17 @@ class MihomoConfigBuilderTest {
         val p = base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p", protocolOptions = mapOf("clientFingerprint" to "chrome", "idleSessionTimeout" to "30", "ech-opts" to """{"enable":true,"config":"AA=="}"""))
         assertEquals("chrome", out(p).text("client-fingerprint")); assertEquals(30, out(p).getValue("idle-session-timeout").jsonPrimitive.int)
     }
+    @Test fun importedAnyTlsDropsRedundantTlsFlag() {
+        val profile = ClashYamlParser.parse("""
+            proxies:
+              - {name: Example, type: anytls, server: example.com, port: 443, password: test, tls: true, sni: example.com}
+        """.trimIndent()).single()
+        val node = out(profile)
+        assertEquals("anytls", node.text("type"))
+        assertEquals("example.com", node.text("sni"))
+        assertEquals("test", node.text("password"))
+        assertFalse(node.containsKey("tls"))
+    }
     @Test fun anyTlsFingerprintFollowsDualPrecedence() {
         val n = out(base.copy(protocol = Protocol.ANYTLS, uuid = "", password = "p", fingerprint = "chrome",
             protocolOptions = mapOf("fp" to "firefox")))
