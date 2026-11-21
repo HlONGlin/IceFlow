@@ -38,6 +38,7 @@ The [v0.1.5.5 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.5
 
 - Set the VPN MTU under **Settings → DNS & Network** in both variants. The range is 1280–1500 bytes and the default is 1500. Saving a new value reconnects an active VPN.
 - Changing the app's text size keeps the current VPN session connected.
+- The single variant no longer adds duplicate brackets when dialing IPv6 addresses from manual or Clash-imported nodes.
 
 ### What's New in v0.1.5.4
 

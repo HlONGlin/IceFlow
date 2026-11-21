@@ -197,7 +197,7 @@ class IceFlowVpnService : VpnService() {
 
     private fun handle(command: Command) {
         if (command !is Command.Stop && !VpnController.canStartConnection()) return
-        Log.i(TAG, "[CMD] $command  desiredRunning=$desiredRunning state=${VpnController.state.value}")
+        Log.i(TAG, "[CMD] $command desiredRunning=$desiredRunning state=${VpnController.state.value.javaClass.simpleName}")
         AppLog.write(this, "INFO", "[CMD] $command desiredRunning=$desiredRunning")
         when (command) {
             is Command.Stop -> stopVpn(command.startId)

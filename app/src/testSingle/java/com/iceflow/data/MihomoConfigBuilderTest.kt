@@ -54,6 +54,14 @@ class MihomoConfigBuilderTest {
         }
     }
 
+    @Test fun mihomoReceivesUnbracketedIpv6ServerForBothRawAndManualNodes() {
+        val imported = ClashYamlParser.parse(
+            """{"proxies":[{"name":"IPv6 fixture","type":"socks5","server":"[2001:db8::1]","port":1080}]}""",
+        ).single()
+        assertEquals("2001:db8::1", out(imported).text("server"))
+        assertEquals("2001:db8::1", out(base.copy(address = "[2001:db8::1]")).text("server"))
+    }
+
     @Test fun explicitAndroidRouteOwnership() {
         for (s in listOf(AppSettings(), AppSettings(fakeDns = false), AppSettings(ipv6Enabled = false), AppSettings(dnsProxyEnabled = false))) {
             for (include in listOf(true, false)) {

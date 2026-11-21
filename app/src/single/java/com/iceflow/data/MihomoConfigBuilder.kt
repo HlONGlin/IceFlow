@@ -132,6 +132,11 @@ internal object MihomoConfigBuilder {
             ClashYamlParser.config(p).toMutableMap()
         } else if (p.protocol in native) native(p).toMutableMap() else extended(p).toMutableMap()
         node["name"] = JsonPrimitive(name)
+        // Mihomo adds IPv6 brackets when joining the server and port.
+        (node["server"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.let { server ->
+            val host = server.removeSurrounding("[", "]")
+            if (host != server && ':' in host) node["server"] = JsonPrimitive(host)
+        }
         if (node["type"] != JsonPrimitive(type(p.protocol))) fail("type", "协议与配置不一致")
         if (node["dialer-proxy"] != null) fail("dialer-proxy", "原始节点外部链路引用消费边界待核定")
         normalizeTransport(node, p)
