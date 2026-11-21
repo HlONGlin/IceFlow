@@ -247,11 +247,17 @@ object XrayConfigBuilder {
                     // 远端 DNS：默认，用于代理域名
                     addJsonObject {
                         val remote = xrayDnsAddress(settings.remoteDns)
-                        // Some embedded adapters only forward TCP. Rule matching must still be
-                        // able to resolve names through the selected proxy in that case.
-                        val useTcp = settings.routingMode == RoutingMode.RULE && adapters.isNotEmpty() && !remote.contains("://")
-                        val host = remote.trim().removeSurrounding("[", "]")
-                        put("address", if (useTcp) "tcp://${if (':' in host) "[$host]" else host}" else remote)
+                        // Some embedded adapters only forward TCP, and the proxy exit may
+                        // filter port 53. Use DoH for the default Cloudflare resolver.
+                        val address = if (settings.routingMode == RoutingMode.RULE && adapters.isNotEmpty() && !remote.contains("://")) {
+                            val host = remote.trim()
+                            when {
+                                host == "1.1.1.1" -> "https://1.1.1.1/dns-query"
+                                ':' in host -> "tcp://[$host]"
+                                else -> "tcp://$host"
+                            }
+                        } else remote
+                        put("address", address)
                         put("tag", REMOTE_DNS_TAG)
                     }
                 }

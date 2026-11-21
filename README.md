@@ -37,7 +37,7 @@ IceFlow 是一款基于 Jetpack Compose 的 Android 代理客户端，提供节�
 ### v0.1.5.4 更新
 
 - 双核版修复内嵌 Mihomo 拨号时禁用 IPv6 的问题，并兼容 Clash 配置中带方括号的 IPv6 服务器地址。
-- 双核规则模式下，国内 DNS 仅用于匹配的域名。使用内嵌代理且远程 DNS 配为 IP 地址时，改用 TCP 查询，避免 UDP 不可用时等待超时。
+- 双核规则模式下，国内 DNS 仅用于匹配的域名。使用内嵌代理时，默认远程 DNS 通过 HTTPS 查询，其他 IP 地址通过 TCP 查询。
 - 单核版兼容 Clash 订阅中带布尔 `tls` 字段的 AnyTLS 节点，避免提示“节点或订阅配置无效”。
 - 上一版的变更见 [v0.1.5.3 更新记录](docs/CHANGELOG-v0.1.5.3.md)。
 

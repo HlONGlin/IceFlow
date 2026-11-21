@@ -37,7 +37,7 @@ The [v0.1.5.4 release](https://github.com/HlONGlin/IceFlow/releases/tag/v0.1.5.4
 ### What's New in v0.1.5.4
 
 - The dual variant enables IPv6 dialing in its embedded Mihomo adapter and accepts bracketed IPv6 server addresses in Clash profiles.
-- In dual rule mode, the domestic resolver handles matching domains. Embedded adapters use TCP for remote DNS configured as an IP address, so DNS works on TCP-only proxies.
+- In dual rule mode, the domestic resolver handles matching domains. Embedded adapters use HTTPS for the default remote resolver and TCP for other remote DNS IP addresses.
 - The single variant accepts AnyTLS nodes with a boolean `tls` field in Clash subscriptions, preventing the “node or subscription configuration invalid” error.
 - See the [v0.1.5.3 change log](docs/CHANGELOG-v0.1.5.3.md#english) for the previous release.
 

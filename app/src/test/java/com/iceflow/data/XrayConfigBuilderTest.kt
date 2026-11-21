@@ -182,7 +182,7 @@ class XrayConfigBuilderTest {
     }
 
     @Test
-    fun `embedded proxies use TCP for plain remote DNS in rule mode`() {
+    fun `embedded proxies use TCP transports for plain remote DNS in rule mode`() {
         val profile = ClashYamlParser.parse("""
             proxies:
               - {name: Example, type: socks5, server: "::1", port: 1080}
@@ -192,7 +192,8 @@ class XrayConfigBuilderTest {
             .single { it.str("tag") == XrayConfigBuilder.REMOTE_DNS_TAG }.str("address")
 
         val settings = AppSettings(routingMode = RoutingMode.RULE)
-        assertEquals("tcp://1.1.1.1", remote(settings))
+        assertEquals("https://1.1.1.1/dns-query", remote(settings))
+        assertEquals("tcp://9.9.9.9", remote(settings.copy(remoteDns = "9.9.9.9")))
         assertEquals("tcp://[2606:4700:4700::1111]", remote(settings.copy(remoteDns = "2606:4700:4700::1111")))
         assertEquals("https://dns.example/dns-query", remote(settings.copy(remoteDns = "https://dns.example/dns-query")))
         assertEquals("1.1.1.1", remote(settings.copy(routingMode = RoutingMode.GLOBAL)))
