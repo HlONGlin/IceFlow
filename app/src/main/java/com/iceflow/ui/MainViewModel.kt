@@ -42,7 +42,13 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 
 data class ConnectionTestState(val testing: Boolean = false, val latencyMs: Int? = null)
-data class NodeTestState(val serverId: String? = null, val name: String = "", val testing: Boolean = false, val latencyMs: Int? = null)
+internal data class NodeTestState(
+    val serverId: String? = null,
+    val name: String = "",
+    val testing: Boolean = false,
+    val latencyMs: Int? = null,
+    val failure: NodeTestFailure? = null,
+)
 data class BulkTestState(val testing: Boolean = false, val nodes: List<ServerProfile> = emptyList(), val currentId: String? = null, val completed: Int = 0, val results: Map<String, Int> = emptyMap())
 
 /** 单个订阅的加载状态，用于添加订阅时的预览流程。 */
@@ -99,7 +105,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _testing = MutableStateFlow(false)
     val testing: StateFlow<Boolean> = _testing.asStateFlow()
     private val _nodeTest = MutableStateFlow(NodeTestState())
-    val nodeTest: StateFlow<NodeTestState> = _nodeTest.asStateFlow()
+    internal val nodeTest: StateFlow<NodeTestState> = _nodeTest.asStateFlow()
     private val _bulkTest = MutableStateFlow(BulkTestState())
     val bulkTest: StateFlow<BulkTestState> = _bulkTest.asStateFlow()
     private val _refreshingSubscriptions = MutableStateFlow(false)
@@ -527,11 +533,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         _nodeTest.value = NodeTestState(server.id, server.name, testing = true)
         viewModelScope.launch {
-            val latency = measure(server)
-            container.servers.updateLatency(server.id, latency)
-            _nodeTest.value = NodeTestState(server.id, server.name, latencyMs = latency)
+            val result = try {
+                NodeTestState(server.id, server.name, latencyMs = measureNode(server, manual = true))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                NodeTestState(server.id, server.name, failure = NodeTestFailure.from(error))
+            }
+            container.servers.updateLatency(server.id, result.failure?.storedLatency ?: requireNotNull(result.latencyMs))
+            _nodeTest.value = result
             kotlinx.coroutines.delay(3500)
-            if (_nodeTest.value.serverId == server.id) _nodeTest.value = NodeTestState()
+            if (_nodeTest.value === result) _nodeTest.value = NodeTestState()
         }
     }
 
@@ -592,20 +604,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 优先用 xray 真实请求测速；未集成 xray 时退化为 TCP 握手耗时。 */
-    private suspend fun measure(server: ServerProfile): Int = withContext(Dispatchers.IO) {
-        val session = vpnState.value as? VpnState.Connected
-        if (CoreVariantBridge.variantName == "single" && session != null && NodeTestingPolicy.matchesConnectedServer(session, server)) {
-            return@withContext runCatching {
-                ConnectionProbe.measure(session.socksPort, session.tunnelUser, session.tunnelPass, settings.value.testUrl, TIMEOUT_MS.toInt())
-            }.getOrDefault(-1)
-        }
-        runCatching {
-            CoreVariantBridge.measureDelay(server, settings.value, store.value, settings.value.testUrl, TIMEOUT_MS)
-        }.getOrDefault(-1)
+    private suspend fun measure(server: ServerProfile): Int = try {
+        measureNode(server, manual = false)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        -1
     }
 
-    private companion object {
-        const val TIMEOUT_MS = 5_000L
+    private suspend fun measureNode(server: ServerProfile, manual: Boolean): Int = withContext(Dispatchers.IO) {
+        val currentSettings = settings.value
+        val url = currentSettings.testUrl
+        val variant = CoreVariantBridge.variantName
+        val timeoutMs = NodeTestingPolicy.timeoutMs(variant, url, manual)
+        val session = vpnState.value as? VpnState.Connected
+        if (variant == "single" && session != null && NodeTestingPolicy.matchesConnectedServer(session, server)) {
+            ConnectionProbe.measure(session.socksPort, session.tunnelUser, session.tunnelPass, url, timeoutMs.toInt())
+        } else {
+            CoreVariantBridge.measureDelay(server, currentSettings, store.value, url, timeoutMs)
+        }
     }
 }

@@ -85,12 +85,15 @@ import com.iceflow.ui.theme.IceRadius
         val onInverse = MaterialTheme.colorScheme.inverseOnSurface
         if (state.testing) CircularProgressIndicator(Modifier.size(15.dp), color = onInverse, strokeWidth = 2.dp)
         Text(
-            if (state.testing) "${state.name}: ${T("latency.testing")}"
-            else if ((state.latencyMs ?: -1) < 0) "${state.name}: ${T("latency.timeout")}"
-            else "${state.name}: ${state.latencyMs} ms",
+            when {
+                state.testing -> "${state.name}: ${T("latency.testing")}"
+                state.failure != null -> "${state.name}: ${T(state.failure.labelKey)}"
+                state.latencyMs != null -> "${state.name}: ${state.latencyMs} ms"
+                else -> "${state.name}: ${T("node.test.failed")}"
+            },
             style = MaterialTheme.typography.bodySmall,
             color = onInverse,
-            maxLines = 1,
+            maxLines = 2,
         )
     }
 }

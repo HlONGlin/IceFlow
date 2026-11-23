@@ -94,6 +94,8 @@ func (c *trafficConn) WriteBuffer(b *buf.Buffer) error {
 	return e
 }
 
+func (c *trafficConn) Upstream() any { return c.Conn }
+
 // Optimized copies unwrap once and invoke these counters instead of Read/Write.
 func (c *trafficConn) UnwrapReader() (io.Reader, []N.CountFunc) {
 	return c.Conn, []N.CountFunc{func(n int64) { c.counter.download.Add(n) }}

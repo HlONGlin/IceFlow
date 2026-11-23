@@ -16,11 +16,13 @@ import (
 	"io"
 	gonet "net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xtls/xray-core/common/net"
@@ -138,6 +140,27 @@ func MeasureSocksDelay(socksPort int64, username string, password string, testUR
 	return measureHTTPDelay(transport, testURL, timeoutMs)
 }
 
+// The error prefixes are consumed by Android across the gomobile error boundary.
+const (
+	probeDial uint32 = iota
+	probeTLS
+	probeResponse
+)
+
+var probeTimeoutCodes = [...]string{
+	probeDial:     "iceflow_probe_dial_timeout",
+	probeTLS:      "iceflow_probe_tls_timeout",
+	probeResponse: "iceflow_probe_response_timeout",
+}
+
+func probeError(err error, phase uint32) error {
+	var netErr gonet.Error
+	if errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &netErr) && netErr.Timeout()) {
+		return fmt.Errorf("%s: %w", probeTimeoutCodes[phase], err)
+	}
+	return err
+}
+
 func measureHTTPDelay(transport *http.Transport, testURL string, timeoutMs int64) (int64, error) {
 	defer transport.CloseIdleConnections()
 	request, err := http.NewRequest(http.MethodGet, testURL, nil)
@@ -153,14 +176,23 @@ func measureHTTPDelay(transport *http.Transport, testURL string, timeoutMs int64
 	request.Header.Set("Cache-Control", "no-cache")
 	client := &http.Client{Transport: transport, Timeout: time.Duration(timeoutMs) * time.Millisecond}
 
+	// Track the HTTP client's phase, not the proxy's own internal dial/handshake.
+	// Trace hooks may run concurrently with a timeout reported by client.Do.
+	var phase atomic.Uint32
+	request = request.WithContext(httptrace.WithClientTrace(request.Context(), &httptrace.ClientTrace{
+		GetConn:           func(string) { phase.Store(probeDial) },
+		TLSHandshakeStart: func() { phase.Store(probeTLS) },
+		GotConn:           func(httptrace.GotConnInfo) { phase.Store(probeResponse) },
+	}))
+
 	start := time.Now()
 	resp, err := client.Do(request)
 	if err != nil {
-		return -1, err
+		return -1, probeError(err, phase.Load())
 	}
 	defer resp.Body.Close()
 	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
-		return -1, err
+		return -1, probeError(err, probeResponse)
 	}
 	if resp.StatusCode >= 400 {
 		return -1, fmt.Errorf("HTTP %d", resp.StatusCode)

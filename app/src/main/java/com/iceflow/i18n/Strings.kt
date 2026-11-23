@@ -487,6 +487,10 @@ private fun simplifiedChinese(): Map<String, String> = mapOf(
     "misc.name" to "名称",
     "latency.testing" to "测速中…",
     "latency.timeout" to "超时",
+    "node.test.dialTimeout" to "拨号超时",
+    "node.test.tlsTimeout" to "TLS 握手超时",
+    "node.test.responseTimeout" to "等待响应超时",
+    "node.test.failed" to "测速失败",
     "latency.failed" to "失败",
 )
 
@@ -966,6 +970,10 @@ private fun traditionalChinese(): Map<String, String> = mapOf(
     "misc.name" to "名稱",
     "latency.testing" to "測速中…",
     "latency.timeout" to "逾時",
+    "node.test.dialTimeout" to "撥號逾時",
+    "node.test.tlsTimeout" to "TLS 交握逾時",
+    "node.test.responseTimeout" to "等待回應逾時",
+    "node.test.failed" to "測速失敗",
     "latency.failed" to "失敗",
 )
 
@@ -1445,5 +1453,9 @@ private fun english(): Map<String, String> = mapOf(
     "misc.name" to "Name",
     "latency.testing" to "Testing…",
     "latency.timeout" to "Timeout",
+    "node.test.dialTimeout" to "Dial timed out",
+    "node.test.tlsTimeout" to "TLS handshake timed out",
+    "node.test.responseTimeout" to "Response timed out",
+    "node.test.failed" to "Test failed",
     "latency.failed" to "Failed",
 )

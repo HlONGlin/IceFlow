@@ -14,11 +14,13 @@ import (
 	"github.com/metacubex/mihomo/adapter"
 	"github.com/metacubex/mihomo/adapter/outbound"
 	"github.com/metacubex/mihomo/common/buf"
+	N "github.com/metacubex/mihomo/common/net"
 	"github.com/metacubex/mihomo/component/proxydialer"
 	"github.com/metacubex/mihomo/config"
 	C "github.com/metacubex/mihomo/constant"
 	LC "github.com/metacubex/mihomo/listener/config"
 	"github.com/metacubex/mihomo/tunnel"
+	"github.com/metacubex/mihomo/tunnel/statistic"
 	"github.com/metacubex/sing/common/bufio"
 )
 
@@ -152,6 +154,53 @@ func echoFixture(t *testing.T) (string, func()) {
 	}()
 	return l.Addr().String(), func() { _ = l.Close() }
 }
+
+type headroomConnFixture struct {
+	C.Conn
+	frontHeadroom int
+}
+
+func (c *headroomConnFixture) FrontHeadroom() int { return c.frontHeadroom }
+func (c *headroomConnFixture) Upstream() any      { return c.Conn }
+func (c *headroomConnFixture) WriteBuffer(buffer *buf.Buffer) error {
+	buffer.ExtendHeader(c.frontHeadroom)
+	return c.Conn.WriteBuffer(buffer)
+}
+
+func TestTrafficConnPreservesNestedWriterHeadroom(t *testing.T) {
+	address, close := echoFixture(t)
+	defer close()
+
+	base, err := adapter.ParseProxy(map[string]any{"type": "socks5", "name": "base", "server": "127.0.0.1", "port": 1080})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawConn, err := net.Dial("tcp", address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	innerWriter := &headroomConnFixture{Conn: outbound.NewConn(rawConn, base), frontHeadroom: 18}
+	tracked := statistic.NewTCPTracker(innerWriter, statistic.DefaultManager, &C.Metadata{}, nil, 0, 0, false)
+	defer tracked.Close()
+	counted := &trafficConn{Conn: tracked, counter: &nodeTraffic{}}
+	outerWriter := &headroomConnFixture{Conn: counted, frontHeadroom: 18}
+
+	if got := N.CalculateFrontHeadroom(outerWriter); got != 36 {
+		t.Fatalf("nested headroom lost through traffic counter, got %d want 36", got)
+	}
+
+	buffer := buf.NewSize(64)
+	defer buffer.Release()
+	buffer.Resize(36, 0)
+	if _, err = buffer.Write([]byte("nested SS 2022 payload")); err != nil {
+		t.Fatal(err)
+	}
+	if err = outerWriter.WriteBuffer(buffer); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestForcedDialerPrivateAddressFixture(t *testing.T) {
 	address, close := echoFixture(t)
 	defer close()
